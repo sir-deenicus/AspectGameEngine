@@ -5,6 +5,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="PersistentVector.fs" />
-    <Compile Include="Map.fs" />
+    <Compile Include="Types.fs" /><Compile Include="Maps.fs" /><Compile Include="MapEditor.fs" />
+    
   </ItemGroup>
 </Project>
