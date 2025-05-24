@@ -488,7 +488,81 @@ and PersistentVector<'T>(count, shift: int, root: Node, tail: obj[]) =
             Some(this.Update(i, x))
         else
             None
+        
+    static member internal DetermineShiftForCount newCount =
+        if newCount <= Literals.blockSize then // All elements fit in tail or single block pointed by root
+            Literals.blockSizeShift
+        else
+            // idx is the 0-based index of the last block fully managed by the tree
+            // (i.e., before the potential new tail block)
+            let mutable idx = (newCount - 1) >>> Literals.blockSizeShift
+            let mutable newShift = Literals.blockSizeShift
+            // While this idx itself requires more than one level of tree (i.e., idx is too large for current shift's root table)
+            // (idx >>> newShift) is how many levels of tree are needed above the blocks themselves.
+            // If (idx >>> newShift) > 0, it means idx cannot be addressed by a root table of size (1 <<< newShift) directly,
+            // so we need more levels.
+            while (idx >>> newShift) > 0 do
+                newShift <- newShift + Literals.blockSizeShift
+            newShift
 
+    member this.Take(n: int) : PersistentVector<'T> =
+        if n <= 0 then
+            PersistentVector<'T>.Empty ()
+        elif n >= count then
+            this // No change needed, taking more or equal elements than available
+        else
+            // We are taking fewer elements, so count_new = n.
+            // tailOff is a field of the current PersistentVector instance
+            let originalInstanceTailOff = tailOff
+
+            if n > originalInstanceTailOff then
+                // Case 3a: The new vector's end is within the original vector's tail.
+                // The root and shift remain the same. The new tail is a prefix of the old tail.
+                // Example: vector has 100 elements. root covers 0-95 (tailOff=96). tail has [96;97;98;99].
+                // Take 98 (n=98). n > tailOff (98 > 96).
+                // New tail is original.tail up to element (98 - 96 - 1) = index 1. So, [96;97].
+                let newTailLength = n - originalInstanceTailOff
+                let newTail = tail.[0 .. newTailLength - 1] // Slicing creates a new array copy
+                PersistentVector<'T>(n, shift, root, newTail)
+            else
+                // Case 3b: The new vector's end is within the original vector's tree part.
+                // Example: vector has 100 elements (tailOff=96). Take 30 (n=30).
+                // n <= tailOff (30 <= 96).
+                let newShift = PersistentVector<'T>.DetermineShiftForCount n
+                
+                // The new tail will be formed by the elements from the block containing the (n-1)th element.
+                // newTailOffsetForNewVector effectively tells us how many elements are covered by the newRoot/newShift.
+                let newTailOffsetForNewVector = 
+                    if n = 0 then 0 // Should have been caught by n <= 0
+                    else ((n - 1) >>> Literals.blockSizeShift) <<< Literals.blockSizeShift
+                
+                let newTailElementsCount = n - newTailOffsetForNewVector
+                let newTail = 
+                    if newTailElementsCount = 0 then // This can happen if n is a multiple of blockSize, effectively tail is empty
+                        [||] 
+                    else
+                        // The source array for the new tail is the one containing the (n-1)th element of the original vector
+                        let sourceArrayForNewTail = this.ArrayFor (n - 1)
+                        sourceArrayForNewTail.[0 .. newTailElementsCount - 1] // Slice to get the required elements
+
+                let mutable newRootNode = root
+                let mutable currentOriginalShift = shift
+                
+                // If the new shift is smaller, we need to descend the original root
+                // to find the appropriate sub-node that will become the new root.
+                while currentOriginalShift > newShift do
+                    // All elements for the smaller vector will be in the 0-th branch of higher levels
+                    newRootNode <- newRootNode.Array.[0] :?> Node 
+                    currentOriginalShift <- currentOriginalShift - Literals.blockSizeShift
+                
+                // If n is very small (e.g., n <= blockSize), newTailOffsetForNewVector is 0.
+                // newRootNode will be set correctly by the loop above (or remain original.root if shift didn't change).
+                // If newTailOffsetForNewVector is 0, it means all 'n' elements are in 'newTail'.
+                // The PersistentVector constructor and ArrayFor are robust to this.
+                // A Node() is always used for root, even if logically "empty" for the tree part.
+                PersistentVector<'T>(n, newShift, newRootNode, newTail)  
+
+   
     interface System.Collections.Generic.IReadOnlyCollection<'T> with
         member this.Count = this.Length
 
@@ -650,3 +724,6 @@ module PersistentVector =
             invalidArg "windowLength" "length is less than 1"
         else
             (Seq.fold (windowFun windowLength) (empty.Conj empty<'T>) items)
+
+    let inline take (n: int) (vector: PersistentVector<'T>) =
+        vector.Take(n)
