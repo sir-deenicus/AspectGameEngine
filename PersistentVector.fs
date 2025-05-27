@@ -913,6 +913,19 @@ module PersistentVector =
             for (index, valueToSet) in updates do transient.UpdateInPlace(index, valueToSet) |> ignore
             transient.Persistent()
 
+    /// Updates multiple elements in the vector using a mapping function to determine the indices.
+    let updateManyWithIndexMap (indexMapper: 'a -> int) (updates: seq<'a * 'TValue>)  (vector: PersistentVector<'TValue>) =
+        if Seq.isEmpty updates then vector else
+           let transient = vector.AsTransient()
+           for (index, valueToSet) in updates do transient.UpdateInPlace(indexMapper index, valueToSet) |> ignore
+           transient.Persistent() 
+
+    let updateManyWith (map: 'a -> int * 'T) (updates: seq<'a>) (vector: PersistentVector<'T>) =
+        if Seq.isEmpty updates then vector else
+           let transient = vector.AsTransient()
+           for update in updates do transient.UpdateInPlace(map update) |> ignore
+           transient.Persistent() 
+
     // --- Active Patterns ---
     // ... (Unconj_Last|Empty| - as previously defined) ...
     let (|Unconj_Last|Empty|) (vector: PersistentVector<'T>) =

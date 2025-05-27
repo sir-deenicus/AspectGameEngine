@@ -31,7 +31,7 @@ type Tile =
 type TileMap =
     val mutable Width: int
     val mutable Height: int
-    val Tiles: Tile[][]
+    val Tiles: Tile[] // Changed from Tile[][]
     val mutable VoidSpriteLoc: SpriteLoc
     val mutable MapName: string
     val mutable MapType: MapType
@@ -46,12 +46,14 @@ type TileMap =
           TilePropertiesReference = tilePropertiesReference
           VoidSpriteLoc = voidSpriteLoc }
 
+    member private this.GetIndex(x: int, y: int) = y * this.Width + x
+
     member this.Update(x, y, tile) =
         if x >= 0 && x < this.Width && y >= 0 && y < this.Height then
-            this.Tiles.[y].[x] <- tile
+            this.Tiles.[this.GetIndex(x, y)] <- tile
 
     member this.GetTileProperties(x: int, y: int) : TileProperties =
-        let tile = this.Tiles.[y].[x]
+        let tile = this.Tiles.[this.GetIndex(x, y)]
         this.TilePropertiesReference.[tile.SpriteLoc]
 
     member this.IsWalkable(x: int, y: int) : bool = (this.GetTileProperties(x, y)).Walkable
@@ -60,3 +62,7 @@ type TileMap =
 
     member this.IsOpaque(x: int, y: int) : bool =
         (this.GetTileProperties(x, y)).TileOpacity = TileOpacity.Opaque
+
+
+[<Struct>]
+type TileUpdate = { X: int; Y: int; Tile: Tile }

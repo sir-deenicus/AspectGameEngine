@@ -11,6 +11,16 @@ type SpriteLoc =
           Row = row
           Column = column }
 
+type Biome =
+    | NotOutside = 0
+    | Forest = 1
+    | Desert = 2
+    | Snow = 3
+    | Swamp = 4
+    | Mountain = 5
+    | Ocean = 6
+    | Plains = 7 
+
 type TileType =
     | NullTile = 0
     | Void = 1
@@ -40,5 +50,14 @@ type TileProperties =
       TileType: TileType
       Health: int
       Description: string
+      Biome: Biome
       TileOpacity: TileOpacity }
-    static member NullTile = { Walkable = false; IsVoid = false; TileType = TileType.NullTile; Health = 0; Description = ""; TileOpacity = TileOpacity.Opaque }
+
+    static member NullTile =
+        { Walkable = false
+          IsVoid = false
+          TileType = TileType.NullTile
+          Health = 0
+          Description = ""
+          Biome = Biome.NotOutside
+          TileOpacity = TileOpacity.Opaque }
