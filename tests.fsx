@@ -1,5 +1,5 @@
 #r "bin/Debug/net8.0/AspectGameEngine.dll"
-open AspectGameEngine
+open AspectGameEngine 
 
 let assertEquals expected actual message =
     if expected <> actual then
@@ -19,7 +19,7 @@ let ModifiedSprite = SpriteLoc(1, 1, 1)
 let testResizeWidthOnly () =
     printfn "\n--- Test: Resize Width Only (2x2 -> 3x2) ---"
     let initialVoidSprite = DefaultVoidSprite // Assumes this SpriteLoc variant exists
-    let initialMap = EditorTileMap.New(2, 2, initialVoidSprite, Map.empty)
+    let initialMap = EditorTileMap.New(2, 2, initialVoidSprite, TilePropertiesImmutableReference.New())
 
     let modifiedTileData =
         { SpriteLoc = ModifiedSprite
@@ -39,7 +39,7 @@ let testResizeWidthOnly () =
 let testResizeHeightOnly () =
     printfn "\n--- Test: Resize Height Only (2x2 -> 2x3) ---"
     let initialVoidSprite = DefaultVoidSprite
-    let initialMap = EditorTileMap.New(2, 2, initialVoidSprite, Map.empty)
+    let initialMap = EditorTileMap.New(2, 2, initialVoidSprite,TilePropertiesImmutableReference.New())
 
     let modifiedTileData =
         { SpriteLoc = ModifiedSprite
@@ -59,7 +59,7 @@ let testResizeHeightOnly () =
 let testResizeWidthAndHeight () =
     printfn "\n--- Test: Resize Both (2x2 -> 3x1) ---"
     let initialVoidSprite = DefaultVoidSprite
-    let initialMap = EditorTileMap.New(2, 2, initialVoidSprite, Map.empty)
+    let initialMap = EditorTileMap.New(2, 2, initialVoidSprite, TilePropertiesImmutableReference.New())
 
     let modifiedTile00 =
         { SpriteLoc = ModifiedSprite
@@ -86,7 +86,7 @@ let testResizeWidthAndHeight () =
 let testResizeWidthAndHeight2 () =
     printfn "\n--- Test: Resize Both (2x2 -> 3x4) ---"
     let initialVoidSprite = DefaultVoidSprite
-    let initialMap = EditorTileMap.New(2, 2, initialVoidSprite, Map.empty)
+    let initialMap = EditorTileMap.New(2, 2, initialVoidSprite, TilePropertiesImmutableReference.New())
 
     let modifiedTile00 =
         { SpriteLoc = ModifiedSprite
@@ -113,3 +113,45 @@ testResizeWidthOnly ()
 testResizeHeightOnly ()
 testResizeWidthAndHeight ()
 testResizeWidthAndHeight2 ()
+
+
+//======================
+
+open System
+open System.Diagnostics
+
+[<Struct>]
+type Tile = {
+    mutable Health: int
+    A: int64
+    B: int64
+    C: int64
+}
+
+let run() =
+    let size = 10_000_000
+    let tiles = Array.init size (fun _ -> { Health = 0; A = 0L; B = 0L; C = 0L })
+    let tiles2 = tiles.AsSpan()
+
+    // Test direct mutation syntax
+    let sw1 = Stopwatch.StartNew()
+    for i in 0..size-1 do
+        tiles[i].Health <- i
+    sw1.Stop()
+
+    // Test copy-replace
+    let sw2 = Stopwatch.StartNew()
+    for i in 0..size-1 do
+        tiles[i] <- { tiles[i] with Health = i }
+    sw2.Stop()
+
+    let sw3 = Stopwatch.StartNew()
+    for i in 0..size-1 do
+       tiles2[i].Health <- i
+    sw3.Stop()
+
+    printfn "Direct mutation syntax: %dms" sw1.ElapsedMilliseconds
+    printfn "Copy-replace:           %dms" sw2.ElapsedMilliseconds
+    printfn "Span:                   %dms" sw3.ElapsedMilliseconds
+
+run()    

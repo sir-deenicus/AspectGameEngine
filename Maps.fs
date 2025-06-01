@@ -26,7 +26,7 @@ type TilePropertiesReference() =
 type Tile =
     { SpriteLoc: SpriteLoc
       Health: int
-      DestroyedSpriteLoc: SpriteLoc option }
+      IsOccupied: bool }
 
 type TileMap =
     val mutable Width: int

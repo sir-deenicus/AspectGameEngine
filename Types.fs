@@ -12,7 +12,7 @@ type SpriteLoc =
           Column = column }
 
 type Biome =
-    | NotOutside = 0
+    | None = 0
     | Forest = 1
     | Desert = 2
     | Snow = 3
@@ -20,6 +20,9 @@ type Biome =
     | Mountain = 5
     | Ocean = 6
     | Plains = 7 
+    | AlchemyLab = 8
+    | EnchantersLab = 9
+    | Blacksmith = 10
 
 type TileType =
     | NullTile = 0
@@ -27,10 +30,11 @@ type TileType =
     | Wall = 2
     | Floor = 3
     | Door = 4
-    | Stairs = 5
-    | Water = 6
-    | Lava = 7
-    | City = 8
+    | Lever = 5
+    | Stairs = 6
+    | Water = 7
+    | Lava = 8
+    | City = 9
 
 type TileOpacity =
     | Opaque = 0
@@ -51,7 +55,9 @@ type TileProperties =
       Health: int
       Description: string
       Biome: Biome
-      TileOpacity: TileOpacity }
+      TileOpacity: TileOpacity
+      DestroyedSpriteLoc: SpriteLoc option 
+      StateChangedSpriteLoc: SpriteLoc option }
 
     static member NullTile =
         { Walkable = false
@@ -59,5 +65,7 @@ type TileProperties =
           TileType = TileType.NullTile
           Health = 0
           Description = ""
-          Biome = Biome.NotOutside
+          Biome = Biome.None
+          DestroyedSpriteLoc = None
+          StateChangedSpriteLoc = None
           TileOpacity = TileOpacity.Opaque }

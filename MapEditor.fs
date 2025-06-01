@@ -1,6 +1,31 @@
 namespace AspectGameEngine
 
+open AspectGameEngine
+
 open FSharpx.Collections
+
+type TilePropertiesImmutableReference =
+    private { Properties: Map<SpriteLoc, TileProperties> }
+
+    static member New() =
+        { Properties = Map.empty }
+
+    // Read-only indexer to get properties
+    member this.Item
+        with get spriteLoc =
+            match this.Properties.TryFind spriteLoc with
+            | Some tile -> tile
+            | None -> TileProperties.NullTile
+
+    // Method to set or update a tile property, returning a new instance
+    member this.Set(spriteLoc: SpriteLoc, value: TileProperties)  =
+        { this with Properties = this.Properties.Add(spriteLoc, value) }
+
+    // The original 'Update' method, now also returning a new instance
+    member this.Update(spriteLoc: SpriteLoc, tileProperties: TileProperties)  =
+        // Map.Add will add the key-value pair, or update the value if the key already exists.
+        { this with Properties = this.Properties.Add(spriteLoc, tileProperties) }
+
 
 type EditorTileMap =
     { Width: int
@@ -9,7 +34,8 @@ type EditorTileMap =
       VoidSpriteLoc: SpriteLoc
       MapName: string
       MapType: MapType
-      TilePropertiesReference: Map<SpriteLoc, TileProperties> }
+      TilePropertiesReference: TilePropertiesImmutableReference
+    }
 
     // Helper to calculate 1D index from 2D coordinates.
     // Internal, assumes x, y, currentWidth are valid for the context.
@@ -34,7 +60,7 @@ type EditorTileMap =
             PersistentVector.init (width * height) (fun _ ->
                 { SpriteLoc = voidSpriteLoc
                   Health = 0
-                  DestroyedSpriteLoc = None })
+                  IsOccupied = false })
           VoidSpriteLoc = voidSpriteLoc
           MapName = ""
           MapType = MapType.Room
@@ -78,13 +104,12 @@ type EditorTileMap =
         let oldHeight = this.Height
 
         // If dimensions are unchanged, no work needed.
-        if newWidth = oldWidth && newHeight = oldHeight then
-            this
+        if newWidth = oldWidth && newHeight = oldHeight then this
         else
             let emptyTile =
                 { SpriteLoc = this.VoidSpriteLoc
                   Health = 0
-                  DestroyedSpriteLoc = None }
+                  IsOccupied = false }
 
             // Handle cases where the new map is effectively empty.
             if newWidth = 0 || newHeight = 0 then
@@ -168,7 +193,7 @@ type EditorHistory =
     member this.CanUndo = this.CurrentIndex < this.History.Length - 1
     member this.CanRedo = this.CurrentIndex > 0
 
-    member this.New(maxHistorySize) =
+    static member New(maxHistorySize) =
         { History = []
           CurrentIndex = 0
           MaxHistorySize = maxHistorySize }

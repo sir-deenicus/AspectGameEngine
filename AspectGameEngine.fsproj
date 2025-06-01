@@ -6,8 +6,31 @@
   <ItemGroup>
     <None Include="tests.fsx" />
     <Compile Include="PersistentVector.fs" />
-    <Compile Include="Types.fs" /><Compile Include="Maps.fs" /><Compile Include="MapEditor.fs" />
-    
+    <Compile Include="Types.fs" /><Compile Include="Maps.fs" /><Compile Include="MapEditor.fs" />    
   </ItemGroup>
   <ItemGroup />
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+  <PropertyGroup>
+    <DestDir>$(SolutionDir)..\aspectrpg\Scripts\GameEngine\</DestDir>
+  </PropertyGroup>
+  
+  <Message Text="--- Starting Post-Build Copy Process for AspectGameEngine ---" Importance="high" />
+  <Message Text="Source: $(TargetDir)" Importance="high" />
+  <Message Text="Destination: $(DestDir)" Importance="high" />
+  
+  <Error Condition="!Exists('$(DestDir)')" 
+         Text="Destination directory '$(DestDir)' does not exist. Please create it manually." />
+  
+  <ItemGroup>
+    <FilesToCopy Include="$(TargetPath)" />
+    <FilesToCopy Include="$(TargetDir)$(TargetName).pdb" />
+    <FilesToCopy Include="$(TargetDir)$(TargetName).xml" />
+  </ItemGroup>
+  
+  <Copy SourceFiles="@(FilesToCopy)" 
+        DestinationFolder="$(DestDir)" 
+        OverwriteReadOnlyFiles="true" />
+  
+  <Message Text="--- Post-Build Copy Process Completed Successfully ---" Importance="high" />
+</Target>
 </Project>
