@@ -6,9 +6,14 @@
   <ItemGroup>
     <None Include="tests.fsx" />
     <Compile Include="PersistentVector.fs" />
-    <Compile Include="Types.fs" /><Compile Include="Maps.fs" /><Compile Include="MapEditor.fs" />    
+    <Compile Include="Types.fs" /><Compile Include="Maps.fs" /><Compile Include="MapEditor.fs" /><Compile Include="TilePropertiesSerializer.fs" />    
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <PackageReference Include="Google.FlatBuffers" Version="25.2.10" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="FlatBufferTypes\AspectGameEngine.FlatBufferTypes.csproj" />
+  </ItemGroup>
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
   <PropertyGroup>
     <DestDir>$(SolutionDir)..\aspectrpg\Scripts\GameEngine\</DestDir>
@@ -18,8 +23,7 @@
   <Message Text="Source: $(TargetDir)" Importance="high" />
   <Message Text="Destination: $(DestDir)" Importance="high" />
   
-  <Error Condition="!Exists('$(DestDir)')" 
-         Text="Destination directory '$(DestDir)' does not exist. Please create it manually." />
+  <Error Condition="!Exists('$(DestDir)')" Text="Destination directory '$(DestDir)' does not exist. Please create it manually." />
   
   <ItemGroup>
     <FilesToCopy Include="$(TargetPath)" />
@@ -27,9 +31,7 @@
     <FilesToCopy Include="$(TargetDir)$(TargetName).xml" />
   </ItemGroup>
   
-  <Copy SourceFiles="@(FilesToCopy)" 
-        DestinationFolder="$(DestDir)" 
-        OverwriteReadOnlyFiles="true" />
+  <Copy SourceFiles="@(FilesToCopy)" DestinationFolder="$(DestDir)" OverwriteReadOnlyFiles="true" />
   
   <Message Text="--- Post-Build Copy Process Completed Successfully ---" Importance="high" />
 </Target>

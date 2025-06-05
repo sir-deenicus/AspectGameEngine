@@ -1,9 +1,11 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.13.35825.156 d17.13
+VisualStudioVersion = 17.13.35825.156
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "AspectGameEngine", "AspectGameEngine.fsproj", "{12CA58AF-A760-460F-A029-BFB1E7FBA370}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AspectGameEngine.FlatBufferTypes", "FlatBufferTypes\AspectGameEngine.FlatBufferTypes.csproj", "{BAA7CCC1-9769-4ACF-823A-3D5E521821F4}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +17,10 @@ Global
 		{12CA58AF-A760-460F-A029-BFB1E7FBA370}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{12CA58AF-A760-460F-A029-BFB1E7FBA370}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{12CA58AF-A760-460F-A029-BFB1E7FBA370}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BAA7CCC1-9769-4ACF-823A-3D5E521821F4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BAA7CCC1-9769-4ACF-823A-3D5E521821F4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BAA7CCC1-9769-4ACF-823A-3D5E521821F4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BAA7CCC1-9769-4ACF-823A-3D5E521821F4}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

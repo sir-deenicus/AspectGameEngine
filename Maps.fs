@@ -37,12 +37,12 @@ type TileMap =
     val mutable MapType: MapType
     val mutable TilePropertiesReference: TilePropertiesReference
 
-    new(width, height, tiles, voidSpriteLoc, tilePropertiesReference) =
+    new(width, height, tiles, voidSpriteLoc, tilePropertiesReference, mapname, mapType) =
         { Width = width
           Height = height
           Tiles = tiles
-          MapName = ""
-          MapType = MapType.Room
+          MapName = mapname
+          MapType = mapType
           TilePropertiesReference = tilePropertiesReference
           VoidSpriteLoc = voidSpriteLoc }
 
@@ -51,6 +51,14 @@ type TileMap =
     member this.Update(x, y, tile) =
         if x >= 0 && x < this.Width && y >= 0 && y < this.Height then
             this.Tiles.[this.GetIndex(x, y)] <- tile
+
+    member this.GetTile(x: int, y: int) : Tile =
+        if x < 0 || x >= this.Width || y < 0 || y >= this.Height then
+            { SpriteLoc = this.VoidSpriteLoc
+              Health = 0
+              IsOccupied = false }
+        else
+            this.Tiles.[this.GetIndex(x, y)]
 
     member this.GetTileProperties(x: int, y: int) : TileProperties =
         let tile = this.Tiles.[this.GetIndex(x, y)]

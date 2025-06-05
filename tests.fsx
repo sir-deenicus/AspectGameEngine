@@ -1,3 +1,4 @@
+#r "nuget: Google.FlatBuffers, 25.2.10"
 #r "bin/Debug/net8.0/AspectGameEngine.dll"
 open AspectGameEngine 
 
@@ -10,7 +11,7 @@ let assertEquals expected actual message =
 let makeExpectedEmptyTile (mapInstance: EditorTileMap) : Tile =
     { SpriteLoc = mapInstance.VoidSpriteLoc
       Health = 0
-      DestroyedSpriteLoc = None }
+      IsOccupied = false }
 
 let DefaultVoidSprite = SpriteLoc(0, 0, 0)
 let ModifiedSprite = SpriteLoc(1, 1, 1)
@@ -19,12 +20,12 @@ let ModifiedSprite = SpriteLoc(1, 1, 1)
 let testResizeWidthOnly () =
     printfn "\n--- Test: Resize Width Only (2x2 -> 3x2) ---"
     let initialVoidSprite = DefaultVoidSprite // Assumes this SpriteLoc variant exists
-    let initialMap = EditorTileMap.New(2, 2, initialVoidSprite, TilePropertiesImmutableReference.New())
+    let initialMap = EditorTileMap.New(2, 2, initialVoidSprite, TilePropertiesImmutableReference.New(""))
 
     let modifiedTileData =
         { SpriteLoc = ModifiedSprite
           Health = 100
-          DestroyedSpriteLoc = None } // Assumes ModifiedSprite exists
+          IsOccupied = false } // Assumes ModifiedSprite exists
 
     let mapWithModifiedTile = initialMap.UpdateTile(0, 0, modifiedTileData)
     let resizedMap = mapWithModifiedTile.Resize(3, 2)
@@ -39,12 +40,12 @@ let testResizeWidthOnly () =
 let testResizeHeightOnly () =
     printfn "\n--- Test: Resize Height Only (2x2 -> 2x3) ---"
     let initialVoidSprite = DefaultVoidSprite
-    let initialMap = EditorTileMap.New(2, 2, initialVoidSprite,TilePropertiesImmutableReference.New())
+    let initialMap = EditorTileMap.New(2, 2, initialVoidSprite,TilePropertiesImmutableReference.New(""))
 
     let modifiedTileData =
         { SpriteLoc = ModifiedSprite
           Health = 50
-          DestroyedSpriteLoc = None }
+          IsOccupied = false }
 
     let mapWithModifiedTile = initialMap.UpdateTile(1, 1, modifiedTileData)
     let resizedMap = mapWithModifiedTile.Resize(2, 3)
@@ -59,12 +60,12 @@ let testResizeHeightOnly () =
 let testResizeWidthAndHeight () =
     printfn "\n--- Test: Resize Both (2x2 -> 3x1) ---"
     let initialVoidSprite = DefaultVoidSprite
-    let initialMap = EditorTileMap.New(2, 2, initialVoidSprite, TilePropertiesImmutableReference.New())
+    let initialMap = EditorTileMap.New(2, 2, initialVoidSprite, TilePropertiesImmutableReference.New(""))
 
     let modifiedTile00 =
         { SpriteLoc = ModifiedSprite
           Health = 200
-          DestroyedSpriteLoc = None }
+          IsOccupied = false }
 
     let mapWithModifications = initialMap.UpdateTile(0, 0, modifiedTile00)
     let resizedMap = mapWithModifications.Resize(3, 1)
@@ -86,12 +87,12 @@ let testResizeWidthAndHeight () =
 let testResizeWidthAndHeight2 () =
     printfn "\n--- Test: Resize Both (2x2 -> 3x4) ---"
     let initialVoidSprite = DefaultVoidSprite
-    let initialMap = EditorTileMap.New(2, 2, initialVoidSprite, TilePropertiesImmutableReference.New())
+    let initialMap = EditorTileMap.New(2, 2, initialVoidSprite, TilePropertiesImmutableReference.New(""))
 
     let modifiedTile00 =
         { SpriteLoc = ModifiedSprite
           Health = 200
-          DestroyedSpriteLoc = None }
+          IsOccupied = false }
 
     let mapWithModifications = initialMap.UpdateTile(0, 0, modifiedTile00)
     let resizedMap = mapWithModifications.Resize(3, 4)
@@ -155,3 +156,51 @@ let run() =
     printfn "Span:                   %dms" sw3.ElapsedMilliseconds
 
 run()    
+
+//================= 
+ 
+let createTestTileProperties () =
+    let mutable tileProps = TilePropertiesImmutableReference.New("")
+       
+    let spriteLoc1 = SpriteLoc(0, 1, 2)
+    let properties1 = {
+        Walkable = true
+        IsVoid = false
+        TileType = TileType.Floor
+        Health = 100
+        DescriptionKey = "floor_description"
+        Biome = Biome.Forest
+        TileOpacity = TileOpacity.Transparent
+        DestroyedSpriteLoc =  Some (SpriteLoc(1, 2, 3))
+        StateChangedSpriteLoc = None
+    }
+       
+    tileProps <- tileProps.Set(spriteLoc1, properties1)
+    tileProps
+
+// Example usage function
+let testTilePropertiesSerialization () =
+    // Create tile properties
+    let originalTileProps = createTestTileProperties()
+       
+    // Serialize to bytes
+    let serializedBytes = TilePropertiesSerializer.serialize originalTileProps
+    printfn "Serialized to %d bytes" serializedBytes.Length
+       
+    // Deserialize back
+    let deserializedTileProps = TilePropertiesSerializer.deserialize serializedBytes
+       
+    // Verify the data
+    let spriteLoc = SpriteLoc(0, 1, 2)
+    let retrievedProps = deserializedTileProps.[spriteLoc]
+       
+    printfn "Original tile set name: %s" (originalTileProps.GetTileSetName())
+    printfn "Deserialized tile set name: %s" (deserializedTileProps.GetTileSetName())
+    printfn "Retrieved properties - Walkable: %b, TileType: %A" retrievedProps.Walkable retrievedProps.TileType
+ 
+    assertEquals retrievedProps.StateChangedSpriteLoc originalTileProps[SpriteLoc(0, 1, 2)].StateChangedSpriteLoc "StateChangedSpriteLoc"
+    assertEquals retrievedProps.DestroyedSpriteLoc originalTileProps[SpriteLoc(0, 1, 2)].DestroyedSpriteLoc "DestroyedSpriteLoc"
+       
+    deserializedTileProps
+
+testTilePropertiesSerialization ()

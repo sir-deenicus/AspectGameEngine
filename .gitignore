@@ -4,3 +4,5 @@ bin/Debug/*
 changes.txt
 
 .fake
+/FlatBufferTypes/obj/*
+FlatBufferTypes/bin/*

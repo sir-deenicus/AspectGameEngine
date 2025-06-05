@@ -1,0 +1,28 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup> 
+    <None Update="Schemas\**\*.fbs" />
+    <!-- Define an ItemGroup to hold all .fbs files for easy iteration -->
+    <FlatBufferSchemas Include="Schemas\**\*.fbs" />
+  </ItemGroup>
+
+  <Target Name="PreBuild" BeforeTargets="PreBuildEvent">
+    <!-- Ensure the 'Generated' directory exists -->
+    <MakeDir Directories="$(ProjectDir)Generated" Condition="!Exists('$(ProjectDir)Generated')" />
+
+    <!-- Run flatc to generate C# files for each schema file -->
+    <!-- The '%(FlatBufferSchemas.Identity)' will expand to the full path of each .fbs file -->
+    <Exec Command="&quot;$(ProjectDir)Tools\flatc.exe&quot; --csharp --raw-binary --gen-mutable -o &quot;$(ProjectDir)Generated&quot; &quot;%(FlatBufferSchemas.Identity)&quot;" />
+  </Target>
+
+  <ItemGroup>
+    <PackageReference Include="Google.FlatBuffers" Version="25.2.10" />
+  </ItemGroup>
+
+</Project>

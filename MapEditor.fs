@@ -1,14 +1,16 @@
 namespace AspectGameEngine
 
 open AspectGameEngine
-
 open FSharpx.Collections
 
 type TilePropertiesImmutableReference =
-    private { Properties: Map<SpriteLoc, TileProperties> }
+    private
+        { Properties: Map<SpriteLoc, TileProperties>
+          TileSetName: string }
 
-    static member New() =
-        { Properties = Map.empty }
+    static member New(tileSetName) =
+        { Properties = Map.empty
+          TileSetName = tileSetName }
 
     // Read-only indexer to get properties
     member this.Item
@@ -17,14 +19,20 @@ type TilePropertiesImmutableReference =
             | Some tile -> tile
             | None -> TileProperties.NullTile
 
+    member this.GetTileSetName() = this.TileSetName
+
+    member this.SetTileSetName(tileSetName) = { this with TileSetName = tileSetName }
+
     // Method to set or update a tile property, returning a new instance
-    member this.Set(spriteLoc: SpriteLoc, value: TileProperties)  =
-        { this with Properties = this.Properties.Add(spriteLoc, value) }
+    member this.Set(spriteLoc: SpriteLoc, value: TileProperties) =
+        { this with
+            Properties = this.Properties.Add(spriteLoc, value) }
 
     // The original 'Update' method, now also returning a new instance
-    member this.Update(spriteLoc: SpriteLoc, tileProperties: TileProperties)  =
+    member this.Update(spriteLoc: SpriteLoc, tileProperties: TileProperties) =
         // Map.Add will add the key-value pair, or update the value if the key already exists.
-        { this with Properties = this.Properties.Add(spriteLoc, tileProperties) }
+        { this with
+            Properties = this.Properties.Add(spriteLoc, tileProperties) }
 
 
 type EditorTileMap =
@@ -34,8 +42,7 @@ type EditorTileMap =
       VoidSpriteLoc: SpriteLoc
       MapName: string
       MapType: MapType
-      TilePropertiesReference: TilePropertiesImmutableReference
-    }
+      TilePropertiesReference: TilePropertiesImmutableReference }
 
     // Helper to calculate 1D index from 2D coordinates.
     // Internal, assumes x, y, currentWidth are valid for the context.
@@ -48,7 +55,7 @@ type EditorTileMap =
 
         this.GetFlatIndexUnchecked(x, y, this.Width)
 
-    static member New(width, height, voidSpriteLoc, tilePropertiesReference) =
+    static member New(width, height, voidSpriteLoc, tilePropertiesReference, ?mapName, ?mapType) =
         if width <= 0 || height <= 0 then
             // Enforce positive dimensions for a valid initial map.
             // Resize can handle 0 dimensions if needed for intermediate states.
@@ -62,8 +69,8 @@ type EditorTileMap =
                   Health = 0
                   IsOccupied = false })
           VoidSpriteLoc = voidSpriteLoc
-          MapName = ""
-          MapType = MapType.Room
+          MapName = defaultArg mapName ""
+          MapType = defaultArg mapType MapType.Room
           TilePropertiesReference = tilePropertiesReference }
 
     member this.GetTile(x, y) =
@@ -104,7 +111,8 @@ type EditorTileMap =
         let oldHeight = this.Height
 
         // If dimensions are unchanged, no work needed.
-        if newWidth = oldWidth && newHeight = oldHeight then this
+        if newWidth = oldWidth && newHeight = oldHeight then
+            this
         else
             let emptyTile =
                 { SpriteLoc = this.VoidSpriteLoc
@@ -172,7 +180,7 @@ type EditorTileMap =
                     Width = newWidth
                     Height = newHeight
                     Tiles = finalTiles }
- 
+
     member this.BatchUpdate(updates: TileUpdate[]) =
         if Array.isEmpty updates then
             this
@@ -180,8 +188,8 @@ type EditorTileMap =
             let mapper (update: TileUpdate) =
                 let index = this.GetFlatIndex(update.X, update.Y)
                 (index, update.Tile)
-                
-            { this with 
+
+            { this with
                 Tiles = PersistentVector.updateManyWith mapper updates this.Tiles }
 
 type EditorHistory =

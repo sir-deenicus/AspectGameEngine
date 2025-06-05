@@ -41,11 +41,11 @@ type TileOpacity =
     | Transparent = 1
 
 type MapType =
-    | Dungeon = 0
-    | Overworld = 1
-    | ComplexBuilding = 2
-    | Room = 3
-    | CityOrTown = 4
+    | Room = 0
+    | ComplexBuilding = 1
+    | TownOrCity = 2
+    | Dungeon = 3
+    | Overworld = 4
 
 [<Struct>]
 type TileProperties =
@@ -53,7 +53,7 @@ type TileProperties =
       IsVoid: bool
       TileType: TileType
       Health: int
-      Description: string
+      DescriptionKey: string
       Biome: Biome
       TileOpacity: TileOpacity
       DestroyedSpriteLoc: SpriteLoc option 
@@ -64,7 +64,7 @@ type TileProperties =
           IsVoid = false
           TileType = TileType.NullTile
           Health = 0
-          Description = ""
+          DescriptionKey = ""
           Biome = Biome.None
           DestroyedSpriteLoc = None
           StateChangedSpriteLoc = None
