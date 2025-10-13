@@ -12,22 +12,20 @@ enum BiomeFBS : byte {
     Swamp = 4,
     Mountain = 5,
     Ocean = 6,
-    Plains = 7,
-    AlchemyLab = 8,
-    EnchantersLab = 9,
-    Blacksmith = 10
+    Plains = 7
 }
 
 enum TileTypeFBS : byte {
-    NullTile = 0, // Renamed from NullTile to avoid keyword clash if any lang has 'null' as keyword for types
+    NullTile = 0,
     Void = 1,
     Wall = 2,
     Floor = 3,
     Door = 4,
-    Stairs = 5,
-    Water = 6,
-    Lava = 7,
-    City = 8
+    Lever = 5,
+    Stairs = 6,
+    Water = 7,
+    Lava = 8,
+    CityOrTown = 9
 }
 
 enum TileOpacityFBS : byte {
@@ -44,7 +42,6 @@ table SpriteLocFBS {
 // TileProperties will likely evolve, so a 'table' is more robust.
 table TilePropertiesFBS {
     walkable:bool;
-    is_void:bool;
     tile_type:TileTypeFBS; // Using the FBS enum
     health:int;
     description_key:string; // Reference to a localization key
@@ -56,7 +53,7 @@ table TilePropertiesFBS {
     // Let's make them optional fields on TilePropertiesFBS directly.
     // The generated code will have 'HasFieldName()' and 'FieldNameOrNull()' or similar.
     destroyed_sprite_loc:SpriteLocFBS; // This field might be null if not set
-    state_changed_sprite_loc:SpriteLocFBS; // This field might be null if not set
+    next_state_sprite_loc:SpriteLocFBS; // This field might be null if not set
 }
 
 // To represent a Key-Value pair for our Map<SpriteLoc, TileProperties>

@@ -169,14 +169,13 @@ let createTestTileProperties () =
     let spriteLoc1 = SpriteLoc(0, 1, 2)
     let properties1 = {
         Walkable = true
-        IsVoid = false
         TileType = TileType.Floor
         Health = 100
         DescriptionKey = "floor_description"
         Biome = Biome.Forest
         TileOpacity = TileOpacity.Transparent
         DestroyedSpriteLoc =  Some (SpriteLoc(1, 2, 3))
-        StateChangedSpriteLoc = None
+        NextStateSpriteLoc = None
     }
        
     tileProps <- tileProps.Set(spriteLoc1, properties1)
@@ -202,7 +201,7 @@ let testTilePropertiesSerialization () =
     printfn "Deserialized tile set name: %s" (deserializedTileProps.GetTileSetName())
     printfn "Retrieved properties - Walkable: %b, TileType: %A" retrievedProps.Walkable retrievedProps.TileType
  
-    assertEquals retrievedProps.StateChangedSpriteLoc originalTileProps[SpriteLoc(0, 1, 2)].StateChangedSpriteLoc "StateChangedSpriteLoc"
+    assertEquals retrievedProps.NextStateSpriteLoc originalTileProps[SpriteLoc(0, 1, 2)].NextStateSpriteLoc "StateChangedSpriteLoc"
     assertEquals retrievedProps.DestroyedSpriteLoc originalTileProps[SpriteLoc(0, 1, 2)].DestroyedSpriteLoc "DestroyedSpriteLoc"
        
     deserializedTileProps

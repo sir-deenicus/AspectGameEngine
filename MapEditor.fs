@@ -81,7 +81,7 @@ type EditorTileMap =
         this.TilePropertiesReference.[this.GetTile(x, y).SpriteLoc]
 
     member this.IsWalkable(x, y) = this.GetTileProperties(x, y).Walkable
-    member this.IsVoid(x, y) = this.GetTileProperties(x, y).IsVoid
+    member this.IsOccupied(x, y) = this.GetTile(x, y).IsOccupied
 
     member this.IsOpaque(x, y) =
         this.GetTileProperties(x, y).TileOpacity = TileOpacity.Opaque

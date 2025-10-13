@@ -20,54 +20,50 @@ public struct TilePropertiesFBS : IFlatbufferObject
   public TilePropertiesFBS __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
 
   public bool Walkable { get { int o = __p.__offset(4); return o != 0 ? 0!=__p.bb.Get(o + __p.bb_pos) : (bool)false; } }
-  public bool IsVoid { get { int o = __p.__offset(6); return o != 0 ? 0!=__p.bb.Get(o + __p.bb_pos) : (bool)false; } }
-  public AspectGameEngine.FBS.TileTypeFBS TileType { get { int o = __p.__offset(8); return o != 0 ? (AspectGameEngine.FBS.TileTypeFBS)__p.bb.GetSbyte(o + __p.bb_pos) : AspectGameEngine.FBS.TileTypeFBS.NullTile; } }
-  public int Health { get { int o = __p.__offset(10); return o != 0 ? __p.bb.GetInt(o + __p.bb_pos) : (int)0; } }
-  public string DescriptionKey { get { int o = __p.__offset(12); return o != 0 ? __p.__string(o + __p.bb_pos) : null; } }
+  public AspectGameEngine.FBS.TileTypeFBS TileType { get { int o = __p.__offset(6); return o != 0 ? (AspectGameEngine.FBS.TileTypeFBS)__p.bb.GetSbyte(o + __p.bb_pos) : AspectGameEngine.FBS.TileTypeFBS.NullTile; } }
+  public int Health { get { int o = __p.__offset(8); return o != 0 ? __p.bb.GetInt(o + __p.bb_pos) : (int)0; } }
+  public string DescriptionKey { get { int o = __p.__offset(10); return o != 0 ? __p.__string(o + __p.bb_pos) : null; } }
 #if ENABLE_SPAN_T
-  public Span<byte> GetDescriptionKeyBytes() { return __p.__vector_as_span<byte>(12, 1); }
+  public Span<byte> GetDescriptionKeyBytes() { return __p.__vector_as_span<byte>(10, 1); }
 #else
-  public ArraySegment<byte>? GetDescriptionKeyBytes() { return __p.__vector_as_arraysegment(12); }
+  public ArraySegment<byte>? GetDescriptionKeyBytes() { return __p.__vector_as_arraysegment(10); }
 #endif
-  public byte[] GetDescriptionKeyArray() { return __p.__vector_as_array<byte>(12); }
-  public AspectGameEngine.FBS.BiomeFBS Biome { get { int o = __p.__offset(14); return o != 0 ? (AspectGameEngine.FBS.BiomeFBS)__p.bb.GetSbyte(o + __p.bb_pos) : AspectGameEngine.FBS.BiomeFBS.None; } }
-  public AspectGameEngine.FBS.TileOpacityFBS TileOpacity { get { int o = __p.__offset(16); return o != 0 ? (AspectGameEngine.FBS.TileOpacityFBS)__p.bb.GetSbyte(o + __p.bb_pos) : AspectGameEngine.FBS.TileOpacityFBS.Opaque; } }
-  public AspectGameEngine.FBS.SpriteLocFBS? DestroyedSpriteLoc { get { int o = __p.__offset(18); return o != 0 ? (AspectGameEngine.FBS.SpriteLocFBS?)(new AspectGameEngine.FBS.SpriteLocFBS()).__assign(__p.__indirect(o + __p.bb_pos), __p.bb) : null; } }
-  public AspectGameEngine.FBS.SpriteLocFBS? StateChangedSpriteLoc { get { int o = __p.__offset(20); return o != 0 ? (AspectGameEngine.FBS.SpriteLocFBS?)(new AspectGameEngine.FBS.SpriteLocFBS()).__assign(__p.__indirect(o + __p.bb_pos), __p.bb) : null; } }
+  public byte[] GetDescriptionKeyArray() { return __p.__vector_as_array<byte>(10); }
+  public AspectGameEngine.FBS.BiomeFBS Biome { get { int o = __p.__offset(12); return o != 0 ? (AspectGameEngine.FBS.BiomeFBS)__p.bb.GetSbyte(o + __p.bb_pos) : AspectGameEngine.FBS.BiomeFBS.None; } }
+  public AspectGameEngine.FBS.TileOpacityFBS TileOpacity { get { int o = __p.__offset(14); return o != 0 ? (AspectGameEngine.FBS.TileOpacityFBS)__p.bb.GetSbyte(o + __p.bb_pos) : AspectGameEngine.FBS.TileOpacityFBS.Opaque; } }
+  public AspectGameEngine.FBS.SpriteLocFBS? DestroyedSpriteLoc { get { int o = __p.__offset(16); return o != 0 ? (AspectGameEngine.FBS.SpriteLocFBS?)(new AspectGameEngine.FBS.SpriteLocFBS()).__assign(__p.__indirect(o + __p.bb_pos), __p.bb) : null; } }
+  public AspectGameEngine.FBS.SpriteLocFBS? NextStateSpriteLoc { get { int o = __p.__offset(18); return o != 0 ? (AspectGameEngine.FBS.SpriteLocFBS?)(new AspectGameEngine.FBS.SpriteLocFBS()).__assign(__p.__indirect(o + __p.bb_pos), __p.bb) : null; } }
 
   public static Offset<AspectGameEngine.FBS.TilePropertiesFBS> CreateTilePropertiesFBS(FlatBufferBuilder builder,
       bool walkable = false,
-      bool is_void = false,
       AspectGameEngine.FBS.TileTypeFBS tile_type = AspectGameEngine.FBS.TileTypeFBS.NullTile,
       int health = 0,
       StringOffset description_keyOffset = default(StringOffset),
       AspectGameEngine.FBS.BiomeFBS biome = AspectGameEngine.FBS.BiomeFBS.None,
       AspectGameEngine.FBS.TileOpacityFBS tile_opacity = AspectGameEngine.FBS.TileOpacityFBS.Opaque,
       Offset<AspectGameEngine.FBS.SpriteLocFBS> destroyed_sprite_locOffset = default(Offset<AspectGameEngine.FBS.SpriteLocFBS>),
-      Offset<AspectGameEngine.FBS.SpriteLocFBS> state_changed_sprite_locOffset = default(Offset<AspectGameEngine.FBS.SpriteLocFBS>)) {
-    builder.StartTable(9);
-    TilePropertiesFBS.AddStateChangedSpriteLoc(builder, state_changed_sprite_locOffset);
+      Offset<AspectGameEngine.FBS.SpriteLocFBS> next_state_sprite_locOffset = default(Offset<AspectGameEngine.FBS.SpriteLocFBS>)) {
+    builder.StartTable(8);
+    TilePropertiesFBS.AddNextStateSpriteLoc(builder, next_state_sprite_locOffset);
     TilePropertiesFBS.AddDestroyedSpriteLoc(builder, destroyed_sprite_locOffset);
     TilePropertiesFBS.AddDescriptionKey(builder, description_keyOffset);
     TilePropertiesFBS.AddHealth(builder, health);
     TilePropertiesFBS.AddTileOpacity(builder, tile_opacity);
     TilePropertiesFBS.AddBiome(builder, biome);
     TilePropertiesFBS.AddTileType(builder, tile_type);
-    TilePropertiesFBS.AddIsVoid(builder, is_void);
     TilePropertiesFBS.AddWalkable(builder, walkable);
     return TilePropertiesFBS.EndTilePropertiesFBS(builder);
   }
 
-  public static void StartTilePropertiesFBS(FlatBufferBuilder builder) { builder.StartTable(9); }
+  public static void StartTilePropertiesFBS(FlatBufferBuilder builder) { builder.StartTable(8); }
   public static void AddWalkable(FlatBufferBuilder builder, bool walkable) { builder.AddBool(0, walkable, false); }
-  public static void AddIsVoid(FlatBufferBuilder builder, bool isVoid) { builder.AddBool(1, isVoid, false); }
-  public static void AddTileType(FlatBufferBuilder builder, AspectGameEngine.FBS.TileTypeFBS tileType) { builder.AddSbyte(2, (sbyte)tileType, 0); }
-  public static void AddHealth(FlatBufferBuilder builder, int health) { builder.AddInt(3, health, 0); }
-  public static void AddDescriptionKey(FlatBufferBuilder builder, StringOffset descriptionKeyOffset) { builder.AddOffset(4, descriptionKeyOffset.Value, 0); }
-  public static void AddBiome(FlatBufferBuilder builder, AspectGameEngine.FBS.BiomeFBS biome) { builder.AddSbyte(5, (sbyte)biome, 0); }
-  public static void AddTileOpacity(FlatBufferBuilder builder, AspectGameEngine.FBS.TileOpacityFBS tileOpacity) { builder.AddSbyte(6, (sbyte)tileOpacity, 0); }
-  public static void AddDestroyedSpriteLoc(FlatBufferBuilder builder, Offset<AspectGameEngine.FBS.SpriteLocFBS> destroyedSpriteLocOffset) { builder.AddOffset(7, destroyedSpriteLocOffset.Value, 0); }
-  public static void AddStateChangedSpriteLoc(FlatBufferBuilder builder, Offset<AspectGameEngine.FBS.SpriteLocFBS> stateChangedSpriteLocOffset) { builder.AddOffset(8, stateChangedSpriteLocOffset.Value, 0); }
+  public static void AddTileType(FlatBufferBuilder builder, AspectGameEngine.FBS.TileTypeFBS tileType) { builder.AddSbyte(1, (sbyte)tileType, 0); }
+  public static void AddHealth(FlatBufferBuilder builder, int health) { builder.AddInt(2, health, 0); }
+  public static void AddDescriptionKey(FlatBufferBuilder builder, StringOffset descriptionKeyOffset) { builder.AddOffset(3, descriptionKeyOffset.Value, 0); }
+  public static void AddBiome(FlatBufferBuilder builder, AspectGameEngine.FBS.BiomeFBS biome) { builder.AddSbyte(4, (sbyte)biome, 0); }
+  public static void AddTileOpacity(FlatBufferBuilder builder, AspectGameEngine.FBS.TileOpacityFBS tileOpacity) { builder.AddSbyte(5, (sbyte)tileOpacity, 0); }
+  public static void AddDestroyedSpriteLoc(FlatBufferBuilder builder, Offset<AspectGameEngine.FBS.SpriteLocFBS> destroyedSpriteLocOffset) { builder.AddOffset(6, destroyedSpriteLocOffset.Value, 0); }
+  public static void AddNextStateSpriteLoc(FlatBufferBuilder builder, Offset<AspectGameEngine.FBS.SpriteLocFBS> nextStateSpriteLocOffset) { builder.AddOffset(7, nextStateSpriteLocOffset.Value, 0); }
   public static Offset<AspectGameEngine.FBS.TilePropertiesFBS> EndTilePropertiesFBS(FlatBufferBuilder builder) {
     int o = builder.EndTable();
     return new Offset<AspectGameEngine.FBS.TilePropertiesFBS>(o);
@@ -81,14 +77,13 @@ static public class TilePropertiesFBSVerify
   {
     return verifier.VerifyTableStart(tablePos)
       && verifier.VerifyField(tablePos, 4 /*Walkable*/, 1 /*bool*/, 1, false)
-      && verifier.VerifyField(tablePos, 6 /*IsVoid*/, 1 /*bool*/, 1, false)
-      && verifier.VerifyField(tablePos, 8 /*TileType*/, 1 /*AspectGameEngine.FBS.TileTypeFBS*/, 1, false)
-      && verifier.VerifyField(tablePos, 10 /*Health*/, 4 /*int*/, 4, false)
-      && verifier.VerifyString(tablePos, 12 /*DescriptionKey*/, false)
-      && verifier.VerifyField(tablePos, 14 /*Biome*/, 1 /*AspectGameEngine.FBS.BiomeFBS*/, 1, false)
-      && verifier.VerifyField(tablePos, 16 /*TileOpacity*/, 1 /*AspectGameEngine.FBS.TileOpacityFBS*/, 1, false)
-      && verifier.VerifyTable(tablePos, 18 /*DestroyedSpriteLoc*/, AspectGameEngine.FBS.SpriteLocFBSVerify.Verify, false)
-      && verifier.VerifyTable(tablePos, 20 /*StateChangedSpriteLoc*/, AspectGameEngine.FBS.SpriteLocFBSVerify.Verify, false)
+      && verifier.VerifyField(tablePos, 6 /*TileType*/, 1 /*AspectGameEngine.FBS.TileTypeFBS*/, 1, false)
+      && verifier.VerifyField(tablePos, 8 /*Health*/, 4 /*int*/, 4, false)
+      && verifier.VerifyString(tablePos, 10 /*DescriptionKey*/, false)
+      && verifier.VerifyField(tablePos, 12 /*Biome*/, 1 /*AspectGameEngine.FBS.BiomeFBS*/, 1, false)
+      && verifier.VerifyField(tablePos, 14 /*TileOpacity*/, 1 /*AspectGameEngine.FBS.TileOpacityFBS*/, 1, false)
+      && verifier.VerifyTable(tablePos, 16 /*DestroyedSpriteLoc*/, AspectGameEngine.FBS.SpriteLocFBSVerify.Verify, false)
+      && verifier.VerifyTable(tablePos, 18 /*NextStateSpriteLoc*/, AspectGameEngine.FBS.SpriteLocFBSVerify.Verify, false)
       && verifier.VerifyTableEnd(tablePos);
   }
 }

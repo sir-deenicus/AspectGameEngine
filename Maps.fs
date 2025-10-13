@@ -25,7 +25,7 @@ type TilePropertiesReference() =
 [<Struct>]
 type Tile =
     { SpriteLoc: SpriteLoc
-      Health: int
+      mutable Health: int
       IsOccupied: bool }
 
 type TileMap =
@@ -46,7 +46,7 @@ type TileMap =
           TilePropertiesReference = tilePropertiesReference
           VoidSpriteLoc = voidSpriteLoc }
 
-    member private this.GetIndex(x: int, y: int) = y * this.Width + x
+    member inline private this.GetIndex(x: int, y: int) = y * this.Width + x
 
     member this.Update(x, y, tile) =
         if x >= 0 && x < this.Width && y >= 0 && y < this.Height then
@@ -66,7 +66,7 @@ type TileMap =
 
     member this.IsWalkable(x: int, y: int) : bool = (this.GetTileProperties(x, y)).Walkable
 
-    member this.IsVoid(x: int, y: int) : bool = (this.GetTileProperties(x, y)).IsVoid
+    member this.IsOccupied(x: int, y: int) : bool = this.GetTile(x, y).IsOccupied
 
     member this.IsOpaque(x: int, y: int) : bool =
         (this.GetTileProperties(x, y)).TileOpacity = TileOpacity.Opaque

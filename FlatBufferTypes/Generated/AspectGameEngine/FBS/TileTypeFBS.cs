@@ -12,10 +12,11 @@ public enum TileTypeFBS : sbyte
   Wall = 2,
   Floor = 3,
   Door = 4,
-  Stairs = 5,
-  Water = 6,
-  Lava = 7,
-  City = 8,
+  Lever = 5,
+  Stairs = 6,
+  Water = 7,
+  Lava = 8,
+  CityOrTown = 9,
 };
 
 

@@ -14,10 +14,7 @@ module TilePropertiesSerializer =
         | Biome.Swamp -> BiomeFBS.Swamp
         | Biome.Mountain -> BiomeFBS.Mountain
         | Biome.Ocean -> BiomeFBS.Ocean
-        | Biome.Plains -> BiomeFBS.Plains
-        | Biome.AlchemyLab -> BiomeFBS.AlchemyLab
-        | Biome.EnchantersLab -> BiomeFBS.EnchantersLab
-        | Biome.Blacksmith -> BiomeFBS.Blacksmith
+        | Biome.Plains -> BiomeFBS.Plains 
         | _ -> BiomeFBS.None
 
     let private fromBiomeFBS (biomeFBS: BiomeFBS) : Biome =
@@ -29,10 +26,7 @@ module TilePropertiesSerializer =
         | BiomeFBS.Swamp -> Biome.Swamp
         | BiomeFBS.Mountain -> Biome.Mountain
         | BiomeFBS.Ocean -> Biome.Ocean
-        | BiomeFBS.Plains -> Biome.Plains
-        | BiomeFBS.AlchemyLab -> Biome.AlchemyLab
-        | BiomeFBS.EnchantersLab -> Biome.EnchantersLab
-        | BiomeFBS.Blacksmith -> Biome.Blacksmith
+        | BiomeFBS.Plains -> Biome.Plains 
         | _ -> Biome.None
 
     let private toTileTypeFBS (tileType: TileType) : TileTypeFBS =
@@ -42,11 +36,11 @@ module TilePropertiesSerializer =
         | TileType.Wall -> TileTypeFBS.Wall
         | TileType.Floor -> TileTypeFBS.Floor
         | TileType.Door -> TileTypeFBS.Door
-        | TileType.Lever -> TileTypeFBS.NullTile // Map to NullTile as Lever doesn't exist in FBS
+        | TileType.Lever -> TileTypeFBS.Lever
         | TileType.Stairs -> TileTypeFBS.Stairs
         | TileType.Water -> TileTypeFBS.Water
         | TileType.Lava -> TileTypeFBS.Lava
-        | TileType.City -> TileTypeFBS.City
+        | TileType.CityOrTown -> TileTypeFBS.CityOrTown
         | _ -> TileTypeFBS.NullTile
 
     let private fromTileTypeFBS (tileTypeFBS: TileTypeFBS) : TileType =
@@ -56,10 +50,11 @@ module TilePropertiesSerializer =
         | TileTypeFBS.Wall -> TileType.Wall
         | TileTypeFBS.Floor -> TileType.Floor
         | TileTypeFBS.Door -> TileType.Door
+        | TileTypeFBS.Lever -> TileType.Lever
         | TileTypeFBS.Stairs -> TileType.Stairs
         | TileTypeFBS.Water -> TileType.Water
         | TileTypeFBS.Lava -> TileType.Lava
-        | TileTypeFBS.City -> TileType.City
+        | TileTypeFBS.CityOrTown -> TileType.CityOrTown
         | _ -> TileType.NullTile
 
     let private toTileOpacityFBS (opacity: TileOpacity) : TileOpacityFBS =
@@ -104,14 +99,13 @@ module TilePropertiesSerializer =
                    let destroyedSpriteLocOffset =
                        Option.map (createSpriteLocFBS builder) properties.DestroyedSpriteLoc
 
-                   // Create state changed sprite loc (if exists)
-                   let stateChangedSpriteLocOffset =
-                       Option.map (createSpriteLocFBS builder) properties.StateChangedSpriteLoc
+                   // Create next state sprite loc (if exists)
+                   let nextStateSpriteLocOffset =
+                       Option.map (createSpriteLocFBS builder) properties.NextStateSpriteLoc
 
                    // Start building TilePropertiesFBS (C# generated class)
                    TilePropertiesFBS.StartTilePropertiesFBS(builder)
-                   TilePropertiesFBS.AddWalkable(builder, properties.Walkable)
-                   TilePropertiesFBS.AddIsVoid(builder, properties.IsVoid)
+                   TilePropertiesFBS.AddWalkable(builder, properties.Walkable) 
                    TilePropertiesFBS.AddTileType(builder, toTileTypeFBS properties.TileType)
                    TilePropertiesFBS.AddHealth(builder, properties.Health)
                    TilePropertiesFBS.AddDescriptionKey(builder, descKeyOffset)
@@ -121,8 +115,8 @@ module TilePropertiesSerializer =
                    if destroyedSpriteLocOffset.IsSome then
                        TilePropertiesFBS.AddDestroyedSpriteLoc(builder, destroyedSpriteLocOffset.Value)
 
-                   if stateChangedSpriteLocOffset.IsSome then
-                       TilePropertiesFBS.AddStateChangedSpriteLoc(builder, stateChangedSpriteLocOffset.Value)
+                   if nextStateSpriteLocOffset.IsSome then
+                       TilePropertiesFBS.AddNextStateSpriteLoc(builder, nextStateSpriteLocOffset.Value)
 
                    let tilePropsOffset = TilePropertiesFBS.EndTilePropertiesFBS(builder)
 
@@ -150,7 +144,7 @@ module TilePropertiesSerializer =
 
     let deserialize (bytes: byte[]) : TilePropertiesImmutableReference =
         let buffer = ByteBuffer(bytes)
-        let tilePropsSet = TilePropertiesSetFBS.GetRootAsTilePropertiesSetFBS(buffer) // .GetRootAs(buffer)
+        let tilePropsSet = TilePropertiesSetFBS.GetRootAsTilePropertiesSetFBS(buffer)
 
         let tileSetName = tilePropsSet.TileSetName
         let mutable result = TilePropertiesImmutableReference.New(tileSetName)
@@ -168,19 +162,18 @@ module TilePropertiesSerializer =
                     let destroyedSpriteLoc =
                         Option.ofNullable valueFBS.DestroyedSpriteLoc |> Option.map createSpriteLoc
 
-                    let stateChangedSpriteLoc =
-                        Option.ofNullable valueFBS.StateChangedSpriteLoc |> Option.map createSpriteLoc
+                    let nextStateSpriteLoc =
+                        Option.ofNullable valueFBS.NextStateSpriteLoc |> Option.map createSpriteLoc
 
                     let tileProperties =
-                        { Walkable = valueFBS.Walkable
-                          IsVoid = valueFBS.IsVoid
+                        { Walkable = valueFBS.Walkable 
                           TileType = fromTileTypeFBS valueFBS.TileType
                           Health = valueFBS.Health
                           DescriptionKey = valueFBS.DescriptionKey
                           Biome = fromBiomeFBS valueFBS.Biome
                           TileOpacity = fromTileOpacityFBS valueFBS.TileOpacity
                           DestroyedSpriteLoc = destroyedSpriteLoc
-                          StateChangedSpriteLoc = stateChangedSpriteLoc }
+                          NextStateSpriteLoc = nextStateSpriteLoc }
 
                     result <- result.Set(spriteLoc, tileProperties)
                 | _ -> ()

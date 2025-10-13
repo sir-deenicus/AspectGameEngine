@@ -19,10 +19,7 @@ type Biome =
     | Swamp = 4
     | Mountain = 5
     | Ocean = 6
-    | Plains = 7 
-    | AlchemyLab = 8
-    | EnchantersLab = 9
-    | Blacksmith = 10
+    | Plains = 7     
 
 type TileType =
     | NullTile = 0
@@ -34,7 +31,7 @@ type TileType =
     | Stairs = 6
     | Water = 7
     | Lava = 8
-    | City = 9
+    | CityOrTown = 9
 
 type TileOpacity =
     | Opaque = 0
@@ -49,23 +46,21 @@ type MapType =
 
 [<Struct>]
 type TileProperties =
-    { Walkable: bool
-      IsVoid: bool
+    { Walkable: bool 
       TileType: TileType
       Health: int
       DescriptionKey: string
       Biome: Biome
       TileOpacity: TileOpacity
       DestroyedSpriteLoc: SpriteLoc option 
-      StateChangedSpriteLoc: SpriteLoc option }
+      NextStateSpriteLoc: SpriteLoc option }
 
     static member NullTile =
-        { Walkable = false
-          IsVoid = false
+        { Walkable = false 
           TileType = TileType.NullTile
           Health = 0
           DescriptionKey = ""
           Biome = Biome.None
           DestroyedSpriteLoc = None
-          StateChangedSpriteLoc = None
+          NextStateSpriteLoc = None
           TileOpacity = TileOpacity.Opaque }

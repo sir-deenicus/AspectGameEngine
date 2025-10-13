@@ -15,9 +15,6 @@ public enum BiomeFBS : sbyte
   Mountain = 5,
   Ocean = 6,
   Plains = 7,
-  AlchemyLab = 8,
-  EnchantersLab = 9,
-  Blacksmith = 10,
 };
 
 
