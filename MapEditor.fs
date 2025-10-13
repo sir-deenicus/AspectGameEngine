@@ -4,7 +4,7 @@ open AspectGameEngine
 open FSharpx.Collections
 
 type TilePropertiesImmutableReference =
-    private
+    public
         { Properties: Map<SpriteLoc, TileProperties>
           TileSetName: string }
 
@@ -33,6 +33,16 @@ type TilePropertiesImmutableReference =
         // Map.Add will add the key-value pair, or update the value if the key already exists.
         { this with
             Properties = this.Properties.Add(spriteLoc, tileProperties) }
+
+    // Convert from mutable TilePropertiesReference to immutable
+    static member FromReference(reference: TilePropertiesReference) =
+        let mutable immutable = TilePropertiesImmutableReference.New("")
+        
+        // Copy all entries from the mutable dictionary to the immutable map
+        for kvp in reference.GetAllProperties() do
+            immutable <- immutable.Set(kvp.Key, kvp.Value)
+        
+        immutable
 
 
 type EditorTileMap =
@@ -191,6 +201,43 @@ type EditorTileMap =
 
             { this with
                 Tiles = PersistentVector.updateManyWith mapper updates this.Tiles }
+
+    // Convert from runtime TileMap to editor EditorTileMap
+    static member FromTileMap(tileMap: TileMap) =
+        // Convert mutable TilePropertiesReference to immutable
+        let immutableTileProps = TilePropertiesImmutableReference.FromReference(tileMap.TilePropertiesReference)
+        
+        // Convert array to PersistentVector
+        let tilesVector = PersistentVector.ofSeq tileMap.Tiles
+        
+        { Width = tileMap.Width
+          Height = tileMap.Height
+          Tiles = tilesVector
+          VoidSpriteLoc = tileMap.VoidSpriteLoc
+          MapName = tileMap.MapName
+          MapType = tileMap.MapType
+          TilePropertiesReference = immutableTileProps }
+
+    // Convert from editor EditorTileMap to runtime TileMap
+    member this.ToTileMap() =
+        // Convert immutable properties to mutable reference
+        let mutableTileProps = TilePropertiesReference()
+        for KeyValue(spriteLoc, props) in this.TilePropertiesReference.Properties do
+            mutableTileProps.[spriteLoc] <- props
+        
+        // Convert PersistentVector to array
+        let tilesArray = this.Tiles |> PersistentVector.toArray
+        
+        TileMap(
+            this.Width,
+            this.Height,
+            tilesArray,
+            this.VoidSpriteLoc,
+            mutableTileProps,
+            this.MapName,
+            this.MapType
+        )
+
 
 type EditorHistory =
     { History: List<EditorTileMap>

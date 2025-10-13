@@ -16,9 +16,8 @@
     <!-- Ensure the 'Generated' directory exists -->
     <MakeDir Directories="$(ProjectDir)Generated" Condition="!Exists('$(ProjectDir)Generated')" />
 
-    <!-- Run flatc to generate C# files for each schema file -->
-    <!-- The '%(FlatBufferSchemas.Identity)' will expand to the full path of each .fbs file -->
-    <Exec Command="&quot;$(ProjectDir)Tools\flatc.exe&quot; --csharp --raw-binary -o &quot;$(ProjectDir)Generated&quot; &quot;%(FlatBufferSchemas.Identity)&quot;" />
+    <!-- Run flatc to generate C# files for each schema file --> 
+    <Exec Command="&quot;$(ProjectDir)Tools\flatc.exe&quot; --csharp --raw-binary -I &quot;$(ProjectDir)Schemas&quot; -o &quot;$(ProjectDir)Generated&quot; &quot;%(FlatBufferSchemas.Identity)&quot;" />
   </Target>
 
   <ItemGroup>

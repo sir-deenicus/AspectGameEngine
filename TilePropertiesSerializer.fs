@@ -17,7 +17,7 @@ module TilePropertiesSerializer =
         | Biome.Plains -> BiomeFBS.Plains 
         | _ -> BiomeFBS.None
 
-    let private fromBiomeFBS (biomeFBS: BiomeFBS) : Biome =
+    let internal fromBiomeFBS (biomeFBS: BiomeFBS) : Biome =
         match biomeFBS with
         | BiomeFBS.None -> Biome.None
         | BiomeFBS.Forest -> Biome.Forest
@@ -43,7 +43,7 @@ module TilePropertiesSerializer =
         | TileType.CityOrTown -> TileTypeFBS.CityOrTown
         | _ -> TileTypeFBS.NullTile
 
-    let private fromTileTypeFBS (tileTypeFBS: TileTypeFBS) : TileType =
+    let internal fromTileTypeFBS (tileTypeFBS: TileTypeFBS) : TileType =
         match tileTypeFBS with
         | TileTypeFBS.NullTile -> TileType.NullTile
         | TileTypeFBS.Void -> TileType.Void
@@ -63,7 +63,7 @@ module TilePropertiesSerializer =
         | TileOpacity.Transparent -> TileOpacityFBS.Transparent
         | _ -> TileOpacityFBS.Opaque
 
-    let private fromTileOpacityFBS (opacityFBS: TileOpacityFBS) : TileOpacity =
+    let internal fromTileOpacityFBS (opacityFBS: TileOpacityFBS) : TileOpacity =
         match opacityFBS with
         | TileOpacityFBS.Opaque -> TileOpacity.Opaque
         | TileOpacityFBS.Transparent -> TileOpacity.Transparent

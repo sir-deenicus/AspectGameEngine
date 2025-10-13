@@ -1,0 +1,29 @@
+include "tile_defs.fbs";
+
+namespace AspectGameEngine.FBS;
+
+enum MapTypeFBS : byte {
+    Room = 0,
+    ComplexBuilding = 1,
+    TownOrCity = 2,
+    Dungeon = 3,
+    Overworld = 4
+}
+
+table TileFBS {
+    sprite_loc:SpriteLocFBS (required);
+    health:int;
+    is_occupied:bool;
+}
+
+table TileMapFBS {
+    width:int;
+    height:int;
+    tiles:[TileFBS] (required); // Flattened array (width * height elements)
+    void_sprite_loc:SpriteLocFBS (required);
+    map_name:string (required);
+    map_type:MapTypeFBS;
+    tile_properties_set:TilePropertiesSetFBS (required);
+}
+
+root_type TileMapFBS;

@@ -22,11 +22,16 @@ type TilePropertiesReference() =
         else
             properties.Add(spriteLoc, tileProperties)
 
+    // Expose properties for serialization
+    member _.GetAllProperties() = properties :> seq<KeyValuePair<SpriteLoc, TileProperties>>
+
+
 [<Struct>]
 type Tile =
     { SpriteLoc: SpriteLoc
       mutable Health: int
       IsOccupied: bool }
+
 
 type TileMap =
     val mutable Width: int
