@@ -18,7 +18,7 @@
 
     <!-- Run flatc to generate C# files for each schema file -->
     <!-- The '%(FlatBufferSchemas.Identity)' will expand to the full path of each .fbs file -->
-    <Exec Command="&quot;$(ProjectDir)Tools\flatc.exe&quot; --csharp --raw-binary --gen-mutable -o &quot;$(ProjectDir)Generated&quot; &quot;%(FlatBufferSchemas.Identity)&quot;" />
+    <Exec Command="&quot;$(ProjectDir)Tools\flatc.exe&quot; --csharp --raw-binary -o &quot;$(ProjectDir)Generated&quot; &quot;%(FlatBufferSchemas.Identity)&quot;" />
   </Target>
 
   <ItemGroup>

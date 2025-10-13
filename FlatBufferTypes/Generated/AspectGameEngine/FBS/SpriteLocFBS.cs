@@ -20,11 +20,8 @@ public struct SpriteLocFBS : IFlatbufferObject
   public SpriteLocFBS __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
 
   public int AtlasIndex { get { int o = __p.__offset(4); return o != 0 ? __p.bb.GetInt(o + __p.bb_pos) : (int)0; } }
-  public bool MutateAtlasIndex(int atlas_index) { int o = __p.__offset(4); if (o != 0) { __p.bb.PutInt(o + __p.bb_pos, atlas_index); return true; } else { return false; } }
   public int Row { get { int o = __p.__offset(6); return o != 0 ? __p.bb.GetInt(o + __p.bb_pos) : (int)0; } }
-  public bool MutateRow(int row) { int o = __p.__offset(6); if (o != 0) { __p.bb.PutInt(o + __p.bb_pos, row); return true; } else { return false; } }
   public int Column { get { int o = __p.__offset(8); return o != 0 ? __p.bb.GetInt(o + __p.bb_pos) : (int)0; } }
-  public bool MutateColumn(int column) { int o = __p.__offset(8); if (o != 0) { __p.bb.PutInt(o + __p.bb_pos, column); return true; } else { return false; } }
 
   public static Offset<AspectGameEngine.FBS.SpriteLocFBS> CreateSpriteLocFBS(FlatBufferBuilder builder,
       int atlas_index = 0,

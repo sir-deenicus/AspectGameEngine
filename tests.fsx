@@ -1,12 +1,20 @@
 #r "nuget: Google.FlatBuffers, 25.2.10"
 #r "bin/Debug/net8.0/AspectGameEngine.dll"
 open AspectGameEngine 
+open FSharpx.Collections
+open System.Reflection
+open System
+open System.Diagnostics
 
 let assertEquals expected actual message =
     if expected <> actual then
         failwithf "ASSERTION FAILED: %s\nExpected: %A\nActual:   %A" message expected actual
     else
         printfn "PASSED: %s (Value: %A)" message actual
+
+let assertTrue cond message =
+    if not cond then failwithf "ASSERTION FAILED: %s" message
+    else printfn "PASSED: %s" message
 
 let makeExpectedEmptyTile (mapInstance: EditorTileMap) : Tile =
     { SpriteLoc = mapInstance.VoidSpriteLoc
@@ -115,11 +123,7 @@ testResizeHeightOnly ()
 testResizeWidthAndHeight ()
 testResizeWidthAndHeight2 ()
 
-
-//======================
-
-open System
-open System.Diagnostics
+//====================== 
 
 [<Struct>]
 type Tile = {
@@ -204,3 +208,90 @@ let testTilePropertiesSerialization () =
     deserializedTileProps
 
 testTilePropertiesSerialization ()
+
+//======================
+
+let testPVConjInitialBoundary (n: int) =
+    printfn "\n--- Test: PersistentVector Conj/Initial boundary n=%d ---" n
+    let pv = PersistentVector.ofSeq [0 .. n - 1]
+    assertEquals n pv.Length "pv.Length"
+    if n > 0 then
+        assertEquals (n - 1) pv.[n - 1] "pv.[n-1]"
+        // Initial should drop last
+        let pvInit = pv.Initial
+        assertEquals (n - 1) pvInit.Length "pv.Initial.Length"
+        if n - 1 > 0 then
+            assertEquals (n - 2) pvInit.[n - 2] "pv.Initial.[n-2]"
+        // Do another initial for extra boundary stress
+        if n >= 2 then
+            let pvInit2 = pvInit.Initial
+            assertEquals (n - 2) pvInit2.Length "pv.Initial.Initial.Length"
+            if n - 2 > 0 then
+                assertEquals (n - 3) pvInit2.[n - 3] "pv.Initial.Initial.[n-3]"
+    printfn "--- TestPVConjInitialBoundary %d: PASSED ---" n
+
+let testPersistentVectorBoundaries () =
+    // Exact tail boundary
+    testPVConjInitialBoundary 32
+    // First element spilling out of tail into tree
+    testPVConjInitialBoundary 33
+    // Exact 32*32 boundary
+    testPVConjInitialBoundary 1024
+    // First element spilling to the next level
+    testPVConjInitialBoundary 1025
+
+type Change = { I: int; V: int }
+let testUpdateMany () =
+    printfn "\n--- Test: PersistentVector update APIs (types and behavior) ---"
+
+    // Start with a PersistentVector<int>
+    let pv = PersistentVector.ofSeq [0 .. 9]
+
+    // 1) updateMany: updates is seq<int * 'T> (index, value)
+    // Here: 'T = int, so we use (index, value) pairs of ints.
+    let updatesIdxVal: (int * int) list = [ (0, 123); (5, 777); (9, -1) ]
+    let pv2 = PersistentVector.updateMany updatesIdxVal pv
+
+    assertEquals 123 pv2.[0] "updateMany applied at 0"
+    assertEquals 777 pv2.[5] "updateMany applied at 5"
+    assertEquals -1  pv2.[9] "updateMany applied at 9"
+    assertEquals 1   pv2.[1] "other elements unchanged after updateMany"
+
+    // 2) updateManyWith: you choose the update shape 'a and provide a mapper 'a -> (index, value)
+    // Example shape: a record type for clarity
+    
+    let changes: Change list = [ { I = 2; V = 333 }; { I = 7; V = 444 } ]
+    let pv3 =
+        PersistentVector.updateManyWith (fun ch -> ch.I, ch.V) // mapper: Change -> (index,value)
+            changes
+            pv2
+
+    assertEquals 333 pv3.[2] "updateManyWith applied at 2"
+    assertEquals 444 pv3.[7] "updateManyWith applied at 7"
+    assertEquals 123 pv3.[0] "previous updates preserved after updateManyWith"
+    assertEquals -1  pv3.[9] "previous updates preserved after updateManyWith"
+
+    // 3) updateManyWithIndexMap: pass an index mapper ('a -> int) and updates as seq<'a * 'T>
+    // Here we pick 'a = int, so an index is already an int; use id as the mapper.
+    // Updates are then seq<int * int> (indexSource, value).
+    let pv4 =
+        PersistentVector.updateManyWithIndexMap id
+            [ (3, 999); (8, 555) ]
+            pv3
+
+    assertEquals 999 pv4.[3] "updateManyWithIndexMap applied at 3"
+    assertEquals 555 pv4.[8] "updateManyWithIndexMap applied at 8"
+
+    // Example of compile-time type safety (do not uncomment, this should NOT compile):
+    //
+    // let badUpdates: (int * string) list = [ (1, "oops") ]
+    // let _ = PersistentVector.updateMany badUpdates pv // <- type error: 'T is int, not string
+    //
+    // let badMap: Change -> int * string = fun ch -> ch.I, string ch.V
+    // let _ = PersistentVector.updateManyWith badMap changes pv // <- type error
+
+    printfn "--- Test: PersistentVector update APIs: PASSED ---"
+
+// Run the new tests
+testPersistentVectorBoundaries ()
+testUpdateMany ()

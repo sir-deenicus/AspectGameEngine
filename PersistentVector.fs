@@ -1,8 +1,7 @@
 // vector implementation ported from https://github.com/clojure/clojure/blob/master/src/jvm/clojure/lang/Vector.java
 // based on https://github.com/fsprojects/FSharpx.Collections/blob/master/src/FSharpx.Collections/PersistentVector.fs
 // adjustments pair programmed with gemini
-namespace FSharpx.Collections
-open System.Threading 
+namespace FSharpx.Collections  
 
 module Literals =
 
@@ -222,7 +221,7 @@ type internal TransientVector<'T> =
         this // Return self for potential chaining (though typically mutation is void)
 
     // Updates an item at a specific index (mutates in place).  
-    member this.UpdateInPlace(index: int, value: 'TItem) : TransientVector<'T> =
+    member this.UpdateInPlace(index: int, value: 'T) : TransientVector<'T> =
         this.EnsureSessionValidAndRootOwned()
 
         if index >= 0 && index < this.Count then // Valid index for update *only*
@@ -509,11 +508,12 @@ and PersistentVector<'T>(persistentCount: int, persistentShift: int, persistentR
         newParentNodeCopy.Array.[subIndexInParent] <- actualNodeToPlaceInCopy :> obj
         newParentNodeCopy
     
-        member this.Conj(x: 'T) : PersistentVector<'T> =
-        // Check if there's room in the current tail.
-        if count - tailOff < Literals.blockSize then
-            // Room in tail. Create a new tail by appending.
-            let newTail = Array.append tail [| x :> obj |]
+    member this.Conj(x: 'T) : PersistentVector<'T> =
+        let tailLen = count - tailOff
+        if tailLen < Literals.blockSize then
+            let newTail = Array.zeroCreate (tailLen + 1)
+            if tailLen > 0 then Array.blit tail 0 newTail 0 tailLen
+            newTail.[tailLen] <- x :> obj
             PersistentVector<'T>(count + 1, shift, root, newTail)
         else
             // Tail is full. Push the current tail into the tree structure.
@@ -537,17 +537,17 @@ and PersistentVector<'T>(persistentCount: int, persistentShift: int, persistentR
 
     // Internal helper for persistent updates (creates a new path).
     member internal this.DoAssoc(currentLevel: int, nodeToCopy: Node, indexInVector: int, valueToSet: obj) : Node =
-        // Create a new persistent node for the copied path.
         let newPathNode = Node()
-        Array.blit nodeToCopy.Array 0 newPathNode.Array 0 nodeToCopy.Array.Length // Copy content
+        Array.blit nodeToCopy.Array 0 newPathNode.Array 0 nodeToCopy.Array.Length
 
-        if currentLevel = 0 then // Leaf level of the tree
+        if currentLevel = 0 then
             newPathNode.Array.[indexInVector &&& Literals.blockIndexMask] <- valueToSet
-        else // Internal node in the tree
+        else
             let subidx = (indexInVector >>> currentLevel) &&& Literals.blockIndexMask
-            let childNodeFromOriginal = nodeToCopy.Array.[subidx] :?> Node // Assume child exists
-            // Recursively call, result is a new persistent child node.
-            newPathNode.Array.[subidx] <- this.DoAssoc(currentLevel - Literals.blockSizeShift, childNodeFromOriginal, indexInVector, valueToSet) :> obj
+            let child = nodeToCopy.Array.[subidx]
+            if isNull child then
+                failwithf "PersistentVector.DoAssoc: missing child at level %d for index %d (subidx %d)" currentLevel indexInVector subidx
+            newPathNode.Array.[subidx] <- this.DoAssoc(currentLevel - Literals.blockSizeShift, child :?> Node, indexInVector, valueToSet) :> obj
         newPathNode
 
     member this.Update(index: int, value: 'T) : PersistentVector<'T> =
@@ -576,11 +576,12 @@ and PersistentVector<'T>(persistentCount: int, persistentShift: int, persistentR
         // We are finding the path to the *new* last element's block.
         let subidx = ((count - 2) >>> currentLevel) &&& Literals.blockIndexMask // 'count' here needs to be this.Length or the instance's count field
 
-        if currentLevel > Literals.blockSizeShift then // High in the tree
-            // It's safer to check if nodeToModify.Array.[subidx] is null before casting,
-            // though for a pop operation on a valid vector, it should exist.
-            let originalChild = nodeToModify.Array.[subidx] :?> Node 
-            let newChildOption = this.PopTailFromTree(currentLevel - Literals.blockSizeShift, originalChild) // Recursive call returns Node option
+        if currentLevel > Literals.blockSizeShift then
+            let childObj = nodeToModify.Array.[subidx]
+            if isNull childObj then
+                failwithf "PersistentVector.PopTailFromTree: missing child at level %d (subidx %d)" currentLevel subidx
+            let originalChild = childObj :?> Node
+            let newChildOption = this.PopTailFromTree(currentLevel - Literals.blockSizeShift, originalChild)
 
             match newChildOption with
             | None when subidx = 0 -> // Entire branch below became empty, and this was the 0-th child
@@ -759,10 +760,8 @@ and PersistentVector<'T>(persistentCount: int, persistentShift: int, persistentR
         TransientVector<'T>(count, shift, root, Array.copy tail, newOwnerSessionIdRef)
     
 [<RequireQualifiedAccess>]
-module PersistentVector =
-
-    // --- Creation ---
-    // ... (empty, singleton, ofSeq, init - as previously defined) ...
+module PersistentVector = 
+    // --- Creation --- 
     let empty<'T> : PersistentVector<'T> = PersistentVector<'T>.Empty()
     let inline singleton (value: 'T) : PersistentVector<'T> = empty.Conj(value)
     let ofSeq (items: 'T seq) : PersistentVector<'T> =
@@ -779,13 +778,11 @@ module PersistentVector =
             for i = 0 to count - 1 do tv.Conj(initializer i) |> ignore
             tv.Persistent()
 
-    // --- Basic Properties and Queries ---
-    // ... (isEmpty, length - as previously defined) ...
+    // --- Basic Properties and Queries --- 
     let inline isEmpty (vector: PersistentVector<'T>) : bool = vector.IsEmpty
     let inline length (vector: PersistentVector<'T>) : int = vector.Length
 
-    // --- Element Access ---
-    // ... (nth, tryNth, head, tryHead, last, tryLast - as previously defined) ...
+    // --- Element Access --- 
     let inline nth (index: int) (vector: PersistentVector<'T>) : 'T = vector.[index]
     let tryNth (index: int) (vector: PersistentVector<'T>) : 'T option =
         if index >= 0 && index < vector.Length then Some(vector.[index]) else None
@@ -794,8 +791,7 @@ module PersistentVector =
     let inline last (vector: PersistentVector<'T>) : 'T = vector.Last
     let inline tryLast (vector: PersistentVector<'T>) : 'T option = vector.TryLast
 
-    // --- Modification (always returns a new vector) ---
-    // ... (conj, update, tryUpdate, updateAt, tryUpdateAt, initial, tryInitial, unconj, tryUnconj - as previously defined) ...
+    // --- Modification (always returns a new vector) --- 
     let inline conj (item: 'T) (vector: PersistentVector<'T>) : PersistentVector<'T> = vector.Conj(item)
     let inline update (index: int) (value: 'T) (vector: PersistentVector<'T>) : PersistentVector<'T> = vector.Update(index, value)
     let inline tryUpdate (index: int) (value: 'T) (vector: PersistentVector<'T>) : PersistentVector<'T> option = vector.TryUpdate(index, value)
@@ -827,8 +823,7 @@ module PersistentVector =
 
             tv.Persistent()
 
-    // --- Sub-vectors and Reordering ---
-    // ... (take, drop, rev - as previously defined) ...
+    // --- Sub-vectors and Reordering --- 
     let inline take (n: int) (vector: PersistentVector<'T>) : PersistentVector<'T> = vector.Take(n)
     let drop (n: int) (vector: PersistentVector<'T>) : PersistentVector<'T> =
         if n <= 0 then vector
@@ -842,8 +837,7 @@ module PersistentVector =
 
     let inline rev (vector: PersistentVector<'T>) : PersistentVector<'T> = vector.Rev()
 
-    // --- Iteration and Transformation ---
-    // ... (map, mapi, iter, iteri, fold, foldBack, collect, filter, find, tryFind, choose - as previously defined) ...
+    // --- Iteration and Transformation --- 
     let map (mapping: 'T -> 'U) (vector: PersistentVector<'T>) : PersistentVector<'U> =
         if vector.IsEmpty then PersistentVector<'U>.Empty() else
             let tv = TransientVector<'U>()
@@ -873,7 +867,9 @@ module PersistentVector =
             if tv.Count = 0 then empty else tv.Persistent()
     let find (predicate: 'T -> bool) (vector: PersistentVector<'T>) : 'T =
         match vector |> Seq.tryFind predicate with Some v -> v | None -> raise (System.Collections.Generic.KeyNotFoundException())
+    
     let tryFind (predicate: 'T -> bool) (vector: PersistentVector<'T>) : 'T option = Seq.tryFind predicate vector
+    
     let choose (chooser: 'T -> 'U option) (vector: PersistentVector<'T>) : PersistentVector<'U> =
         if vector.IsEmpty then PersistentVector<'U>.Empty() else
             let tv = TransientVector<'U>()
@@ -889,7 +885,7 @@ module PersistentVector =
             let tv = TransientVector<'T>() // Create one transient for the entire operation
             for vectorInstance in vectors do
                 // For each vector in the input sequence, conj its elements to the transient
-                for item in vectorInstance do // vectorInstance is IEnumerable<'T>
+                for item in vectorInstance do  
                     tv.Conj item |> ignore
             
             // If the transient is still empty after processing all vectors (e.g., seq of empty vectors),
@@ -899,14 +895,12 @@ module PersistentVector =
             else
                 tv.Persistent()
 
-    // --- Conversion ---
-    // ... (toList, toArray, toSeq - as previously defined) ...
+    // --- Conversion --- 
     let toList (vector: PersistentVector<'T>) : 'T list = Seq.toList vector
     let toArray (vector: PersistentVector<'T>) : 'T array = Seq.toArray vector
     let inline toSeq (vector: PersistentVector<'T>) : 'T seq = vector :> seq<'T>
 
-    // --- Batch Update ---
-    // ... (updateMany - as previously defined) ...
+    // --- Batch Update --- 
     let updateMany (updates: seq<int * 'TValue>) (vector: PersistentVector<'TValue>) : PersistentVector<'TValue> =
         if Seq.isEmpty updates then vector else
             let transient = vector.AsTransient()
@@ -925,9 +919,7 @@ module PersistentVector =
            let transient = vector.AsTransient()
            for update in updates do transient.UpdateInPlace(map update) |> ignore
            transient.Persistent() 
-
-    // --- Active Patterns ---
-    // ... (Unconj_Last|Empty| - as previously defined) ...
+ 
     let (|Unconj_Last|Empty|) (vector: PersistentVector<'T>) =
         match vector.TryUnconj with Some(i, l) -> Unconj_Last(i, l) | None -> Empty
- 
+

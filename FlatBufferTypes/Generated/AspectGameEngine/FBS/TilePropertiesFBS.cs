@@ -20,13 +20,9 @@ public struct TilePropertiesFBS : IFlatbufferObject
   public TilePropertiesFBS __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
 
   public bool Walkable { get { int o = __p.__offset(4); return o != 0 ? 0!=__p.bb.Get(o + __p.bb_pos) : (bool)false; } }
-  public bool MutateWalkable(bool walkable) { int o = __p.__offset(4); if (o != 0) { __p.bb.Put(o + __p.bb_pos, (byte)(walkable ? 1 : 0)); return true; } else { return false; } }
   public bool IsVoid { get { int o = __p.__offset(6); return o != 0 ? 0!=__p.bb.Get(o + __p.bb_pos) : (bool)false; } }
-  public bool MutateIsVoid(bool is_void) { int o = __p.__offset(6); if (o != 0) { __p.bb.Put(o + __p.bb_pos, (byte)(is_void ? 1 : 0)); return true; } else { return false; } }
   public AspectGameEngine.FBS.TileTypeFBS TileType { get { int o = __p.__offset(8); return o != 0 ? (AspectGameEngine.FBS.TileTypeFBS)__p.bb.GetSbyte(o + __p.bb_pos) : AspectGameEngine.FBS.TileTypeFBS.NullTile; } }
-  public bool MutateTileType(AspectGameEngine.FBS.TileTypeFBS tile_type) { int o = __p.__offset(8); if (o != 0) { __p.bb.PutSbyte(o + __p.bb_pos, (sbyte)tile_type); return true; } else { return false; } }
   public int Health { get { int o = __p.__offset(10); return o != 0 ? __p.bb.GetInt(o + __p.bb_pos) : (int)0; } }
-  public bool MutateHealth(int health) { int o = __p.__offset(10); if (o != 0) { __p.bb.PutInt(o + __p.bb_pos, health); return true; } else { return false; } }
   public string DescriptionKey { get { int o = __p.__offset(12); return o != 0 ? __p.__string(o + __p.bb_pos) : null; } }
 #if ENABLE_SPAN_T
   public Span<byte> GetDescriptionKeyBytes() { return __p.__vector_as_span<byte>(12, 1); }
@@ -35,9 +31,7 @@ public struct TilePropertiesFBS : IFlatbufferObject
 #endif
   public byte[] GetDescriptionKeyArray() { return __p.__vector_as_array<byte>(12); }
   public AspectGameEngine.FBS.BiomeFBS Biome { get { int o = __p.__offset(14); return o != 0 ? (AspectGameEngine.FBS.BiomeFBS)__p.bb.GetSbyte(o + __p.bb_pos) : AspectGameEngine.FBS.BiomeFBS.None; } }
-  public bool MutateBiome(AspectGameEngine.FBS.BiomeFBS biome) { int o = __p.__offset(14); if (o != 0) { __p.bb.PutSbyte(o + __p.bb_pos, (sbyte)biome); return true; } else { return false; } }
   public AspectGameEngine.FBS.TileOpacityFBS TileOpacity { get { int o = __p.__offset(16); return o != 0 ? (AspectGameEngine.FBS.TileOpacityFBS)__p.bb.GetSbyte(o + __p.bb_pos) : AspectGameEngine.FBS.TileOpacityFBS.Opaque; } }
-  public bool MutateTileOpacity(AspectGameEngine.FBS.TileOpacityFBS tile_opacity) { int o = __p.__offset(16); if (o != 0) { __p.bb.PutSbyte(o + __p.bb_pos, (sbyte)tile_opacity); return true; } else { return false; } }
   public AspectGameEngine.FBS.SpriteLocFBS? DestroyedSpriteLoc { get { int o = __p.__offset(18); return o != 0 ? (AspectGameEngine.FBS.SpriteLocFBS?)(new AspectGameEngine.FBS.SpriteLocFBS()).__assign(__p.__indirect(o + __p.bb_pos), __p.bb) : null; } }
   public AspectGameEngine.FBS.SpriteLocFBS? StateChangedSpriteLoc { get { int o = __p.__offset(20); return o != 0 ? (AspectGameEngine.FBS.SpriteLocFBS?)(new AspectGameEngine.FBS.SpriteLocFBS()).__assign(__p.__indirect(o + __p.bb_pos), __p.bb) : null; } }
 
