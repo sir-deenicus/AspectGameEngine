@@ -24,29 +24,39 @@ public struct TileMapFBS : IFlatbufferObject
   public int Height { get { int o = __p.__offset(6); return o != 0 ? __p.bb.GetInt(o + __p.bb_pos) : (int)0; } }
   public AspectGameEngine.FBS.TileFBS? Tiles(int j) { int o = __p.__offset(8); return o != 0 ? (AspectGameEngine.FBS.TileFBS?)(new AspectGameEngine.FBS.TileFBS()).__assign(__p.__indirect(__p.__vector(o) + j * 4), __p.bb) : null; }
   public int TilesLength { get { int o = __p.__offset(8); return o != 0 ? __p.__vector_len(o) : 0; } }
-  public AspectGameEngine.FBS.SpriteLocFBS? VoidSpriteLoc { get { int o = __p.__offset(10); return o != 0 ? (AspectGameEngine.FBS.SpriteLocFBS?)(new AspectGameEngine.FBS.SpriteLocFBS()).__assign(__p.__indirect(o + __p.bb_pos), __p.bb) : null; } }
-  public string MapName { get { int o = __p.__offset(12); return o != 0 ? __p.__string(o + __p.bb_pos) : null; } }
+  public AspectGameEngine.FBS.LayerCellFBS? LayerCells(int j) { int o = __p.__offset(10); return o != 0 ? (AspectGameEngine.FBS.LayerCellFBS?)(new AspectGameEngine.FBS.LayerCellFBS()).__assign(__p.__indirect(__p.__vector(o) + j * 4), __p.bb) : null; }
+  public int LayerCellsLength { get { int o = __p.__offset(10); return o != 0 ? __p.__vector_len(o) : 0; } }
+  public AspectGameEngine.FBS.SpriteLocFBS? VoidSpriteLoc { get { int o = __p.__offset(12); return o != 0 ? (AspectGameEngine.FBS.SpriteLocFBS?)(new AspectGameEngine.FBS.SpriteLocFBS()).__assign(__p.__indirect(o + __p.bb_pos), __p.bb) : null; } }
+  public string MapName { get { int o = __p.__offset(14); return o != 0 ? __p.__string(o + __p.bb_pos) : null; } }
 #if ENABLE_SPAN_T
-  public Span<byte> GetMapNameBytes() { return __p.__vector_as_span<byte>(12, 1); }
+  public Span<byte> GetMapNameBytes() { return __p.__vector_as_span<byte>(14, 1); }
 #else
-  public ArraySegment<byte>? GetMapNameBytes() { return __p.__vector_as_arraysegment(12); }
+  public ArraySegment<byte>? GetMapNameBytes() { return __p.__vector_as_arraysegment(14); }
 #endif
-  public byte[] GetMapNameArray() { return __p.__vector_as_array<byte>(12); }
-  public AspectGameEngine.FBS.MapTypeFBS MapType { get { int o = __p.__offset(14); return o != 0 ? (AspectGameEngine.FBS.MapTypeFBS)__p.bb.GetSbyte(o + __p.bb_pos) : AspectGameEngine.FBS.MapTypeFBS.Room; } }
-  public AspectGameEngine.FBS.TilePropertiesSetFBS? TilePropertiesSet { get { int o = __p.__offset(16); return o != 0 ? (AspectGameEngine.FBS.TilePropertiesSetFBS?)(new AspectGameEngine.FBS.TilePropertiesSetFBS()).__assign(__p.__indirect(o + __p.bb_pos), __p.bb) : null; } }
+  public byte[] GetMapNameArray() { return __p.__vector_as_array<byte>(14); }
+  public AspectGameEngine.FBS.MapTypeFBS MapType { get { int o = __p.__offset(16); return o != 0 ? (AspectGameEngine.FBS.MapTypeFBS)__p.bb.GetSbyte(o + __p.bb_pos) : AspectGameEngine.FBS.MapTypeFBS.Room; } }
+  public string TilesetName { get { int o = __p.__offset(18); return o != 0 ? __p.__string(o + __p.bb_pos) : null; } }
+#if ENABLE_SPAN_T
+  public Span<byte> GetTilesetNameBytes() { return __p.__vector_as_span<byte>(18, 1); }
+#else
+  public ArraySegment<byte>? GetTilesetNameBytes() { return __p.__vector_as_arraysegment(18); }
+#endif
+  public byte[] GetTilesetNameArray() { return __p.__vector_as_array<byte>(18); }
 
   public static Offset<AspectGameEngine.FBS.TileMapFBS> CreateTileMapFBS(FlatBufferBuilder builder,
       int width = 0,
       int height = 0,
       VectorOffset tilesOffset = default(VectorOffset),
+      VectorOffset layer_cellsOffset = default(VectorOffset),
       Offset<AspectGameEngine.FBS.SpriteLocFBS> void_sprite_locOffset = default(Offset<AspectGameEngine.FBS.SpriteLocFBS>),
       StringOffset map_nameOffset = default(StringOffset),
       AspectGameEngine.FBS.MapTypeFBS map_type = AspectGameEngine.FBS.MapTypeFBS.Room,
-      Offset<AspectGameEngine.FBS.TilePropertiesSetFBS> tile_properties_setOffset = default(Offset<AspectGameEngine.FBS.TilePropertiesSetFBS>)) {
-    builder.StartTable(7);
-    TileMapFBS.AddTilePropertiesSet(builder, tile_properties_setOffset);
+      StringOffset tileset_nameOffset = default(StringOffset)) {
+    builder.StartTable(8);
+    TileMapFBS.AddTilesetName(builder, tileset_nameOffset);
     TileMapFBS.AddMapName(builder, map_nameOffset);
     TileMapFBS.AddVoidSpriteLoc(builder, void_sprite_locOffset);
+    TileMapFBS.AddLayerCells(builder, layer_cellsOffset);
     TileMapFBS.AddTiles(builder, tilesOffset);
     TileMapFBS.AddHeight(builder, height);
     TileMapFBS.AddWidth(builder, width);
@@ -54,7 +64,7 @@ public struct TileMapFBS : IFlatbufferObject
     return TileMapFBS.EndTileMapFBS(builder);
   }
 
-  public static void StartTileMapFBS(FlatBufferBuilder builder) { builder.StartTable(7); }
+  public static void StartTileMapFBS(FlatBufferBuilder builder) { builder.StartTable(8); }
   public static void AddWidth(FlatBufferBuilder builder, int width) { builder.AddInt(0, width, 0); }
   public static void AddHeight(FlatBufferBuilder builder, int height) { builder.AddInt(1, height, 0); }
   public static void AddTiles(FlatBufferBuilder builder, VectorOffset tilesOffset) { builder.AddOffset(2, tilesOffset.Value, 0); }
@@ -63,16 +73,23 @@ public struct TileMapFBS : IFlatbufferObject
   public static VectorOffset CreateTilesVectorBlock(FlatBufferBuilder builder, ArraySegment<Offset<AspectGameEngine.FBS.TileFBS>> data) { builder.StartVector(4, data.Count, 4); builder.Add(data); return builder.EndVector(); }
   public static VectorOffset CreateTilesVectorBlock(FlatBufferBuilder builder, IntPtr dataPtr, int sizeInBytes) { builder.StartVector(1, sizeInBytes, 1); builder.Add<Offset<AspectGameEngine.FBS.TileFBS>>(dataPtr, sizeInBytes); return builder.EndVector(); }
   public static void StartTilesVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(4, numElems, 4); }
-  public static void AddVoidSpriteLoc(FlatBufferBuilder builder, Offset<AspectGameEngine.FBS.SpriteLocFBS> voidSpriteLocOffset) { builder.AddOffset(3, voidSpriteLocOffset.Value, 0); }
-  public static void AddMapName(FlatBufferBuilder builder, StringOffset mapNameOffset) { builder.AddOffset(4, mapNameOffset.Value, 0); }
-  public static void AddMapType(FlatBufferBuilder builder, AspectGameEngine.FBS.MapTypeFBS mapType) { builder.AddSbyte(5, (sbyte)mapType, 0); }
-  public static void AddTilePropertiesSet(FlatBufferBuilder builder, Offset<AspectGameEngine.FBS.TilePropertiesSetFBS> tilePropertiesSetOffset) { builder.AddOffset(6, tilePropertiesSetOffset.Value, 0); }
+  public static void AddLayerCells(FlatBufferBuilder builder, VectorOffset layerCellsOffset) { builder.AddOffset(3, layerCellsOffset.Value, 0); }
+  public static VectorOffset CreateLayerCellsVector(FlatBufferBuilder builder, Offset<AspectGameEngine.FBS.LayerCellFBS>[] data) { builder.StartVector(4, data.Length, 4); for (int i = data.Length - 1; i >= 0; i--) builder.AddOffset(data[i].Value); return builder.EndVector(); }
+  public static VectorOffset CreateLayerCellsVectorBlock(FlatBufferBuilder builder, Offset<AspectGameEngine.FBS.LayerCellFBS>[] data) { builder.StartVector(4, data.Length, 4); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateLayerCellsVectorBlock(FlatBufferBuilder builder, ArraySegment<Offset<AspectGameEngine.FBS.LayerCellFBS>> data) { builder.StartVector(4, data.Count, 4); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateLayerCellsVectorBlock(FlatBufferBuilder builder, IntPtr dataPtr, int sizeInBytes) { builder.StartVector(1, sizeInBytes, 1); builder.Add<Offset<AspectGameEngine.FBS.LayerCellFBS>>(dataPtr, sizeInBytes); return builder.EndVector(); }
+  public static void StartLayerCellsVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(4, numElems, 4); }
+  public static void AddVoidSpriteLoc(FlatBufferBuilder builder, Offset<AspectGameEngine.FBS.SpriteLocFBS> voidSpriteLocOffset) { builder.AddOffset(4, voidSpriteLocOffset.Value, 0); }
+  public static void AddMapName(FlatBufferBuilder builder, StringOffset mapNameOffset) { builder.AddOffset(5, mapNameOffset.Value, 0); }
+  public static void AddMapType(FlatBufferBuilder builder, AspectGameEngine.FBS.MapTypeFBS mapType) { builder.AddSbyte(6, (sbyte)mapType, 0); }
+  public static void AddTilesetName(FlatBufferBuilder builder, StringOffset tilesetNameOffset) { builder.AddOffset(7, tilesetNameOffset.Value, 0); }
   public static Offset<AspectGameEngine.FBS.TileMapFBS> EndTileMapFBS(FlatBufferBuilder builder) {
     int o = builder.EndTable();
     builder.Required(o, 8);  // tiles
-    builder.Required(o, 10);  // void_sprite_loc
-    builder.Required(o, 12);  // map_name
-    builder.Required(o, 16);  // tile_properties_set
+    builder.Required(o, 10);  // layer_cells
+    builder.Required(o, 12);  // void_sprite_loc
+    builder.Required(o, 14);  // map_name
+    builder.Required(o, 18);  // tileset_name
     return new Offset<AspectGameEngine.FBS.TileMapFBS>(o);
   }
   public static void FinishTileMapFBSBuffer(FlatBufferBuilder builder, Offset<AspectGameEngine.FBS.TileMapFBS> offset) { builder.Finish(offset.Value); }
@@ -88,10 +105,11 @@ static public class TileMapFBSVerify
       && verifier.VerifyField(tablePos, 4 /*Width*/, 4 /*int*/, 4, false)
       && verifier.VerifyField(tablePos, 6 /*Height*/, 4 /*int*/, 4, false)
       && verifier.VerifyVectorOfTables(tablePos, 8 /*Tiles*/, AspectGameEngine.FBS.TileFBSVerify.Verify, true)
-      && verifier.VerifyTable(tablePos, 10 /*VoidSpriteLoc*/, AspectGameEngine.FBS.SpriteLocFBSVerify.Verify, true)
-      && verifier.VerifyString(tablePos, 12 /*MapName*/, true)
-      && verifier.VerifyField(tablePos, 14 /*MapType*/, 1 /*AspectGameEngine.FBS.MapTypeFBS*/, 1, false)
-      && verifier.VerifyTable(tablePos, 16 /*TilePropertiesSet*/, AspectGameEngine.FBS.TilePropertiesSetFBSVerify.Verify, true)
+      && verifier.VerifyVectorOfTables(tablePos, 10 /*LayerCells*/, AspectGameEngine.FBS.LayerCellFBSVerify.Verify, true)
+      && verifier.VerifyTable(tablePos, 12 /*VoidSpriteLoc*/, AspectGameEngine.FBS.SpriteLocFBSVerify.Verify, true)
+      && verifier.VerifyString(tablePos, 14 /*MapName*/, true)
+      && verifier.VerifyField(tablePos, 16 /*MapType*/, 1 /*AspectGameEngine.FBS.MapTypeFBS*/, 1, false)
+      && verifier.VerifyString(tablePos, 18 /*TilesetName*/, true)
       && verifier.VerifyTableEnd(tablePos);
   }
 }

@@ -35,6 +35,7 @@ module TilePropertiesSerializer =
         | TileType.Void -> TileTypeFBS.Void
         | TileType.Wall -> TileTypeFBS.Wall
         | TileType.Floor -> TileTypeFBS.Floor
+        | TileType.Ground -> TileTypeFBS.Ground
         | TileType.Door -> TileTypeFBS.Door
         | TileType.Lever -> TileTypeFBS.Lever
         | TileType.Stairs -> TileTypeFBS.Stairs
@@ -49,6 +50,7 @@ module TilePropertiesSerializer =
         | TileTypeFBS.Void -> TileType.Void
         | TileTypeFBS.Wall -> TileType.Wall
         | TileTypeFBS.Floor -> TileType.Floor
+        | TileTypeFBS.Ground -> TileType.Ground
         | TileTypeFBS.Door -> TileType.Door
         | TileTypeFBS.Lever -> TileType.Lever
         | TileTypeFBS.Stairs -> TileType.Stairs
@@ -61,51 +63,46 @@ module TilePropertiesSerializer =
         match opacity with
         | TileOpacity.Opaque -> TileOpacityFBS.Opaque
         | TileOpacity.Transparent -> TileOpacityFBS.Transparent
+        | TileOpacity.Air -> TileOpacityFBS.Air
         | _ -> TileOpacityFBS.Opaque
 
     let internal fromTileOpacityFBS (opacityFBS: TileOpacityFBS) : TileOpacity =
         match opacityFBS with
         | TileOpacityFBS.Opaque -> TileOpacity.Opaque
         | TileOpacityFBS.Transparent -> TileOpacity.Transparent
+        | TileOpacityFBS.Air -> TileOpacity.Air
         | _ -> TileOpacity.Opaque
 
-    let private createSpriteLocFBS (builder: Google.FlatBuffers.FlatBufferBuilder) (spriteLoc: SpriteLoc) =
+    let private createSpriteLocFBS (builder: FlatBufferBuilder) (spriteLoc: SpriteLoc) =
         SpriteLocFBS.CreateSpriteLocFBS(builder, spriteLoc.AtlasIndex, spriteLoc.Row, spriteLoc.Column)
 
     let private createSpriteLoc (spriteLocFBS: SpriteLocFBS) : SpriteLoc =
         SpriteLoc(spriteLocFBS.AtlasIndex, spriteLocFBS.Row, spriteLocFBS.Column)
 
-    let serialize (tileProps: TilePropertiesImmutableReference) : byte[] =
-        // Estimate buffer size based on content
-        let entryCount = tileProps.Properties.Count
-
-        let estimatedSize =
-            if entryCount = 0 then
-                256
-            else
-                // Rough estimate: 200 bytes per entry + base overhead
-                // This accounts for strings, structs, and table overhead
-                max 1024 (entryCount * 200 + 512)
-
+    let serialize (tileProps: TilePropertiesReference) : byte[] =
+        let entryCount = tileProps.GetAllProperties() |> Seq.length
+        let estimatedSize = if entryCount = 0 then 256 else max 1024 (entryCount * 200 + 512)
         let builder = FlatBufferBuilder(estimatedSize)
 
-        // Create tile set name string
-        let tileSetNameOffset = builder.CreateString(tileProps.GetTileSetName())
+        let tileSetNameOffset = builder.CreateString(tileProps.TileSetName)
 
         let entries =
-            [| for KeyValue(spriteLoc, properties) in tileProps.Properties do
+            [| for KeyValue(spriteLoc, properties) in tileProps.GetAllProperties() do
                    let descKeyOffset = builder.CreateString(properties.DescriptionKey)
-                   //Create destroyed sprite loc (if exists)
-                   let destroyedSpriteLocOffset =
-                       Option.map (createSpriteLocFBS builder) properties.DestroyedSpriteLoc
+                   let destroyedSpriteLocOffset = Option.map (createSpriteLocFBS builder) properties.DestroyedSpriteLoc
+                   let nextStateSpriteLocOffset = Option.map (createSpriteLocFBS builder) properties.NextStateSpriteLoc
 
-                   // Create next state sprite loc (if exists)
-                   let nextStateSpriteLocOffset =
-                       Option.map (createSpriteLocFBS builder) properties.NextStateSpriteLoc
+                   // Serialize ComplexState union if present
+                   let complexStateType, complexStateOffset =
+                       match properties.ComplexState with
+                       | Some (ComplexState.ClosedDoor state) ->
+                           let offset = ClosedDoorStateFBS.CreateClosedDoorStateFBS(builder, state.Locked)
+                           (ComplexStateFBS.ClosedDoorStateFBS, offset.Value)
+                       | None -> (ComplexStateFBS.NONE, 0)
 
-                   // Start building TilePropertiesFBS (C# generated class)
                    TilePropertiesFBS.StartTilePropertiesFBS(builder)
-                   TilePropertiesFBS.AddWalkable(builder, properties.Walkable) 
+                   TilePropertiesFBS.AddWalkable(builder, properties.Walkable)
+                   TilePropertiesFBS.AddInteractable(builder, properties.Interactable)
                    TilePropertiesFBS.AddTileType(builder, toTileTypeFBS properties.TileType)
                    TilePropertiesFBS.AddHealth(builder, properties.Health)
                    TilePropertiesFBS.AddDescriptionKey(builder, descKeyOffset)
@@ -114,68 +111,67 @@ module TilePropertiesSerializer =
 
                    if destroyedSpriteLocOffset.IsSome then
                        TilePropertiesFBS.AddDestroyedSpriteLoc(builder, destroyedSpriteLocOffset.Value)
-
                    if nextStateSpriteLocOffset.IsSome then
                        TilePropertiesFBS.AddNextStateSpriteLoc(builder, nextStateSpriteLocOffset.Value)
 
-                   let tilePropsOffset = TilePropertiesFBS.EndTilePropertiesFBS(builder)
+                   if complexStateType <> ComplexStateFBS.NONE then
+                       TilePropertiesFBS.AddComplexStateType(builder, complexStateType)
+                       TilePropertiesFBS.AddComplexState(builder, complexStateOffset)
 
-                   // Create the key (SpriteLoc)
+                   let tilePropsOffset = TilePropertiesFBS.EndTilePropertiesFBS(builder)
                    let keyFBS = createSpriteLocFBS builder spriteLoc
 
-                   // Create TilePropertiesEntryFBS (C# generated class)
                    TilePropertiesEntryFBS.StartTilePropertiesEntryFBS(builder)
                    TilePropertiesEntryFBS.AddKey(builder, keyFBS)
                    TilePropertiesEntryFBS.AddValue(builder, tilePropsOffset)
                    yield TilePropertiesEntryFBS.EndTilePropertiesEntryFBS(builder) |]
 
-        // Create vector of entries
         let entriesVector = TilePropertiesSetFBS.CreateEntriesVector(builder, entries)
 
-        // Create root TilePropertiesSetFBS (C# generated class)
         TilePropertiesSetFBS.StartTilePropertiesSetFBS(builder)
         TilePropertiesSetFBS.AddTileSetName(builder, tileSetNameOffset)
         TilePropertiesSetFBS.AddEntries(builder, entriesVector)
         let rootOffset = TilePropertiesSetFBS.EndTilePropertiesSetFBS(builder)
 
-        // Finish and return bytes
         builder.Finish(rootOffset.Value)
         builder.SizedByteArray()
 
-    let deserialize (bytes: byte[]) : TilePropertiesImmutableReference =
+    let deserialize (bytes: byte[]) : TilePropertiesReference =
         let buffer = ByteBuffer(bytes)
         let tilePropsSet = TilePropertiesSetFBS.GetRootAsTilePropertiesSetFBS(buffer)
-
-        let tileSetName = tilePropsSet.TileSetName
-        let mutable result = TilePropertiesImmutableReference.New(tileSetName)
+        let result = TilePropertiesReference(tilePropsSet.TileSetName)
 
         for i in 0 .. tilePropsSet.EntriesLength - 1 do
-            let entry = tilePropsSet.Entries(i)
-
-            match Option.ofNullable entry with
+            match Option.ofNullable (tilePropsSet.Entries(i)) with
             | None -> ()
             | Some entry ->
                 match Option.ofNullable entry.Key, Option.ofNullable entry.Value with
                 | Some keyFBS, Some valueFBS ->
                     let spriteLoc = createSpriteLoc keyFBS
+                    let destroyedSpriteLoc = Option.ofNullable valueFBS.DestroyedSpriteLoc |> Option.map createSpriteLoc
+                    let nextStateSpriteLoc = Option.ofNullable valueFBS.NextStateSpriteLoc |> Option.map createSpriteLoc
 
-                    let destroyedSpriteLoc =
-                        Option.ofNullable valueFBS.DestroyedSpriteLoc |> Option.map createSpriteLoc
-
-                    let nextStateSpriteLoc =
-                        Option.ofNullable valueFBS.NextStateSpriteLoc |> Option.map createSpriteLoc
+                    // Deserialize ComplexState union
+                    let complexState =
+                        match valueFBS.ComplexStateType with
+                        | ComplexStateFBS.ClosedDoorStateFBS ->
+                            match Option.ofNullable (valueFBS.ComplexState<ClosedDoorStateFBS>()) with
+                            | Some state -> Some (ComplexState.ClosedDoor { Locked = state.Locked })
+                            | None -> None
+                        | _ -> None
 
                     let tileProperties =
-                        { Walkable = valueFBS.Walkable 
+                        { Walkable = valueFBS.Walkable
+                          Interactable = valueFBS.Interactable
                           TileType = fromTileTypeFBS valueFBS.TileType
                           Health = valueFBS.Health
                           DescriptionKey = valueFBS.DescriptionKey
                           Biome = fromBiomeFBS valueFBS.Biome
                           TileOpacity = fromTileOpacityFBS valueFBS.TileOpacity
                           DestroyedSpriteLoc = destroyedSpriteLoc
-                          NextStateSpriteLoc = nextStateSpriteLoc }
+                          NextStateSpriteLoc = nextStateSpriteLoc
+                          ComplexState = complexState }
 
-                    result <- result.Set(spriteLoc, tileProperties)
+                    result.[spriteLoc] <- tileProperties
                 | _ -> ()
-
         result

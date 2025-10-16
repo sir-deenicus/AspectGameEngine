@@ -15,10 +15,12 @@
     <Compile Include="PersistentVector.fs" />
     <Compile Include="Types.fs" />
     <Compile Include="Localization.fs" />
+    <Compile Include="LayerGrid.fs" />
     <Compile Include="Maps.fs" />
     <Compile Include="MapEditor.fs" />
     <Compile Include="TilePropertiesSerializer.fs" />
     <Compile Include="MapTypeSerializer.fs" />
+    <Compile Include="ChunkOcclusionManager.fs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Google.FlatBuffers" Version="25.2.10" />

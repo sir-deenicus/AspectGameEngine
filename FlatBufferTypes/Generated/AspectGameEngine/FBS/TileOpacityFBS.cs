@@ -9,6 +9,7 @@ public enum TileOpacityFBS : sbyte
 {
   Opaque = 0,
   Transparent = 1,
+  Air = 2,
 };
 
 

@@ -3,7 +3,7 @@ namespace AspectGameEngine.FBS;
 
 // Enums
 // FlatBuffers enums can have an underlying type, default is short (int16).
-// Let's use byte for compactness  
+// Use byte for compactness.
 enum BiomeFBS : byte {
     None = 0,
     Forest = 1,
@@ -20,17 +20,19 @@ enum TileTypeFBS : byte {
     Void = 1,
     Wall = 2,
     Floor = 3,
-    Door = 4,
-    Lever = 5,
-    Stairs = 6,
-    Water = 7,
-    Lava = 8,
-    CityOrTown = 9
+    Ground = 4,
+    Door = 5,
+    Lever = 6,
+    Stairs = 7,
+    Water = 8,
+    Lava = 9,
+    CityOrTown = 10
 }
 
 enum TileOpacityFBS : byte {
     Opaque = 0,
-    Transparent = 1
+    Transparent = 1,
+    Air = 2
 }
  
 table SpriteLocFBS {
@@ -39,34 +41,39 @@ table SpriteLocFBS {
     column:int;
 }
 
-// TileProperties will likely evolve, so a 'table' is more robust.
-table TilePropertiesFBS {
-    walkable:bool;
-    tile_type:TileTypeFBS; // Using the FBS enum
-    health:int;
-    description_key:string; // Reference to a localization key
-    biome:BiomeFBS;         // Using the FBS enum
-    tile_opacity:TileOpacityFBS; // Using the FBS enum
-    
-    // For optional SpriteLocs, we can make the field itself optional (FlatBuffers tables have optional fields by default)
-    // or use a wrapper table if we need to distinguish "not present" from "present but all default values".
-    // Let's make them optional fields on TilePropertiesFBS directly.
-    // The generated code will have 'HasFieldName()' and 'FieldNameOrNull()' or similar.
-    destroyed_sprite_loc:SpriteLocFBS; // This field might be null if not set
-    next_state_sprite_loc:SpriteLocFBS; // This field might be null if not set
+// Complex tile states (extensible via union)
+table ClosedDoorStateFBS { 
+    locked:bool;
 }
 
-// To represent a Key-Value pair for our Map<SpriteLoc, TileProperties>
+union ComplexStateFBS {
+    ClosedDoorStateFBS
+}
+
+// TileProperties (per tileset entry)
+table TilePropertiesFBS {
+    walkable:bool;
+    interactable:bool;                 
+    tile_type:TileTypeFBS;
+    health:int;
+    description_key:string;            // Reference to a localization key
+    biome:BiomeFBS;                    // Using the FBS enum
+    tile_opacity:TileOpacityFBS;       // Using the FBS enum    
+    destroyed_sprite_loc:SpriteLocFBS; // Optional SpriteLocs (may be null if not set)
+    next_state_sprite_loc:SpriteLocFBS;
+    complex_state:ComplexStateFBS;     // Optional union; absent => NONE
+}
+
+// Key-Value pair for tileset: SpriteLoc -> TileProperties
 table TilePropertiesEntryFBS { 
     key:SpriteLocFBS;
     value:TilePropertiesFBS;
 }
 
-// Root table for saving the entire TilePropertiesImmutableReference content
+// Root tileset asset (saved/loaded separately from maps)
 table TilePropertiesSetFBS {
     tile_set_name:string (required);
     entries:[TilePropertiesEntryFBS]; // Vector of our key-value pairs
 }
 
-// Define the root type for this schema file
 root_type TilePropertiesSetFBS;

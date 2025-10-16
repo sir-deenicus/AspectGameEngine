@@ -16,14 +16,22 @@ table TileFBS {
     is_occupied:bool;
 }
 
+// Layer grid per tile (parallel to tiles)
+table LayerCellFBS {
+    items:[int];        // Item IDs, bottom->top (newest last)
+    fixture_id:int = -1; // -1 => None
+    actor_id:int = -1;   // -1 => None
+}
+
 table TileMapFBS {
     width:int;
     height:int;
-    tiles:[TileFBS] (required); // Flattened array (width * height elements)
+    tiles:[TileFBS] (required);          // Flattened array (width * height)
+    layer_cells:[LayerCellFBS] (required); // Flattened array (width * height), parallel to tiles
     void_sprite_loc:SpriteLocFBS (required);
     map_name:string (required);
     map_type:MapTypeFBS;
-    tile_properties_set:TilePropertiesSetFBS (required);
+    tileset_name:string (required);      // reference to external tileset asset
 }
 
 root_type TileMapFBS;
