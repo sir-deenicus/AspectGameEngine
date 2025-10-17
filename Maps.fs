@@ -148,17 +148,31 @@ type TileMap =
         if x < 0 || x >= this.Width || y < 0 || y >= this.Height then None
         else (this.GetLayerCell(x, y)).FixtureId
  
-        member this.GetActor(x: int, y: int) =
-            this.GetLayerCell(x, y).ActorId
-    
-        member this.GetFixture(x: int, y: int) =
-            this.GetLayerCell(x, y).FixtureId 
-    
-        member this.MoveFixture(x: int, y: int, x2: int, y2: int) =
-            let fid = this.GetLayerCell(x, y).FixtureId
-            if not EntityRegistry.FixtureProps[fid.Value].BlocksMovement then 
-                this.GetLayerCell(x, y).FixtureId <- None
-                this.GetLayerCell(x2, y2).FixtureId <- fid 
+    member this.GetActor(x: int, y: int) =
+        this.GetLayerCell(x, y).ActorId
+
+    member this.GetFixture(x: int, y: int) =
+        this.GetLayerCell(x, y).FixtureId 
+
+    member this.MoveFixture(x: int, y: int, x2: int, y2: int) =
+        let fid = this.GetLayerCell(x, y).FixtureId
+        if not EntityRegistry.FixtureProps[fid.Value].BlocksMovement then 
+            this.GetLayerCell(x, y).FixtureId <- None
+            this.GetLayerCell(x2, y2).FixtureId <- fid 
+
+    member this.SetDecal(x: int, y: int, decalId: int) =
+        if x >= 0 && x < this.Width && y >= 0 && y < this.Height then
+            let cell = this.GetLayerCell(x, y)
+            cell.DecalId <- Some decalId
+
+    member this.ClearDecal(x: int, y: int) =
+        if x >= 0 && x < this.Width && y >= 0 && y < this.Height then
+            let cell = this.GetLayerCell(x, y)
+            cell.DecalId <- None
+
+    member this.GetDecal(x: int, y: int) =
+        if x < 0 || x >= this.Width || y < 0 || y >= this.Height then None
+        else (this.GetLayerCell(x, y)).DecalId
 
     member this.IsWalkable(x: int, y: int) : bool =
         if x < 0 || x >= this.Width || y < 0 || y >= this.Height then false

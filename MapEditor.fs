@@ -61,6 +61,9 @@ type EditorTileMap =
     member this.GetFixture(x, y) =
         this.GetLayerCell(x, y).FixtureId
 
+    member this.GetDecal(x, y) =
+        this.GetLayerCell(x, y).DecalId
+
     member this.SetActor(x, y, actorId) =
         let index = this.GetFlatIndex(x, y)
         let cell = this.LayerCells.[index]
@@ -84,6 +87,18 @@ type EditorTileMap =
         let cell = this.LayerCells.[index]
         { this with
             LayerCells = this.LayerCells.Update(index, { cell with FixtureId = None }) }
+
+    member this.SetDecal(x, y, decalId) =
+        let index = this.GetFlatIndex(x, y)
+        let cell = this.LayerCells.[index]
+        { this with
+            LayerCells = this.LayerCells.Update(index, { cell with DecalId = Some decalId }) }
+
+    member this.ClearDecal(x, y) =
+        let index = this.GetFlatIndex(x, y)
+        let cell = this.LayerCells.[index]
+        { this with
+            LayerCells = this.LayerCells.Update(index, { cell with DecalId = None }) }
 
     member this.UpdateLayerCell(x: int, y: int, cell: EditorLayerCell) =
         let index = this.GetFlatIndex(x, y)
@@ -257,6 +272,7 @@ type EditorTileMap =
             |> Array.map (fun cell -> 
                 { Items = List.ofSeq cell.Items
                   FixtureId = cell.FixtureId
+                  DecalId = cell.DecalId
                   ActorId = cell.ActorId })
             |> PersistentVector.ofSeq
         
@@ -279,6 +295,7 @@ type EditorTileMap =
             |> Array.map (fun cell ->
                 { LayerCell.Items = ResizeArray(cell.Items)
                   FixtureId = cell.FixtureId
+                  DecalId = cell.DecalId
                   ActorId = cell.ActorId })
         
         TileMap(
@@ -353,6 +370,14 @@ type EditorHistory =
 
     member this.ClearFixture(x:int, y:int) =
         let current = this.CurrentTileMap.ClearFixture(x, y)
+        this.AddTileMap current
+
+    member this.SetDecal(x:int, y:int, decalId:int) =
+        let current = this.CurrentTileMap.SetDecal(x, y, decalId)
+        this.AddTileMap current
+
+    member this.ClearDecal(x:int, y:int) =
+        let current = this.CurrentTileMap.ClearDecal(x, y)
         this.AddTileMap current
 
     member this.AddItem(x:int, y:int, itemId:int) =

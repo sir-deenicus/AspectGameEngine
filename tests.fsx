@@ -30,6 +30,7 @@ let ModifiedSprite = SpriteLoc(1, 1, 1)
 let TestFixtureId = 1001
 let TestActorId = 2002
 let TestItemId = 3003
+let TestDecalId = 4004
 
 // NEW: Helper to create an expected empty LayerCell
 let makeExpectedEmptyLayerCell () =
@@ -54,8 +55,10 @@ let testResizeWidthOnly () =
     let mapWithActor = mapWithFixture.SetActor(0, 1, TestActorId)
     // NEW: Add an item to (1,1)
     let mapWithItem = mapWithActor.AddItem(1, 1, TestItemId)
+    // NEW: Add a decal to (1,1)
+    let mapWithDecal = mapWithItem.SetDecal(1, 1, TestDecalId)
 
-    let resizedMap = mapWithItem.Resize(3, 2)
+    let resizedMap = mapWithDecal.Resize(3, 2)
     let expectedEmptyTileInResized = makeExpectedEmptyTile resizedMap
     let expectedEmptyLayerCell = makeExpectedEmptyLayerCell ()
 
@@ -70,6 +73,7 @@ let testResizeWidthOnly () =
     assertEquals (Some TestFixtureId) (resizedMap.GetFixture(1,0)) "Fixture (1,0) preserved"
     assertEquals (Some TestActorId) (resizedMap.GetActor(0,1)) "Actor (0,1) preserved"
     assertTrue (resizedMap.GetLayerCell(1,1).Items |> List.exists ((=) TestItemId)) "Item (1,1) preserved"
+    assertEquals (Some TestDecalId) (resizedMap.GetDecal(1,1)) "Decal (1,1) preserved"
     assertEquals expectedEmptyLayerCell (resizedMap.GetLayerCell(2,0)) "New LayerCell (2,0) is empty"
     assertEquals expectedEmptyLayerCell (resizedMap.GetLayerCell(2,1)) "New LayerCell (2,1) is empty"
 
@@ -93,8 +97,10 @@ let testResizeHeightOnly () =
     let mapWithActor = mapWithFixture.SetActor(1, 0, TestActorId)
     // NEW: Add an item to (0,0)
     let mapWithItem = mapWithActor.AddItem(0, 0, TestItemId)
+    // NEW: Add a decal to (0,0)
+    let mapWithDecal = mapWithItem.SetDecal(0, 0, TestDecalId)
 
-    let resizedMap = mapWithItem.Resize(2, 3)
+    let resizedMap = mapWithDecal.Resize(2, 3)
     let expectedEmptyTileInResized = makeExpectedEmptyTile resizedMap
     let expectedEmptyLayerCell = makeExpectedEmptyLayerCell ()
 
@@ -107,6 +113,7 @@ let testResizeHeightOnly () =
     assertEquals (Some TestFixtureId) (resizedMap.GetFixture(0,1)) "Fixture (0,1) preserved"
     assertEquals (Some TestActorId) (resizedMap.GetActor(1,0)) "Actor (1,0) preserved"
     assertTrue (resizedMap.GetLayerCell(0,0).Items |> Seq.contains(TestItemId)) "Item (0,0) preserved"
+    assertEquals (Some TestDecalId) (resizedMap.GetDecal(0,0)) "Decal (0,0) preserved"
     assertEquals expectedEmptyLayerCell (resizedMap.GetLayerCell(0,2)) "New LayerCell (0,2) is empty"
     assertEquals expectedEmptyLayerCell (resizedMap.GetLayerCell(1,2)) "New LayerCell (1,2) is empty"
 
@@ -128,8 +135,10 @@ let testResizeWidthAndHeight () =
     let mapWithFixture = mapWithModifications.SetFixture(1, 0, TestFixtureId)
     // NEW: Add an actor to (0,1) - this will be truncated
     let mapWithActor = mapWithFixture.SetActor(0, 1, TestActorId)
+    // NEW: Add a decal to (1,0)
+    let mapWithDecal = mapWithActor.SetDecal(1, 0, TestDecalId)
 
-    let resizedMap = mapWithActor.Resize(3, 1)
+    let resizedMap = mapWithDecal.Resize(3, 1)
     let expectedEmptyTileInResized = makeExpectedEmptyTile resizedMap
     let expectedEmptyLayerCell = makeExpectedEmptyLayerCell ()
 
@@ -141,6 +150,7 @@ let testResizeWidthAndHeight () =
     // NEW: Verify LayerCells
     assertEquals None (resizedMap.GetActor(0,0)) "Actor (0,0) should be None"
     assertEquals (Some TestFixtureId) (resizedMap.GetFixture(1,0)) "Fixture (1,0) preserved"
+    assertEquals (Some TestDecalId) (resizedMap.GetDecal(1,0)) "Decal (1,0) preserved"
     assertEquals expectedEmptyLayerCell (resizedMap.GetLayerCell(2,0)) "New LayerCell (2,0) is empty"
     
     // Check out-of-bounds access
@@ -176,8 +186,10 @@ let testResizeWidthAndHeight2 () =
     let mapWithActor = mapWithFixture.SetActor(0, 1, TestActorId)
     // NEW: Add an item to (1,0)
     let mapWithItem = mapWithActor.AddItem(1, 0, TestItemId)
+    // NEW: Add a decal to (1,0)
+    let mapWithDecal = mapWithItem.SetDecal(1, 0, TestDecalId)
 
-    let resizedMap = mapWithItem.Resize(3, 4)
+    let resizedMap = mapWithDecal.Resize(3, 4)
     let expectedEmptyTileInResized = makeExpectedEmptyTile resizedMap
     let expectedEmptyLayerCell = makeExpectedEmptyLayerCell ()
 
@@ -190,6 +202,7 @@ let testResizeWidthAndHeight2 () =
     assertEquals (Some TestFixtureId) (resizedMap.GetFixture(1,1)) "Fixture (1,1) preserved"
     assertEquals (Some TestActorId) (resizedMap.GetActor(0,1)) "Actor (0,1) preserved"
     assertTrue (resizedMap.GetLayerCell(1,0).Items |> Seq.contains(TestItemId)) "Item (1,0) preserved"
+    assertEquals (Some TestDecalId) (resizedMap.GetDecal(1,0)) "Decal (1,0) preserved"
     assertEquals expectedEmptyLayerCell (resizedMap.GetLayerCell(2,3)) "New LayerCell (2,3) is empty"
     
     // Check out-of-bounds access

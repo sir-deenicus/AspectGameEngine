@@ -21,6 +21,7 @@ table LayerCellFBS {
     items:[int];        // Item IDs, bottom->top (newest last)
     fixture_id:int = -1; // -1 => None
     actor_id:int = -1;   // -1 => None
+    decal_id:int = -1;   // -1 => None (optional decal placed on tile)
 }
 
 table TileMapFBS {

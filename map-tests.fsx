@@ -16,6 +16,8 @@ let assertTrue cond message =
     if not cond then failwithf "ASSERTION FAILED: %s" message
     else printfn "PASSED: %s" message
 
+let TestDecalId = 4001
+
 //====================== TileMap Serialization Tests ======================
 
 let createTestTileMap () =
@@ -147,6 +149,8 @@ let testTileMapLayerCellData () =
     originalMap.SetFixture(0, 1, 2001)
     originalMap.AddItem(2, 1, 3001) |> ignore
     originalMap.AddItem(2, 1, 3002) |> ignore
+    // Add a decal to (2,1)
+    originalMap.SetDecal(2, 1, TestDecalId)
     
     let serializedBytes = TileMapSerializer.serialize originalMap
     let deserializedMap = TileMapSerializer.deserialize serializedBytes
@@ -159,6 +163,8 @@ let testTileMapLayerCellData () =
     assertTrue (items.Count = 2) "Item count at (2,1)"
     assertTrue (items.[0] = 3001) "First item at (2,1)"
     assertTrue (items.[1] = 3002) "Second item at (2,1)"
+    // Verify decal preserved
+    assertEquals (Some TestDecalId) (deserializedMap.GetDecal(2,1)) "Decal at (2,1) preserved"
     
     printfn "--- TileMap LayerCell Data Integrity: PASSED ---"
 
@@ -402,6 +408,8 @@ let testEditorTileMapConversion () =
     originalRuntimeMap.SetActor(1, 1, 1001)
     originalRuntimeMap.SetFixture(0, 1, 2001)
     originalRuntimeMap.AddItem(2, 1, 3001) |> ignore
+    // Add a decal to (2,1)
+    originalRuntimeMap.SetDecal(2, 1, TestDecalId)
     
     // Convert to editor map
     let editorMap = EditorTileMap.FromTileMap(originalRuntimeMap)
@@ -427,6 +435,8 @@ let testEditorTileMapConversion () =
     assertEquals (Some 2001) (editorMap.GetFixture(0, 1)) "Fixture at (0,1) in EditorTileMap"
     let editorCell = editorMap.GetLayerCell(2, 1)
     assertTrue (editorCell.Items |> List.contains 3001) "Item 3001 at (2,1) in EditorTileMap"
+    // Verify decal visible in editor map
+    assertEquals (Some TestDecalId) (editorMap.GetDecal(2,1)) "Decal at (2,1) present in EditorTileMap"
     
     // Convert back to runtime map
     let convertedRuntimeMap = editorMap.ToTileMap()
@@ -446,6 +456,8 @@ let testEditorTileMapConversion () =
     // Verify layer cells after round-trip
     assertEquals (Some 1001) (convertedRuntimeMap.GetActor(1, 1)) "Actor at (1,1) after round-trip"
     assertEquals (Some 2001) (convertedRuntimeMap.GetFixture(0, 1)) "Fixture at (0,1) after round-trip"
+    // Verify decal preserved after round-trip
+    assertEquals (Some TestDecalId) (convertedRuntimeMap.GetDecal(2,1)) "Decal at (2,1) preserved after round-trip"
     
     printfn "--- TileMap <-> EditorTileMap Conversion: PASSED ---"
 
@@ -462,9 +474,11 @@ let testEditorTileMapEditAndConvert () =
     // Add layer cell data
     let editedMap2 = editedMap.SetActor(0, 0, 5001)
     let editedMap3 = editedMap2.AddItem(1, 2, 6001)
+    // Add a decal in the editor and verify it persists through conversion
+    let editedMap4 = editedMap3.SetDecal(1, 2, TestDecalId)
     
     // Convert back
-    let convertedMap = editedMap3.ToTileMap()
+    let convertedMap = editedMap4.ToTileMap()
     
     // Verify the tile edit persisted
     let resultTile = convertedMap.GetTile(1, 1)
@@ -475,6 +489,8 @@ let testEditorTileMapEditAndConvert () =
     // Verify layer cell edits persisted
     assertEquals (Some 5001) (convertedMap.GetActor(0, 0)) "Added actor at (0,0)"
     assertTrue (convertedMap.GetLayerCell(1, 2).Items.Contains(6001)) "Added item at (1,2)"
+    // Verify decal added in editor persisted
+    assertEquals (Some TestDecalId) (convertedMap.GetDecal(1,2)) "Decal at (1,2) persisted after round-trip"
     
     printfn "--- Edit EditorTileMap and Convert Back: PASSED ---"
 

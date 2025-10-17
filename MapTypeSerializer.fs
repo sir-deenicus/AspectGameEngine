@@ -37,7 +37,8 @@ module TileMapSerializer =
         let itemsVector = LayerCellFBS.CreateItemsVector(builder, itemsArray)
         let fixtureId = match cell.FixtureId with Some id -> id | None -> -1
         let actorId = match cell.ActorId with Some id -> id | None -> -1
-        LayerCellFBS.CreateLayerCellFBS(builder, itemsVector, fixtureId, actorId)
+        let decalId = match cell.DecalId with Some id -> id | None -> -1
+        LayerCellFBS.CreateLayerCellFBS(builder, itemsVector, fixtureId, actorId, decalId)
 
     let serialize (tileMap: TileMap) : byte[] =
         // Estimate buffer size
@@ -92,7 +93,8 @@ module TileMapSerializer =
                        let items = ResizeArray(cellFBS.GetItemsArray())
                        let fixtureId = if cellFBS.FixtureId = -1 then None else Some cellFBS.FixtureId
                        let actorId = if cellFBS.ActorId = -1 then None else Some cellFBS.ActorId
-                       yield { LayerCell.Items = items; FixtureId = fixtureId; ActorId = actorId }
+                       let decalId = if cellFBS.DecalId = -1 then None else Some cellFBS.DecalId
+                       yield { LayerCell.Items = items; FixtureId = fixtureId; ActorId = actorId; DecalId = decalId }
                    | None -> yield LayerCell.Create() |]
 
         let voidSpriteLoc = createSpriteLoc tileMapFBS.VoidSpriteLoc.Value

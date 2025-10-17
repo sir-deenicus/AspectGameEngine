@@ -32,17 +32,20 @@ module EntityRegistry =
     let ItemProps    = Dictionary<int, ItemProperties>()
     let FixtureProps = Dictionary<int, FixtureProperties>()
     let ActorProps   = Dictionary<int, ActorProperties>()
+    let DecalProps   = Dictionary<int, SpriteRef>()
 
 // One logical "layer cell" per tile
 type LayerCell =
     { mutable Items: ResizeArray<int>         // item entity IDs
       mutable FixtureId: int option           // fixture entity ID
-      mutable ActorId: int option }           // actor entity ID
+      mutable ActorId: int option            // actor entity ID
+      mutable DecalId: int option }          // decal entity ID
 
     static member Create() =
         { Items = ResizeArray()
           FixtureId = None
-          ActorId = None }  
+          ActorId = None
+          DecalId = None }
 
 // Non-allocating view over the items to render (top N).
 [<Struct>]
@@ -98,11 +101,13 @@ module LayerQueries =
 type EditorLayerCell =
     { Items: int list
       FixtureId: int option
-      ActorId: int option }
+      ActorId: int option 
+      DecalId: int option }
     static member Empty =
         { Items = []
           FixtureId = None
-          ActorId = None }
+          ActorId = None
+          DecalId = None }
 
 // Editor-side queries (immutable), separate from runtime LayerQueries
 module EditorLayerQueries =
