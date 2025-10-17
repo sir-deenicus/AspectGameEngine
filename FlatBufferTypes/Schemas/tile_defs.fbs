@@ -26,7 +26,8 @@ enum TileTypeFBS : byte {
     Stairs = 7,
     Water = 8,
     Lava = 9,
-    CityOrTown = 10
+    CityOrTown = 10,
+    Fixture = 11
 }
 
 enum TileOpacityFBS : byte {

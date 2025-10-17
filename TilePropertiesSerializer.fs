@@ -42,6 +42,7 @@ module TilePropertiesSerializer =
         | TileType.Water -> TileTypeFBS.Water
         | TileType.Lava -> TileTypeFBS.Lava
         | TileType.CityOrTown -> TileTypeFBS.CityOrTown
+        | TileType.Fixture -> TileTypeFBS.Fixture
         | _ -> TileTypeFBS.NullTile
 
     let internal fromTileTypeFBS (tileTypeFBS: TileTypeFBS) : TileType =
@@ -57,6 +58,7 @@ module TilePropertiesSerializer =
         | TileTypeFBS.Water -> TileType.Water
         | TileTypeFBS.Lava -> TileType.Lava
         | TileTypeFBS.CityOrTown -> TileType.CityOrTown
+        | TileTypeFBS.Fixture -> TileType.Fixture
         | _ -> TileType.NullTile
 
     let private toTileOpacityFBS (opacity: TileOpacity) : TileOpacityFBS =

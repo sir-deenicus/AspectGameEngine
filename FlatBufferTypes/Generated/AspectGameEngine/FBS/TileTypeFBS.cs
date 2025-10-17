@@ -18,6 +18,7 @@ public enum TileTypeFBS : sbyte
   Water = 8,
   Lava = 9,
   CityOrTown = 10,
+  Fixture = 11,
 };
 
 

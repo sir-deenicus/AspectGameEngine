@@ -53,6 +53,7 @@ type TileType =
     | Water = 8
     | Lava = 9
     | CityOrTown = 10
+    | Fixture = 11
 
 type TileOpacity =
     | Opaque = 0
