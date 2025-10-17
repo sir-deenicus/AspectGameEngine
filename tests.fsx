@@ -26,11 +26,20 @@ let makeExpectedEmptyTile (mapInstance: EditorTileMap) : Tile =
 let DefaultVoidSprite = SpriteLoc(0, 0, 0)
 let ModifiedSprite = SpriteLoc(1, 1, 1)
 
+// NEW: Dummy entity IDs for testing layer cells
+let TestFixtureId = 1001
+let TestActorId = 2002
+let TestItemId = 3003
+
+// NEW: Helper to create an expected empty LayerCell
+let makeExpectedEmptyLayerCell () =
+    EditorLayerCell.Empty
+
 // --- Test Functions ---
 let testResizeWidthOnly () =
     printfn "\n--- Test: Resize Width Only (2x2 -> 3x2) ---"
     let initialVoidSprite = DefaultVoidSprite // Assumes this SpriteLoc variant exists
-    let initialMap = EditorTileMap.New(2, 2, initialVoidSprite, TilePropertiesImmutableReference.New(""))
+    let initialMap = EditorTileMap.New(2, 2, initialVoidSprite, "deftileset")
 
     let modifiedTileData =
         { SpriteLoc = ModifiedSprite
@@ -38,19 +47,38 @@ let testResizeWidthOnly () =
           IsOccupied = false } // Assumes ModifiedSprite exists
 
     let mapWithModifiedTile = initialMap.UpdateTile(0, 0, modifiedTileData)
-    let resizedMap = mapWithModifiedTile.Resize(3, 2)
+    
+    // NEW: Add a fixture to (1,0) to test layer cell preservation
+    let mapWithFixture = mapWithModifiedTile.SetFixture(1, 0, TestFixtureId)
+    // NEW: Add an actor to (0,1)
+    let mapWithActor = mapWithFixture.SetActor(0, 1, TestActorId)
+    // NEW: Add an item to (1,1)
+    let mapWithItem = mapWithActor.AddItem(1, 1, TestItemId)
+
+    let resizedMap = mapWithItem.Resize(3, 2)
     let expectedEmptyTileInResized = makeExpectedEmptyTile resizedMap
+    let expectedEmptyLayerCell = makeExpectedEmptyLayerCell ()
 
     assertEquals 3 resizedMap.Width "Width"
     assertEquals 2 resizedMap.Height "Height"
     assertEquals modifiedTileData (resizedMap.GetTile(0, 0)) "Modified Tile (0,0)"
     assertEquals expectedEmptyTileInResized (resizedMap.GetTile(2, 0)) "New Tile (2,0)"
+    
+    // NEW: Verify LayerCells
+    assertEquals None (resizedMap.GetActor(0,0)) "Actor (0,0) should be None"
+    assertEquals None (resizedMap.GetFixture(0,0)) "Fixture (0,0) should be None"
+    assertEquals (Some TestFixtureId) (resizedMap.GetFixture(1,0)) "Fixture (1,0) preserved"
+    assertEquals (Some TestActorId) (resizedMap.GetActor(0,1)) "Actor (0,1) preserved"
+    assertTrue (resizedMap.GetLayerCell(1,1).Items |> List.exists ((=) TestItemId)) "Item (1,1) preserved"
+    assertEquals expectedEmptyLayerCell (resizedMap.GetLayerCell(2,0)) "New LayerCell (2,0) is empty"
+    assertEquals expectedEmptyLayerCell (resizedMap.GetLayerCell(2,1)) "New LayerCell (2,1) is empty"
+
     printfn "--- TestResizeWidthOnly: PASSED ---"
 
 let testResizeHeightOnly () =
     printfn "\n--- Test: Resize Height Only (2x2 -> 2x3) ---"
     let initialVoidSprite = DefaultVoidSprite
-    let initialMap = EditorTileMap.New(2, 2, initialVoidSprite,TilePropertiesImmutableReference.New(""))
+    let initialMap = EditorTileMap.New(2, 2, initialVoidSprite, "deftileset")
 
     let modifiedTileData =
         { SpriteLoc = ModifiedSprite
@@ -58,19 +86,36 @@ let testResizeHeightOnly () =
           IsOccupied = false }
 
     let mapWithModifiedTile = initialMap.UpdateTile(1, 1, modifiedTileData)
-    let resizedMap = mapWithModifiedTile.Resize(2, 3)
+    
+    // NEW: Add a fixture to (0,1) to test layer cell preservation
+    let mapWithFixture = mapWithModifiedTile.SetFixture(0, 1, TestFixtureId)
+    // NEW: Add an actor to (1,0)
+    let mapWithActor = mapWithFixture.SetActor(1, 0, TestActorId)
+    // NEW: Add an item to (0,0)
+    let mapWithItem = mapWithActor.AddItem(0, 0, TestItemId)
+
+    let resizedMap = mapWithItem.Resize(2, 3)
     let expectedEmptyTileInResized = makeExpectedEmptyTile resizedMap
+    let expectedEmptyLayerCell = makeExpectedEmptyLayerCell ()
 
     assertEquals 2 resizedMap.Width "Width"
     assertEquals 3 resizedMap.Height "Height"
     assertEquals modifiedTileData (resizedMap.GetTile(1, 1)) "Modified Tile (1,1)"
     assertEquals expectedEmptyTileInResized (resizedMap.GetTile(0, 2)) "New Tile (0,2)"
+    
+    // NEW: Verify LayerCells
+    assertEquals (Some TestFixtureId) (resizedMap.GetFixture(0,1)) "Fixture (0,1) preserved"
+    assertEquals (Some TestActorId) (resizedMap.GetActor(1,0)) "Actor (1,0) preserved"
+    assertTrue (resizedMap.GetLayerCell(0,0).Items |> Seq.contains(TestItemId)) "Item (0,0) preserved"
+    assertEquals expectedEmptyLayerCell (resizedMap.GetLayerCell(0,2)) "New LayerCell (0,2) is empty"
+    assertEquals expectedEmptyLayerCell (resizedMap.GetLayerCell(1,2)) "New LayerCell (1,2) is empty"
+
     printfn "--- TestResizeHeightOnly: PASSED ---"
 
 let testResizeWidthAndHeight () =
     printfn "\n--- Test: Resize Both (2x2 -> 3x1) ---"
     let initialVoidSprite = DefaultVoidSprite
-    let initialMap = EditorTileMap.New(2, 2, initialVoidSprite, TilePropertiesImmutableReference.New(""))
+    let initialMap = EditorTileMap.New(2, 2, initialVoidSprite, "deftileset")
 
     let modifiedTile00 =
         { SpriteLoc = ModifiedSprite
@@ -78,26 +123,45 @@ let testResizeWidthAndHeight () =
           IsOccupied = false }
 
     let mapWithModifications = initialMap.UpdateTile(0, 0, modifiedTile00)
-    let resizedMap = mapWithModifications.Resize(3, 1)
+    
+    // NEW: Add a fixture to (1,0) to test layer cell preservation
+    let mapWithFixture = mapWithModifications.SetFixture(1, 0, TestFixtureId)
+    // NEW: Add an actor to (0,1) - this will be truncated
+    let mapWithActor = mapWithFixture.SetActor(0, 1, TestActorId)
+
+    let resizedMap = mapWithActor.Resize(3, 1)
     let expectedEmptyTileInResized = makeExpectedEmptyTile resizedMap
+    let expectedEmptyLayerCell = makeExpectedEmptyLayerCell ()
 
     assertEquals 3 resizedMap.Width "Width"
     assertEquals 1 resizedMap.Height "Height"
     assertEquals modifiedTile00 (resizedMap.GetTile(0, 0)) "Modified Tile (0,0)"
     assertEquals expectedEmptyTileInResized (resizedMap.GetTile(2, 0)) "New Tile (2,0)"
+    
+    // NEW: Verify LayerCells
+    assertEquals None (resizedMap.GetActor(0,0)) "Actor (0,0) should be None"
+    assertEquals (Some TestFixtureId) (resizedMap.GetFixture(1,0)) "Fixture (1,0) preserved"
+    assertEquals expectedEmptyLayerCell (resizedMap.GetLayerCell(2,0)) "New LayerCell (2,0) is empty"
+    
     // Check out-of-bounds access
     try
         let _ = resizedMap.GetTile(0, 1)
         failwith "Accessed out-of-bounds tile"
     with _ ->
-        printfn "PASSED: Out-of-bounds access failed as expected."
+        printfn "PASSED: Out-of-bounds tile access failed as expected."
+    
+    try
+        let _ = resizedMap.GetLayerCell(0, 1)
+        failwith "Accessed out-of-bounds layer cell"
+    with _ ->
+        printfn "PASSED: Out-of-bounds layer cell access failed as expected."
 
     printfn "--- TestResizeWidthAndHeight: PASSED ---"
 
 let testResizeWidthAndHeight2 () =
     printfn "\n--- Test: Resize Both (2x2 -> 3x4) ---"
     let initialVoidSprite = DefaultVoidSprite
-    let initialMap = EditorTileMap.New(2, 2, initialVoidSprite, TilePropertiesImmutableReference.New(""))
+    let initialMap = EditorTileMap.New(2, 2, initialVoidSprite, "deftileset")
 
     let modifiedTile00 =
         { SpriteLoc = ModifiedSprite
@@ -105,18 +169,41 @@ let testResizeWidthAndHeight2 () =
           IsOccupied = false }
 
     let mapWithModifications = initialMap.UpdateTile(0, 0, modifiedTile00)
-    let resizedMap = mapWithModifications.Resize(3, 4)
+    
+    // NEW: Add a fixture to (1,1) to test layer cell preservation
+    let mapWithFixture = mapWithModifications.SetFixture(1, 1, TestFixtureId)
+    // NEW: Add an actor to (0,1)
+    let mapWithActor = mapWithFixture.SetActor(0, 1, TestActorId)
+    // NEW: Add an item to (1,0)
+    let mapWithItem = mapWithActor.AddItem(1, 0, TestItemId)
+
+    let resizedMap = mapWithItem.Resize(3, 4)
     let expectedEmptyTileInResized = makeExpectedEmptyTile resizedMap
+    let expectedEmptyLayerCell = makeExpectedEmptyLayerCell ()
+
     assertEquals 3 resizedMap.Width "Width"
     assertEquals 4 resizedMap.Height "Height"
     assertEquals modifiedTile00 (resizedMap.GetTile(0, 0)) "Modified Tile (0,0)"
     assertEquals expectedEmptyTileInResized (resizedMap.GetTile(2, 3)) "New Tile (2,3)"
+    
+    // NEW: Verify LayerCells
+    assertEquals (Some TestFixtureId) (resizedMap.GetFixture(1,1)) "Fixture (1,1) preserved"
+    assertEquals (Some TestActorId) (resizedMap.GetActor(0,1)) "Actor (0,1) preserved"
+    assertTrue (resizedMap.GetLayerCell(1,0).Items |> Seq.contains(TestItemId)) "Item (1,0) preserved"
+    assertEquals expectedEmptyLayerCell (resizedMap.GetLayerCell(2,3)) "New LayerCell (2,3) is empty"
+    
     // Check out-of-bounds access
     try
         let _ = resizedMap.GetTile(0, 4)
         failwith "Accessed out-of-bounds tile"
     with _ ->
-        printfn "PASSED: Out-of-bounds access failed as expected."
+        printfn "PASSED: Out-of-bounds tile access failed as expected."
+    
+    try
+        let _ = resizedMap.GetLayerCell(0, 4)
+        failwith "Accessed out-of-bounds layer cell"
+    with _ ->
+        printfn "PASSED: Out-of-bounds layer cell access failed as expected."
 
     printfn "--- TestResizeWidthAndHeight2: PASSED ---"
 
@@ -166,11 +253,12 @@ run()
 //================= 
  
 let createTestTileProperties () =
-    let mutable tileProps = TilePropertiesImmutableReference.New("")
+    let mutable tileProps = TilePropertiesReference("TestTileset") 
        
     let spriteLoc1 = SpriteLoc(0, 1, 2)
     let properties1 = {
         Walkable = true
+        Interactable = true 
         TileType = TileType.Floor
         Health = 100
         DescriptionKey = "floor_description"
@@ -178,13 +266,15 @@ let createTestTileProperties () =
         TileOpacity = TileOpacity.Transparent
         DestroyedSpriteLoc =  Some (SpriteLoc(1, 2, 3))
         NextStateSpriteLoc = None
+        ComplexState = Some (ComplexState.ClosedDoor { Locked = true }) 
     }
        
-    tileProps <- tileProps.Set(spriteLoc1, properties1)
+    tileProps[spriteLoc1] <- properties1 
     tileProps
 
 // Example usage function
 let testTilePropertiesSerialization () =
+    printfn "\n--- Test: TileProperties Serialization ---"  
     // Create tile properties
     let originalTileProps = createTestTileProperties()
        
@@ -198,14 +288,25 @@ let testTilePropertiesSerialization () =
     // Verify the data
     let spriteLoc = SpriteLoc(0, 1, 2)
     let retrievedProps = deserializedTileProps.[spriteLoc]
+    let originalPropsForLoc = originalTileProps.[spriteLoc] 
        
-    printfn "Original tile set name: %s" (originalTileProps.GetTileSetName())
-    printfn "Deserialized tile set name: %s" (deserializedTileProps.GetTileSetName())
-    printfn "Retrieved properties - Walkable: %b, TileType: %A" retrievedProps.Walkable retrievedProps.TileType
+    printfn "Original tile set name: %s" (originalTileProps.TileSetName)
+    printfn "Deserialized tile set name: %s" (deserializedTileProps.TileSetName)
+    printfn "Retrieved properties - Walkable: %b, TileType: %A, Interactable: %b" retrievedProps.Walkable retrievedProps.TileType retrievedProps.Interactable // CHANGED: Added Interactable to print
  
-    assertEquals retrievedProps.NextStateSpriteLoc originalTileProps[SpriteLoc(0, 1, 2)].NextStateSpriteLoc "StateChangedSpriteLoc"
-    assertEquals retrievedProps.DestroyedSpriteLoc originalTileProps[SpriteLoc(0, 1, 2)].DestroyedSpriteLoc "DestroyedSpriteLoc"
-       
+    assertEquals originalTileProps.TileSetName deserializedTileProps.TileSetName "TileSetName preserved"
+    assertEquals originalPropsForLoc.Walkable retrievedProps.Walkable "Walkable preserved"
+    assertEquals originalPropsForLoc.Interactable retrievedProps.Interactable "Interactable preserved"  
+    assertEquals originalPropsForLoc.TileType retrievedProps.TileType "TileType preserved"
+    assertEquals originalPropsForLoc.Health retrievedProps.Health "Health preserved"
+    assertEquals originalPropsForLoc.DescriptionKey retrievedProps.DescriptionKey "DescriptionKey preserved"
+    assertEquals originalPropsForLoc.Biome retrievedProps.Biome "Biome preserved"
+    assertEquals originalPropsForLoc.TileOpacity retrievedProps.TileOpacity "TileOpacity preserved"
+    assertEquals originalPropsForLoc.DestroyedSpriteLoc retrievedProps.DestroyedSpriteLoc "DestroyedSpriteLoc preserved"
+    assertEquals originalPropsForLoc.NextStateSpriteLoc retrievedProps.NextStateSpriteLoc "NextStateSpriteLoc preserved"
+    assertEquals originalPropsForLoc.ComplexState retrievedProps.ComplexState "ComplexState preserved"
+
+    printfn "--- TestTilePropertiesSerialization: PASSED ---"  
     deserializedTileProps
 
 testTilePropertiesSerialization ()
@@ -857,9 +958,9 @@ inv.items(count) {
     let args = rodict [ "value", box 123 ]
     let result = loc.Format("ui.test", args)
     assertTrue (result.Contains("123")) "Binary load preserves format"
-
+    
     assertEquals "Empty" (loc.Plural("inv.items", 0L, rodict [])) "Binary load preserves plural"
-
+    
     printfn "--- testLocalizerBinaryRoundTrip: PASSED ---"
 
 let runLocalizerTests () =
@@ -875,3 +976,5 @@ let runLocalizerTests () =
     printfn "\n=== All Localizer Tests Passed ==="
 
 runLocalizerTests ()
+
+//==============
