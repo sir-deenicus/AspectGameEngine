@@ -13,7 +13,7 @@ type ChunkOcclusionManager(width:int, height:int, chunkSize:int) =
 
     // Grid
     let opaque = Array.zeroCreate<bool> (width * height)
-    // Doors are excluded from merged geometry (handled as separate occluders)
+    // Doors are excluded from merged geometry; they get dedicated 1x1 occluders when closed.
     let isDoorCell = Array.zeroCreate<bool> (width * height)
 
     // Chunks
@@ -22,6 +22,7 @@ type ChunkOcclusionManager(width:int, height:int, chunkSize:int) =
     let chunkCount = chunksX * chunksY
 
     let rectsPerChunk = Array.init chunkCount (fun _ -> ResizeArray<RectI>(16))
+    let doorRectsPerChunk = Array.init chunkCount (fun _ -> ResizeArray<RectI>(8))
     let dirtyChunks = HashSet<int>()
 
     member inline private this.idx x y = y * width + x
@@ -48,32 +49,45 @@ type ChunkOcclusionManager(width:int, height:int, chunkSize:int) =
             if opaque.[i] <> value then
                 opaque.[i] <- value
                 this.MarkChunkDirtyAt(x,y)
-
-    // Register/unregister door cells (always excluded from merged geometry).
-    member this.SetDoorCell(x:int, y:int, isDoor:bool) =
+                
+    member this.SetDoorCellState(x:int, y:int, opacity:TileOpacity) =
         if x < 0 || x >= width || y < 0 || y >= height then ()
         else
             let i = this.idx x y
-            if isDoorCell.[i] <> isDoor then
-                isDoorCell.[i] <- isDoor
-                this.MarkChunkDirtyAt(x,y)
+            let mutable changed = false
+            if not isDoorCell.[i] then
+                isDoorCell.[i] <- true
+                changed <- true
+            let v = TileOpacity.isOpaque opacity
+            if opaque.[i] <> v then
+                opaque.[i] <- v
+                changed <- true
+            if changed then this.MarkChunkDirtyAt(x,y)
 
     // Convenience: compute from base tile + layer cell (items ignored).
+    // Do not overwrite door cells; their opacity is driven by SetDoorCellState.
     member this.SetFromTileAndLayer(x:int, y:int, baseTileOpacity: TileOpacity, layerCell: LayerCell) =
-        let eff =
-            match LayerQueries.EffectiveTileOpacity(baseTileOpacity, layerCell) with
-            | TileOpacity.Opaque -> true
-            | _ -> false
-        this.SetOpaque(x,y,eff)
+        if x < 0 || x >= width || y < 0 || y >= height then ()
+        else
+            let i = this.idx x y
+            if isDoorCell.[i] then () else
+            let eff =
+                match LayerQueries.EffectiveTileOpacity(baseTileOpacity, layerCell) with
+                | TileOpacity.Opaque -> true
+                | _ -> false
+            this.SetOpaque(x,y,eff)
 
     // Clear all data (keeps arrays allocated)
     member _.ClearAll() =
         Array.Fill(opaque, false)
         Array.Fill(isDoorCell, false)
         for ra in rectsPerChunk do ra.Clear()
+        for dra in doorRectsPerChunk do dra.Clear()
         dirtyChunks.Clear()
 
-    // Greedy rectangle cover for a chunk (maximal rectangles over opaque && not-door cells).
+    // Greedy rectangle cover for a chunk:
+    // - Merge only opaque non-door cells into large rects.
+    // - Add 1x1 rects for closed doors (opaque door cells).
     member private this.RebuildChunk(cx:int, cy:int) =
         let inline idx x y = y * width + x
         let inline chunkBounds (cx:int) (cy:int) =
@@ -91,12 +105,15 @@ type ChunkOcclusionManager(width:int, height:int, chunkSize:int) =
         // Reset and rebuild
         let outRects = rectsPerChunk.[this.chunkIndexOf cx cy]
         outRects.Clear()
+        let doorRects = doorRectsPerChunk.[this.chunkIndexOf cx cy]
+        doorRects.Clear()
 
+        // Only merge opaque non-door cells
         let inline isSolid x y =
             let gi = idx x y
-            opaque.[gi] && not isDoorCell.[gi]
+            opaque.[gi] && not isDoorCell.[gi]  // doors are handled separately
 
-        // Scan
+        // Pass 1: merge walls/floors etc. (non-door opaque cells)
         for y = y0 to y1 - 1 do
             for x = x0 to x1 - 1 do
                 if isSolid x y && not localVisited.[lidx x y] then
@@ -127,6 +144,13 @@ type ChunkOcclusionManager(width:int, height:int, chunkSize:int) =
                     // Emit rectangle in tile space
                     outRects.Add({ X = x; Y = y; W = w; H = h })
 
+        // Pass 2: add 1x1 occluders for closed doors
+        for y = y0 to y1 - 1 do
+            for x = x0 to x1 - 1 do
+                let gi = idx x y
+                if isDoorCell.[gi] && opaque.[gi] then
+                    doorRects.Add({ X = x; Y = y; W = 1; H = 1 })
+
     // Rebuild only dirty chunks
     member this.RebuildDirty() =
         if dirtyChunks.Count = 0 then 0 else
@@ -143,7 +167,10 @@ type ChunkOcclusionManager(width:int, height:int, chunkSize:int) =
     member this.GetChunkRects(cx:int, cy:int) : ResizeArray<RectI> =
         rectsPerChunk.[this.chunkIndexOf cx cy]
 
-    // Utility: iterate rectangles overlapping a view rect in tile space
+    member this.GetChunkDoorRects(cx:int, cy:int) : ResizeArray<RectI> =
+        doorRectsPerChunk.[this.chunkIndexOf cx cy]
+
+    // Iterate both merged occluders and door occluders
     member this.ForEachRectInView(viewX0:int, viewY0:int, viewX1:int, viewY1:int, action: RectI -> unit) =
         let inline clamp (v:int) lo hi = if v < lo then lo elif v > hi then hi else v
         let c0x = clamp (viewX0 / chunkSize) 0 (chunksX-1)
@@ -152,11 +179,16 @@ type ChunkOcclusionManager(width:int, height:int, chunkSize:int) =
         let c1y = clamp ((viewY1) / chunkSize) 0 (chunksY-1)
         for cy = c0y to c1y do
             for cx = c0x to c1x do
-                for r in rectsPerChunk.[this.chunkIndexOf cx cy] do
-                    // Overlap test in tile space
+                let chunkIndex = this.chunkIndexOf cx cy
+                let rects = rectsPerChunk.[chunkIndex]
+                let doorRects = doorRectsPerChunk.[chunkIndex]
+                // Overlap test in tile space
+                let inline visit (r:RectI) =
                     let rx0 = r.X
                     let ry0 = r.Y
                     let rx1 = r.X + r.W
                     let ry1 = r.Y + r.H
                     if not (rx1 <= viewX0 || ry1 <= viewY0 || rx0 >= viewX1 || ry0 >= viewY1) then
                         action r
+                for r in rects do visit r
+                for r in doorRects do visit r

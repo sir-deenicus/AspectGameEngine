@@ -60,6 +60,14 @@ type TileOpacity =
     | Transparent = 1
     | Air = 2
 
+module TileOpacity = 
+    let inline isOpaque(opacity: TileOpacity) =
+        match opacity with
+        | TileOpacity.Opaque -> true
+        | _ -> false 
+    let inline isTransparent(opacity: TileOpacity) = not (isOpaque opacity) 
+
+
 type MapType =
     | Room = 0
     | ComplexBuilding = 1
@@ -71,6 +79,11 @@ type MapType =
 
 type ComplexState =  
     | ClosedDoor of ClosedDoorState
+
+    member this.IsDoorLocked() =
+        match this with
+        | ClosedDoor state -> state.Locked
+        | _ -> false
 
 [<Struct>]
 type TileProperties =
