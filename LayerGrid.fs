@@ -6,12 +6,12 @@ open System.Collections.Generic
 type ItemProperties =
     { Sprite: SpriteRef
       // Items never block light: enforce Transparent/Air only.
-      TileOpacity: TileOpacity } 
+      TileOpacity: TileOpacity }
 
 [<Struct>]
 type FixtureProperties =
     { Sprite: SpriteRef
-      BlocksMovement: bool 
+      BlocksMovement: bool
       Interactable: bool
       TileOpacity: TileOpacity }
 
@@ -29,17 +29,17 @@ module EntityRegistry =
     [<Literal>]
     let MaxRenderItemsPerTile = 10
 
-    let ItemProps    = Dictionary<int, ItemProperties>()
+    let ItemProps = Dictionary<int, ItemProperties>()
     let FixtureProps = Dictionary<int, FixtureProperties>()
-    let ActorProps   = Dictionary<int, ActorProperties>()
-    let DecalProps   = Dictionary<int, SpriteRef>()
+    let ActorProps = Dictionary<int, ActorProperties>()
+    let DecalProps = Dictionary<int, SpriteRef>()
 
 // One logical "layer cell" per tile
 type LayerCell =
-    { mutable Items: ResizeArray<int>         // item entity IDs
-      mutable FixtureId: int option           // fixture entity ID
-      mutable ActorId: int option            // actor entity ID
-      mutable DecalId: int option }          // decal entity ID
+    { mutable Items: ResizeArray<int> // item entity IDs
+      mutable FixtureId: int option // fixture entity ID
+      mutable ActorId: int option   // actor entity ID
+      mutable DecalId: int option } // decal entity ID
 
     static member Create() =
         { Items = ResizeArray()
@@ -58,20 +58,33 @@ module LayerQueries =
     // Return a slice view (no allocations) for the top N render items.
     let GetRenderItemView (cell: LayerCell) : ItemView =
         let count = cell.Items.Count
+
         if count = 0 then
-            { Items = cell.Items; Start = 0; Count = 0 }
+            { Items = cell.Items
+              Start = 0
+              Count = 0 }
         else
-            let take = if count > EntityRegistry.MaxRenderItemsPerTile then EntityRegistry.MaxRenderItemsPerTile else count
+            let take =
+                if count > EntityRegistry.MaxRenderItemsPerTile then
+                    EntityRegistry.MaxRenderItemsPerTile
+                else
+                    count
+
             let start = count - take
-            { Items = cell.Items; Start = start; Count = take }
+
+            { Items = cell.Items
+              Start = start
+              Count = take }
 
     // Copy top N render items into a caller-provided buffer. Returns copied count.
     let CopyRenderItemIds (cell: LayerCell, dst: int[], dstStart: int) : int =
         let view = GetRenderItemView cell
         let mutable i = 0
+
         while i < view.Count do
             dst.[dstStart + i] <- view.Items.[view.Start + i]
             i <- i + 1
+
         view.Count
 
     // Items never affect opacity; only actor/fixture vs base tile.
@@ -101,8 +114,9 @@ module LayerQueries =
 type EditorLayerCell =
     { Items: int list
       FixtureId: int option
-      ActorId: int option 
+      ActorId: int option
       DecalId: int option }
+
     static member Empty =
         { Items = []
           FixtureId = None
@@ -113,10 +127,8 @@ type EditorLayerCell =
 module EditorLayerQueries =
     // Return up to top N items (treat list tail as "top")
     let GetRenderItems (cell: EditorLayerCell) : int list =
-         cell.Items
-        |> List.truncate EntityRegistry.MaxRenderItemsPerTile
-        |> List.rev
-        
+        cell.Items |> List.truncate EntityRegistry.MaxRenderItemsPerTile |> List.rev
+
     // Items never affect opacity; only actor/fixture vs base tile.
     let EffectiveTileOpacity (baseTileOpacity: TileOpacity, cell: EditorLayerCell) =
         match cell.ActorId with

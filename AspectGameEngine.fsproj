@@ -10,6 +10,7 @@
     <OtherFlags>--reflectionfree</OtherFlags>
   </PropertyGroup>
   <ItemGroup>
+    <None Include="entity-registry-test.fsx" />
     <None Include="map-tests.fsx" />
     <None Include="tests.fsx" />
     <Compile Include="PersistentVector.fs" />
@@ -20,6 +21,7 @@
     <Compile Include="MapEditor.fs" />
     <Compile Include="TilePropertiesSerializer.fs" />
     <Compile Include="MapTypeSerializer.fs" />
+    <Compile Include="EntityRegistrySerializer.fs" />
     <Compile Include="ChunkOcclusionManager.fs" />
   </ItemGroup>
   <ItemGroup>

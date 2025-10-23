@@ -1,0 +1,287 @@
+Archive: Alternative approach based on insets.
+
+namespace AspectGameEngine
+
+open System
+open System.Collections.Generic
+
+[<Struct>]
+type RectI = { X:int; Y:int; W:int; H:int }
+
+// Which side of a solid cell the edge lies on (grid-aligned)
+type EdgeSide =
+    | Top = 0
+    | Bottom = 1
+    | Left = 2
+    | Right = 3
+
+[<Struct>]
+type EdgeI = { X:int; Y:int; Len:int; Side: EdgeSide }
+
+[<Sealed>]
+type ChunkOcclusionManager(width:int, height:int, chunkSize:int) =
+    do
+        if width <= 0 || height <= 0 || chunkSize <= 0 then invalidArg "dims" "Positive dimensions required."
+
+    // Grid
+    let opaque = Array.zeroCreate<bool> (width * height)
+    let isDoorCell = Array.zeroCreate<bool> (width * height)
+
+    // Chunks
+    let chunksX = (width  + chunkSize - 1) / chunkSize
+    let chunksY = (height + chunkSize - 1) / chunkSize
+    let chunkCount = chunksX * chunksY
+
+    // Occluder outputs
+    let rectsPerChunk = Array.init chunkCount (fun _ -> ResizeArray<RectI>(16))
+    let wallEdgesPerChunk = Array.init chunkCount (fun _ -> ResizeArray<EdgeI>(64))
+    let doorEdgesPerChunk = Array.init chunkCount (fun _ -> ResizeArray<EdgeI>(16))
+
+    // Dirty sets (split for targeted rebuilds)
+    let dirtyWallChunks = HashSet<int>()
+    let dirtyDoorChunks = HashSet<int>()
+
+    member inline private this.idx x y = y * width + x
+    member inline private this.chunkIndexOf (cx:int) (cy:int) = cy * chunksX + cx
+
+    member _.Width  = width
+    member _.Height = height
+    member _.ChunkSize = chunkSize
+    member _.ChunksX = chunksX
+    member _.ChunksY = chunksY
+
+    member private this.MarkWallChunkDirtyAt(x:int, y:int) =
+        let cx = x / chunkSize
+        let cy = y / chunkSize
+        if cx >= 0 && cy >= 0 && cx < chunksX && cy < chunksY then
+            dirtyWallChunks.Add(this.chunkIndexOf cx cy) |> ignore
+
+    member private this.MarkDoorChunkDirtyAt(x:int, y:int) =
+        let cx = x / chunkSize
+        let cy = y / chunkSize
+        if cx >= 0 && cy >= 0 && cx < chunksX && cy < chunksY then
+            dirtyDoorChunks.Add(this.chunkIndexOf cx cy) |> ignore
+
+    // Mutations
+    member this.SetOpaque(x:int, y:int, value:bool) =
+        if x < 0 || x >= width || y < 0 || y >= height then ()
+        else
+            let i = this.idx x y
+            if opaque.[i] <> value then
+                opaque.[i] <- value
+                this.MarkWallChunkDirtyAt(x,y) // static walls changed
+
+    // Door: mark as door once; toggle opacity often; only door edges need rebuild.
+    member this.SetDoorCellState(x:int, y:int, opacity:TileOpacity) =
+        if x < 0 || x >= width || y < 0 || y >= height then ()
+        else
+            let i = this.idx x y
+            let mutable markWallDirty = false
+            if not isDoorCell.[i] then
+                isDoorCell.[i] <- true
+                markWallDirty <- true // exclude from static walls henceforth
+            let v = TileOpacity.isOpaque opacity
+            if opaque.[i] <> v then
+                opaque.[i] <- v
+                // door edges must update when open/close toggles
+                this.MarkDoorChunkDirtyAt(x,y)
+            if markWallDirty then this.MarkWallChunkDirtyAt(x,y)
+
+    // Convenience: do not override doors from generic logic.
+    member this.SetFromTileAndLayer(x:int, y:int, baseTileOpacity: TileOpacity, layerCell: LayerCell) =
+        if x < 0 || x >= width || y < 0 || y >= height then ()
+        else
+            let i = this.idx x y
+            if isDoorCell.[i] then () else
+            let eff =
+                match LayerQueries.EffectiveTileOpacity(baseTileOpacity, layerCell) with
+                | TileOpacity.Opaque -> true
+                | _ -> false
+            this.SetOpaque(x,y,eff)
+
+    member _.ClearAll() =
+        Array.Fill(opaque, false)
+        Array.Fill(isDoorCell, false)
+        for ra in rectsPerChunk do ra.Clear()
+        for ea in wallEdgesPerChunk do ea.Clear()
+        for ed in doorEdgesPerChunk do ed.Clear()
+        dirtyWallChunks.Clear()
+        dirtyDoorChunks.Clear()
+
+    // Build helpers
+    member inline private this.InBounds(x:int, y:int) =
+        x >= 0 && y >= 0 && x < width && y < height
+
+    member private this.BuildEdgesForChunk
+        (cx:int, cy:int,
+         isSelfOpaque: int -> int -> bool,
+         isNeighborOpaque: int -> int -> bool,
+         outEdges: ResizeArray<EdgeI>) =
+        let inline chunkBounds (cx:int) (cy:int) =
+            let x0 = cx * chunkSize
+            let y0 = cy * chunkSize
+            let x1 = Math.Min(width,  x0 + chunkSize)
+            let y1 = Math.Min(height, y0 + chunkSize)
+            x0, y0, x1, y1
+        let x0, y0, x1, y1 = chunkBounds cx cy
+
+        // Horizontal edges
+        for y = y0 to y1 - 1 do
+            // Top
+            let mutable x = x0
+            while x < x1 do
+                while x < x1 && not (isSelfOpaque x y && not (isNeighborOpaque x (y-1))) do
+                    x <- x + 1
+                let xStart = x
+                while x < x1 && (isSelfOpaque x y && not (isNeighborOpaque x (y-1))) do
+                    x <- x + 1
+                if x > xStart then
+                    outEdges.Add({ X = xStart; Y = y; Len = x - xStart; Side = EdgeSide.Top })
+            // Bottom
+            x <- x0
+            while x < x1 do
+                while x < x1 && not (isSelfOpaque x y && not (isNeighborOpaque x (y+1))) do
+                    x <- x + 1
+                let xStart = x
+                while x < x1 && (isSelfOpaque x y && not (isNeighborOpaque x (y+1))) do
+                    x <- x + 1
+                if x > xStart then
+                    outEdges.Add({ X = xStart; Y = y; Len = x - xStart; Side = EdgeSide.Bottom })
+
+        // Vertical edges
+        for x = x0 to x1 - 1 do
+            // Left
+            let mutable y = y0
+            while y < y1 do
+                while y < y1 && not (isSelfOpaque x y && not (isNeighborOpaque (x-1) y)) do
+                    y <- y + 1
+                let yStart = y
+                while y < y1 && (isSelfOpaque x y && not (isNeighborOpaque (x-1) y)) do
+                    y <- y + 1
+                if y > yStart then
+                    outEdges.Add({ X = x; Y = yStart; Len = y - yStart; Side = EdgeSide.Left })
+            // Right
+            y <- y0
+            while y < y1 do
+                while y < y1 && not (isSelfOpaque x y && not (isNeighborOpaque (x+1) y)) do
+                    y <- y + 1
+                let yStart = y
+                while y < y1 && (isSelfOpaque x y && not (isNeighborOpaque (x+1) y)) do
+                    y <- y + 1
+                if y > yStart then
+                    outEdges.Add({ X = x; Y = yStart; Len = y - yStart; Side = EdgeSide.Right })
+
+    // Static walls: merge rects (non-door opaque) + build wall edges (non-door opaque)
+    member private this.RebuildWallsChunk(cx:int, cy:int) =
+        let inline idx x y = y * width + x
+        let inline chunkBounds (cx:int) (cy:int) =
+            let x0 = cx * chunkSize
+            let y0 = cy * chunkSize
+            let x1 = Math.Min(width,  x0 + chunkSize)
+            let y1 = Math.Min(height, y0 + chunkSize)
+            x0, y0, x1, y1
+        let x0, y0, x1, y1 = chunkBounds cx cy
+        let wC = x1 - x0
+        let hC = y1 - y0
+        let localVisited = Array.zeroCreate<bool> (wC * hC)
+        let inline lidx (x:int) (y:int) = (y - y0) * wC + (x - x0)
+
+        let outRects = rectsPerChunk.[this.chunkIndexOf cx cy]
+        outRects.Clear()
+        let wallEdges = wallEdgesPerChunk.[this.chunkIndexOf cx cy]
+        wallEdges.Clear()
+
+        let inline isSolid x y =
+            let gi = idx x y
+            opaque.[gi] && not isDoorCell.[gi]
+
+        // Greedy rects for walls (non-door)
+        for y = y0 to y1 - 1 do
+            for x = x0 to x1 - 1 do
+                if isSolid x y && not localVisited.[lidx x y] then
+                    let mutable w = 1
+                    while x + w < x1 && isSolid (x + w) y && not localVisited.[lidx (x + w) y] do
+                        w <- w + 1
+                    let mutable h = 1
+                    let mutable canGrow = true
+                    while canGrow && (y + h) < y1 do
+                        let yy = y + h
+                        let mutable rowOk = true
+                        let mutable xx = x
+                        while rowOk && xx < x + w do
+                            if not (isSolid xx yy) || localVisited.[lidx xx yy] then
+                                rowOk <- false
+                            xx <- xx + 1
+                        if rowOk then h <- h + 1 else canGrow <- false
+                    for yy = y to y + h - 1 do
+                        for xx = x to x + w - 1 do
+                            localVisited.[lidx xx yy] <- true
+                    outRects.Add({ X = x; Y = y; W = w; H = h })
+
+        // Build wall edges (non-door opaque vs global neighbors)
+        let selfOpaque x y =
+            if x < 0 || y < 0 || x >= width || y >= height then false
+            else
+                let gi = idx x y
+                opaque.[gi] && not isDoorCell.[gi]
+        let neighborOpaque x y =
+            if x < 0 || y < 0 || x >= width || y >= height then false
+            else
+                let gi = idx x y
+                opaque.[gi]
+        this.BuildEdgesForChunk(cx, cy, selfOpaque, neighborOpaque, wallEdges)
+
+    // Dynamic doors: build only door edges (door+opaque) against global neighbors
+    member private this.RebuildDoorsChunk(cx:int, cy:int) =
+        let inline idx x y = y * width + x
+        let doorEdges = doorEdgesPerChunk.[this.chunkIndexOf cx cy]
+        doorEdges.Clear()
+
+        let selfOpaque x y =
+            if x < 0 || y < 0 || x >= width || y >= height then false
+            else
+                let gi = idx x y
+                opaque.[gi] && isDoorCell.[gi]
+        let neighborOpaque x y =
+            if x < 0 || y < 0 || x >= width || y >= height then false
+            else
+                let gi = idx x y
+                opaque.[gi]
+
+        // Reuse the same edge builder; it only looks at the chunk bounds internally
+        let cx0 = 0 // dummy to satisfy closure; bounds are computed inside
+        let cy0 = 0 // dummy
+        // Build within this chunk only
+        this.BuildEdgesForChunk(cx, cy, selfOpaque, neighborOpaque, doorEdges)
+
+    // Rebuild dirty (walls first, then doors; door rebuild also runs for wall-dirty chunks)
+    member this.RebuildDirty() =
+        let mutable rebuilt = 0
+        if dirtyWallChunks.Count > 0 || dirtyDoorChunks.Count > 0 then
+            // Walls
+            for ci in dirtyWallChunks do
+                let cx = ci % chunksX
+                let cy = ci / chunksX
+                this.RebuildWallsChunk(cx, cy)
+                rebuilt <- rebuilt + 1
+            // Doors (union with walls to keep boundaries consistent)
+            if dirtyDoorChunks.Count > 0 || dirtyWallChunks.Count > 0 then
+                let doorUnion = HashSet<int>(dirtyDoorChunks)
+                doorUnion.UnionWith(dirtyWallChunks)
+                for ci in doorUnion do
+                    let cx = ci % chunksX
+                    let cy = ci / chunksX
+                    this.RebuildDoorsChunk(cx, cy)
+            dirtyWallChunks.Clear()
+            dirtyDoorChunks.Clear()
+        rebuilt
+
+    // Accessors
+    member this.GetChunkRects(cx:int, cy:int) : ResizeArray<RectI> =
+        rectsPerChunk.[this.chunkIndexOf cx cy]
+
+    member this.GetChunkWallEdges(cx:int, cy:int) : ResizeArray<EdgeI> =
+        wallEdgesPerChunk.[this.chunkIndexOf cx cy]
+
+    member this.GetChunkDoorEdges(cx:int, cy:int) : ResizeArray<EdgeI> =
+        doorEdgesPerChunk.[this.chunkIndexOf cx cy]
