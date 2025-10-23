@@ -1,0 +1,79 @@
+include "tile_defs.fbs";
+
+namespace AspectGameEngine.FBS;
+
+// SpriteRef support
+table SpriteSheetCellFBS {
+    sheet_id:int;
+    row:int;
+    column:int;
+}
+
+table SpriteSheetRegionFBS {
+    sheet_id:int;
+    x:int;
+    y:int;
+    width:int;
+    height:int;
+}
+
+table TextureIdFBS { id:int; }
+table SceneRefFBS { path:string; }
+
+union SpriteRefFBS {
+    SpriteSheetRegionFBS,
+    SpriteSheetCellFBS,
+    TextureIdFBS,
+    SceneRefFBS
+}
+
+// Properties mapped by registries
+table ItemPropertiesFBS {
+    // Items never block light; should use Transparent or Air in engine.
+    sprite:SpriteRefFBS;
+    tile_opacity:TileOpacityFBS;
+}
+
+table FixturePropertiesFBS {
+    sprite:SpriteRefFBS;
+    blocks_movement:bool;
+    interactable:bool;
+    tile_opacity:TileOpacityFBS;
+}
+
+table ActorPropertiesFBS {
+    sprite:SpriteRefFBS;
+    blocks_movement:bool;
+    tile_opacity:TileOpacityFBS;
+}
+
+// Registry entry rows (int id -> props)
+table ItemPropsEntryFBS {
+    id:int;
+    props:ItemPropertiesFBS;
+}
+
+table FixturePropsEntryFBS {
+    id:int;
+    props:FixturePropertiesFBS;
+}
+
+table ActorPropsEntryFBS {
+    id:int;
+    props:ActorPropertiesFBS;
+}
+
+table DecalPropsEntryFBS {
+    id:int;
+    sprite:SpriteRefFBS;
+}
+
+// Root container for all registries
+table EntityRegistryFBS {
+    items:[ItemPropsEntryFBS];
+    fixtures:[FixturePropsEntryFBS];
+    actors:[ActorPropsEntryFBS];
+    decals:[DecalPropsEntryFBS];
+}
+
+root_type EntityRegistryFBS;
