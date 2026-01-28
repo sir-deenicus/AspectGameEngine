@@ -1,26 +1,29 @@
 namespace AspectGameEngine
 
 open System.Collections.Generic
-
-[<Struct>]
-type ItemProperties =
-    { Sprite: SpriteRef
-      // Items never block light: enforce Transparent/Air only.
-      TileOpacity: TileOpacity }
-
+  
 [<Struct>]
 type FixtureProperties =
-    { Sprite: SpriteRef
-      BlocksMovement: bool
-      Interactable: bool
-      TileOpacity: TileOpacity }
+  { BlocksMovement: bool
+    Interactable: bool
+    TileOpacity: TileOpacity }
 
 [<Struct>]
 type ActorProperties =
-    { Sprite: SpriteRef
-      BlocksMovement: bool
-      TileOpacity: TileOpacity }
+  { TileOpacity: TileOpacity }
+ 
+[<Struct>]
+type SpriteType =
+  | Actor of ActorProp: ActorProperties
+  | Fixture of FixtureProp: FixtureProperties
+  | Item 
+  | Decal 
 
+[<Struct>]
+type SpriteProperties =
+  { Sprite: SpriteRef
+    SpriteType: SpriteType }
+ 
 // Simple registries (IDs are ints assigned externally)
 module EntityRegistry =
     [<Literal>]
@@ -29,10 +32,46 @@ module EntityRegistry =
     [<Literal>]
     let MaxRenderItemsPerTile = 10
 
-    let ItemProps = Dictionary<int, ItemProperties>()
-    let FixtureProps = Dictionary<int, FixtureProperties>()
-    let ActorProps = Dictionary<int, ActorProperties>()
-    let DecalProps = Dictionary<int, SpriteRef>()
+    // let ItemProps = Dictionary<int, ItemProperties>()
+    // let FixtureProps = Dictionary<int, FixtureProperties>()
+    // let ActorProps = Dictionary<int, ActorProperties>()
+    // let DecalProps = Dictionary<int, SpriteRef>()
+    let SpriteProps = Dictionary<int,SpriteProperties>() 
+
+
+module SpritePropsQueries =
+    let inline tryGet (id:int) =
+        match EntityRegistry.SpriteProps.TryGetValue id with
+        | true, sp -> Some sp
+        | _ -> None 
+
+    let checkFixtureBlocksMovement = function 
+        | SpriteType.Fixture fp -> fp.BlocksMovement
+        | _ -> false 
+
+    let tryGetBlocksMovementFromId (id:int) =
+        match tryGet id with
+        | Some sp ->
+            match sp.SpriteType with
+            | SpriteType.Actor _ -> true
+            | SpriteType.Fixture fp -> fp.BlocksMovement
+            | _ -> false
+        | None -> false
+
+    let getBlocksMovememntFromSpriteType = function
+        | SpriteType.Actor _ -> true
+        | SpriteType.Fixture fp -> fp.BlocksMovement
+        | _ -> false 
+        
+    let tryGetOpacity (id:int) : TileOpacity option =
+        match tryGet id with
+        | None -> None
+        | Some sp ->
+            match sp.SpriteType with
+            | SpriteType.Actor ap -> Some ap.TileOpacity
+            | SpriteType.Fixture fp -> Some fp.TileOpacity
+            | SpriteType.Item
+            | SpriteType.Decal -> None
 
 // One logical "layer cell" per tile
 type LayerCell =
@@ -89,23 +128,19 @@ module LayerQueries =
 
     // Items never affect opacity; only actor/fixture vs base tile.
     let EffectiveTileOpacity (baseTileOpacity: TileOpacity, cell: LayerCell) =
-        match cell.ActorId with
-        | Some aId ->
-            match EntityRegistry.ActorProps.TryGetValue aId with
-            | true, ap when ap.TileOpacity = TileOpacity.Opaque -> TileOpacity.Opaque
-            | _ ->
-                match cell.FixtureId with
-                | Some fId ->
-                    match EntityRegistry.FixtureProps.TryGetValue fId with
-                    | true, fp when fp.TileOpacity = TileOpacity.Opaque -> TileOpacity.Opaque
-                    | _ -> baseTileOpacity
-                | None -> baseTileOpacity
+        let inline getOpacity (spriteIdOpt:int option) =
+            match spriteIdOpt with
+            | None -> None
+            | Some id ->
+                match SpritePropsQueries.tryGetOpacity id with
+                | Some TileOpacity.Opaque -> Some TileOpacity.Opaque
+                | _ -> None
+
+        match getOpacity cell.ActorId with
+        | Some o -> o
         | None ->
-            match cell.FixtureId with
-            | Some fId ->
-                match EntityRegistry.FixtureProps.TryGetValue fId with
-                | true, fp when fp.TileOpacity = TileOpacity.Opaque -> TileOpacity.Opaque
-                | _ -> baseTileOpacity
+            match getOpacity cell.FixtureId with
+            | Some o -> o
             | None -> baseTileOpacity
 
 //==============
@@ -131,24 +166,20 @@ module EditorLayerQueries =
 
     // Items never affect opacity; only actor/fixture vs base tile.
     let EffectiveTileOpacity (baseTileOpacity: TileOpacity, cell: EditorLayerCell) =
-        match cell.ActorId with
-        | Some aId ->
-            match EntityRegistry.ActorProps.TryGetValue aId with
-            | true, ap when ap.TileOpacity = TileOpacity.Opaque -> TileOpacity.Opaque
-            | _ ->
-                match cell.FixtureId with
-                | Some fId ->
-                    match EntityRegistry.FixtureProps.TryGetValue fId with
-                    | true, fp when fp.TileOpacity = TileOpacity.Opaque -> TileOpacity.Opaque
-                    | _ -> baseTileOpacity
-                | None -> baseTileOpacity
+        let inline getOpacity (spriteIdOpt:int option) =
+            match spriteIdOpt with
+            | None -> None
+            | Some id ->
+                match SpritePropsQueries.tryGetOpacity id with
+                | Some TileOpacity.Opaque -> Some TileOpacity.Opaque
+                | _ -> None
+
+        match getOpacity cell.ActorId with
+        | Some o -> o
         | None ->
-            match cell.FixtureId with
-            | Some fId ->
-                match EntityRegistry.FixtureProps.TryGetValue fId with
-                | true, fp when fp.TileOpacity = TileOpacity.Opaque -> TileOpacity.Opaque
-                | _ -> baseTileOpacity
-            | None -> baseTileOpacity
+            match getOpacity cell.FixtureId with
+            | Some o -> o
+            | None -> baseTileOpacity 
 
 // Replace EditorLayerCellUpdate to target the immutable editor cell
 type EditorLayerCellUpdate =

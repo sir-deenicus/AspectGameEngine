@@ -156,7 +156,7 @@ type TileMap =
 
     member this.MoveFixture(x: int, y: int, x2: int, y2: int) =
         let fid = this.GetLayerCell(x, y).FixtureId
-        if not EntityRegistry.FixtureProps[fid.Value].BlocksMovement then 
+        if not (SpritePropsQueries.checkFixtureBlocksMovement(EntityRegistry.SpriteProps[fid.Value].SpriteType)) then 
             this.GetLayerCell(x, y).FixtureId <- None
             this.GetLayerCell(x2, y2).FixtureId <- fid 
 
@@ -189,14 +189,10 @@ type TileMap =
                 // Actor present => occupied
                 match cell.ActorId with
                 | Some _ -> true
-                | None ->
-                    // Fixture only counts as occupying if it blocks movement
+                | None -> 
                     match cell.FixtureId with
-                    | Some fid ->
-                        match EntityRegistry.FixtureProps.TryGetValue fid with
-                        | true, fp when fp.BlocksMovement -> true
-                        | _ -> false
                     | None -> false
+                    | Some fid -> SpritePropsQueries.checkFixtureBlocksMovement(EntityRegistry.SpriteProps[fid].SpriteType)
 
     member this.IsOpaque(x: int, y: int) : bool =
         if x < 0 || x >= this.Width || y < 0 || y >= this.Height then true
