@@ -24,12 +24,21 @@ type SpriteSheetCell =
 [<Struct>]
 type SpriteSheetRegion = { SheetId: int; X: int; Y: int; Width: int; Height: int }
 
+// For rectangular blocks (efficient, contiguous)
+[<Struct>]
+type SpriteSheetSpan = 
+    { TopLeft: SpriteSheetCell
+      WidthCells: int
+      HeightCells: int }
+
 // Sprites can come from a global sheet/atlas cell, a standalone texture, or a scene/prefab.
 type SpriteRef =
     | SheetRegion of SpriteSheetRegion // arbitrary pixel region on a sheet
     | SheetCell of SpriteSheetCell     // grid address on a registered sheet
-    | TextureId of int             // maps to a loaded Texture2D managed externally
-    | Scene of string              // PackedScene path (e.g., "res://.../foo.tscn")
+    | SheetSpan of SpriteSheetSpan     // rectangular block of cells
+    | SheetCells of SpriteSheetCell[]  // Ordered list for scrambled/irregular multi-cells
+    | TextureId of int                 // maps to a loaded Texture2D managed externally
+    | Scene of string                  // PackedScene path (e.g., "res://.../foo.tscn")
 
 type Biome =
     | None = 0

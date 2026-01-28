@@ -22,7 +22,8 @@
     <Compile Include="TilePropertiesSerializer.fs" />
     <Compile Include="MapTypeSerializer.fs" />
     <Compile Include="EntityRegistrySerializer.fs" />
-    <Compile Include="ChunkOcclusionManager.fs" /><Compile Include="SpellsCore.fs" />
+    <Compile Include="ChunkOcclusionManager.fs" />
+    <Compile Include="SpellsCore.fs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Google.FlatBuffers" Version="25.2.10" />
