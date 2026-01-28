@@ -100,6 +100,94 @@ type EditorTileMap =
         { this with
             LayerCells = this.LayerCells.Update(index, { cell with DecalId = None }) }
 
+    member this.SetEntityAuto(x: int, y: int, entityId: int) =
+        match SpritePropsQueries.tryGet entityId with
+        | None ->
+            // If the id isn't registered, do nothing (alternatively: failwithf).
+            this
+        | Some sp ->
+            match sp.SpriteType with
+            | SpriteType.Actor _ -> this.SetActor(x, y, entityId)
+            | SpriteType.Fixture _ -> this.SetFixture(x, y, entityId)
+            | SpriteType.Decal -> this.SetDecal(x, y, entityId)
+            | SpriteType.Item -> this.AddItem(x, y, entityId)
+
+    member this.MigrateEntitySpriteType(entityId: int, oldType: SpriteType, newType: SpriteType) =
+        let kindOf (t: SpriteType) =
+            match t with
+            | SpriteType.Actor _ -> 0
+            | SpriteType.Fixture _ -> 1
+            | SpriteType.Decal -> 2
+            | SpriteType.Item -> 3
+
+        let oldKind = kindOf oldType
+        let newKind = kindOf newType
+
+        // No-op if the “container kind” didn’t change.
+        if oldKind = newKind then
+            this
+        else
+            // Rule: if we cross the Item boundary, we destroy placement (remove from all cells).
+            let crossesItemBoundary =
+                (oldKind = 3 && newKind <> 3) || (oldKind <> 3 && newKind = 3)
+
+            let migrateCell (cell: EditorLayerCell) =
+                let mutable changed = false
+
+                // Always remove from items if present (safety + supports destroy/migrate rules)
+                let hadItem = cell.Items |> List.exists (fun id -> id = entityId)
+                let items2 =
+                    if hadItem then
+                        changed <- true
+                        cell.Items |> List.filter (fun id -> id <> entityId)
+                    else
+                        cell.Items
+
+                let isMe v = (v = Some entityId)
+
+                let a0 = if isMe cell.ActorId then changed <- true; None else cell.ActorId
+                let f0 = if isMe cell.FixtureId then changed <- true; None else cell.FixtureId
+                let d0 = if isMe cell.DecalId then changed <- true; None else cell.DecalId
+
+                if crossesItemBoundary then
+                    // “Destroy”: entityId is removed everywhere; no reinsert.
+                    { cell with Items = items2; ActorId = a0; FixtureId = f0; DecalId = d0 }, changed
+                else
+                    // Non-item -> non-item: migrate into the new slot if it is empty (None); otherwise destroy.
+                    let wasPresentInSlot = isMe cell.ActorId || isMe cell.FixtureId || isMe cell.DecalId
+
+                    if not wasPresentInSlot then
+                        { cell with Items = items2 }, changed
+                    else
+                        // Destination must be empty (None) to accept the migrated id.
+                        let a1, f1, d1 =
+                            match newKind with
+                            | 0 -> // Actor
+                                if a0.IsNone then (Some entityId, f0, d0) else (a0, f0, d0)
+                            | 1 -> // Fixture
+                                if f0.IsNone then (a0, Some entityId, d0) else (a0, f0, d0)
+                            | 2 -> // Decal
+                                if d0.IsNone then (a0, f0, Some entityId) else (a0, f0, d0)
+                            | _ ->
+                                // Shouldn’t happen here (items excluded)
+                                (a0, f0, d0)
+
+                        // If destination was blocked, we already cleared the old slot => “destroy”
+                        { cell with Items = items2; ActorId = a1; FixtureId = f1; DecalId = d1 }, true
+
+            // Apply across all cells
+            let updates =
+                [|
+                    for i = 0 to this.LayerCells.Length - 1 do
+                        let cell = this.LayerCells.[i]
+                        let cell2, changed = migrateCell cell
+                        if changed then
+                            yield (i, cell2)
+                |]
+            
+            if updates.Length = 0 then this
+            else { this with LayerCells = PersistentVector.updateMany updates this.LayerCells }
+
     member this.UpdateLayerCell(x: int, y: int, cell: EditorLayerCell) =
         let index = this.GetFlatIndex(x, y)
         { this with LayerCells = this.LayerCells.Update(index, cell) }
@@ -132,11 +220,10 @@ type EditorTileMap =
             | Some _ -> true
             | None ->
                 match cell.FixtureId with
-                | Some fid ->
-                    match EntityRegistry.FixtureProps.TryGetValue fid with
-                    | true, fp when fp.BlocksMovement -> true
-                    | _ -> false
                 | None -> false
+                | Some fid ->
+                    Option.map (fun sp -> SpritePropsQueries.checkFixtureBlocksMovement sp.SpriteType) (SpritePropsQueries.tryGet fid)
+                    |> Option.defaultValue false
 
     member this.IsOpaque(x, y) =
         let baseOpacity = this.GetTileProperties(x, y).TileOpacity
@@ -367,6 +454,10 @@ type EditorHistory =
     member this.SetFixture(x:int, y:int, fixtureId:int) =
         let current = this.CurrentTileMap.SetFixture(x, y, fixtureId)
         this.AddTileMap current
+
+    member this.SetEntityAuto(x: int, y: int, entityId: int) =
+        this.CurrentTileMap.SetEntityAuto(x, y, entityId)
+        |> this.AddTileMap
 
     member this.ClearFixture(x:int, y:int) =
         let current = this.CurrentTileMap.ClearFixture(x, y)
