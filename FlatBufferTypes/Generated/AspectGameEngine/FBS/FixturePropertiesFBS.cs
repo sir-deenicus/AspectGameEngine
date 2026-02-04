@@ -25,6 +25,8 @@ public struct FixturePropertiesFBS : IFlatbufferObject
   public AspectGameEngine.FBS.SpriteSheetCellFBS SpriteAsSpriteSheetCellFBS() { return Sprite<AspectGameEngine.FBS.SpriteSheetCellFBS>().Value; }
   public AspectGameEngine.FBS.TextureIdFBS SpriteAsTextureIdFBS() { return Sprite<AspectGameEngine.FBS.TextureIdFBS>().Value; }
   public AspectGameEngine.FBS.SceneRefFBS SpriteAsSceneRefFBS() { return Sprite<AspectGameEngine.FBS.SceneRefFBS>().Value; }
+  public AspectGameEngine.FBS.SpriteSheetSpanFBS SpriteAsSpriteSheetSpanFBS() { return Sprite<AspectGameEngine.FBS.SpriteSheetSpanFBS>().Value; }
+  public AspectGameEngine.FBS.SpriteSheetCellsFBS SpriteAsSpriteSheetCellsFBS() { return Sprite<AspectGameEngine.FBS.SpriteSheetCellsFBS>().Value; }
   public bool BlocksMovement { get { int o = __p.__offset(8); return o != 0 ? 0!=__p.bb.Get(o + __p.bb_pos) : (bool)false; } }
   public bool Interactable { get { int o = __p.__offset(10); return o != 0 ? 0!=__p.bb.Get(o + __p.bb_pos) : (bool)false; } }
   public AspectGameEngine.FBS.TileOpacityFBS TileOpacity { get { int o = __p.__offset(12); return o != 0 ? (AspectGameEngine.FBS.TileOpacityFBS)__p.bb.GetSbyte(o + __p.bb_pos) : AspectGameEngine.FBS.TileOpacityFBS.Opaque; } }

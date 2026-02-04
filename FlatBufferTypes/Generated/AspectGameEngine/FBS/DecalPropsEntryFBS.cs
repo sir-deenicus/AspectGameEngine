@@ -26,6 +26,8 @@ public struct DecalPropsEntryFBS : IFlatbufferObject
   public AspectGameEngine.FBS.SpriteSheetCellFBS SpriteAsSpriteSheetCellFBS() { return Sprite<AspectGameEngine.FBS.SpriteSheetCellFBS>().Value; }
   public AspectGameEngine.FBS.TextureIdFBS SpriteAsTextureIdFBS() { return Sprite<AspectGameEngine.FBS.TextureIdFBS>().Value; }
   public AspectGameEngine.FBS.SceneRefFBS SpriteAsSceneRefFBS() { return Sprite<AspectGameEngine.FBS.SceneRefFBS>().Value; }
+  public AspectGameEngine.FBS.SpriteSheetSpanFBS SpriteAsSpriteSheetSpanFBS() { return Sprite<AspectGameEngine.FBS.SpriteSheetSpanFBS>().Value; }
+  public AspectGameEngine.FBS.SpriteSheetCellsFBS SpriteAsSpriteSheetCellsFBS() { return Sprite<AspectGameEngine.FBS.SpriteSheetCellsFBS>().Value; }
 
   public static Offset<AspectGameEngine.FBS.DecalPropsEntryFBS> CreateDecalPropsEntryFBS(FlatBufferBuilder builder,
       int id = 0,

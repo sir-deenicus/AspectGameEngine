@@ -12,6 +12,8 @@ public enum SpriteRefFBS : byte
   SpriteSheetCellFBS = 2,
   TextureIdFBS = 3,
   SceneRefFBS = 4,
+  SpriteSheetSpanFBS = 5,
+  SpriteSheetCellsFBS = 6,
 };
 
 
@@ -34,6 +36,12 @@ static public class SpriteRefFBSVerify
         break;
       case SpriteRefFBS.SceneRefFBS:
         result = AspectGameEngine.FBS.SceneRefFBSVerify.Verify(verifier, tablePos);
+        break;
+      case SpriteRefFBS.SpriteSheetSpanFBS:
+        result = AspectGameEngine.FBS.SpriteSheetSpanFBSVerify.Verify(verifier, tablePos);
+        break;
+      case SpriteRefFBS.SpriteSheetCellsFBS:
+        result = AspectGameEngine.FBS.SpriteSheetCellsFBSVerify.Verify(verifier, tablePos);
         break;
       default: result = true;
         break;

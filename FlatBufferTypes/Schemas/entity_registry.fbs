@@ -17,6 +17,17 @@ table SpriteSheetRegionFBS {
     height:int;
 }
 
+table SpriteSheetSpanFBS {
+    top_left:SpriteSheetCellFBS;
+    width_cells:int;
+    height_cells:int;
+}
+
+// Wrapper for a variable-length list of cells (union members must be tables)
+table SpriteSheetCellsFBS {
+    cells:[SpriteSheetCellFBS];
+}
+
 table TextureIdFBS { id:int; }
 table SceneRefFBS { path:string; }
 
@@ -24,7 +35,9 @@ union SpriteRefFBS {
     SpriteSheetRegionFBS,
     SpriteSheetCellFBS,
     TextureIdFBS,
-    SceneRefFBS
+    SceneRefFBS,
+    SpriteSheetSpanFBS,
+    SpriteSheetCellsFBS
 }
 
 // Properties mapped by registries
@@ -43,7 +56,6 @@ table FixturePropertiesFBS {
 
 table ActorPropertiesFBS {
     sprite:SpriteRefFBS;
-    blocks_movement:bool;
     tile_opacity:TileOpacityFBS;
 }
 

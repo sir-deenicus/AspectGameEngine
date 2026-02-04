@@ -25,27 +25,25 @@ public struct ActorPropertiesFBS : IFlatbufferObject
   public AspectGameEngine.FBS.SpriteSheetCellFBS SpriteAsSpriteSheetCellFBS() { return Sprite<AspectGameEngine.FBS.SpriteSheetCellFBS>().Value; }
   public AspectGameEngine.FBS.TextureIdFBS SpriteAsTextureIdFBS() { return Sprite<AspectGameEngine.FBS.TextureIdFBS>().Value; }
   public AspectGameEngine.FBS.SceneRefFBS SpriteAsSceneRefFBS() { return Sprite<AspectGameEngine.FBS.SceneRefFBS>().Value; }
-  public bool BlocksMovement { get { int o = __p.__offset(8); return o != 0 ? 0!=__p.bb.Get(o + __p.bb_pos) : (bool)false; } }
-  public AspectGameEngine.FBS.TileOpacityFBS TileOpacity { get { int o = __p.__offset(10); return o != 0 ? (AspectGameEngine.FBS.TileOpacityFBS)__p.bb.GetSbyte(o + __p.bb_pos) : AspectGameEngine.FBS.TileOpacityFBS.Opaque; } }
+  public AspectGameEngine.FBS.SpriteSheetSpanFBS SpriteAsSpriteSheetSpanFBS() { return Sprite<AspectGameEngine.FBS.SpriteSheetSpanFBS>().Value; }
+  public AspectGameEngine.FBS.SpriteSheetCellsFBS SpriteAsSpriteSheetCellsFBS() { return Sprite<AspectGameEngine.FBS.SpriteSheetCellsFBS>().Value; }
+  public AspectGameEngine.FBS.TileOpacityFBS TileOpacity { get { int o = __p.__offset(8); return o != 0 ? (AspectGameEngine.FBS.TileOpacityFBS)__p.bb.GetSbyte(o + __p.bb_pos) : AspectGameEngine.FBS.TileOpacityFBS.Opaque; } }
 
   public static Offset<AspectGameEngine.FBS.ActorPropertiesFBS> CreateActorPropertiesFBS(FlatBufferBuilder builder,
       AspectGameEngine.FBS.SpriteRefFBS sprite_type = AspectGameEngine.FBS.SpriteRefFBS.NONE,
       int spriteOffset = 0,
-      bool blocks_movement = false,
       AspectGameEngine.FBS.TileOpacityFBS tile_opacity = AspectGameEngine.FBS.TileOpacityFBS.Opaque) {
-    builder.StartTable(4);
+    builder.StartTable(3);
     ActorPropertiesFBS.AddSprite(builder, spriteOffset);
     ActorPropertiesFBS.AddTileOpacity(builder, tile_opacity);
-    ActorPropertiesFBS.AddBlocksMovement(builder, blocks_movement);
     ActorPropertiesFBS.AddSpriteType(builder, sprite_type);
     return ActorPropertiesFBS.EndActorPropertiesFBS(builder);
   }
 
-  public static void StartActorPropertiesFBS(FlatBufferBuilder builder) { builder.StartTable(4); }
+  public static void StartActorPropertiesFBS(FlatBufferBuilder builder) { builder.StartTable(3); }
   public static void AddSpriteType(FlatBufferBuilder builder, AspectGameEngine.FBS.SpriteRefFBS spriteType) { builder.AddByte(0, (byte)spriteType, 0); }
   public static void AddSprite(FlatBufferBuilder builder, int spriteOffset) { builder.AddOffset(1, spriteOffset, 0); }
-  public static void AddBlocksMovement(FlatBufferBuilder builder, bool blocksMovement) { builder.AddBool(2, blocksMovement, false); }
-  public static void AddTileOpacity(FlatBufferBuilder builder, AspectGameEngine.FBS.TileOpacityFBS tileOpacity) { builder.AddSbyte(3, (sbyte)tileOpacity, 0); }
+  public static void AddTileOpacity(FlatBufferBuilder builder, AspectGameEngine.FBS.TileOpacityFBS tileOpacity) { builder.AddSbyte(2, (sbyte)tileOpacity, 0); }
   public static Offset<AspectGameEngine.FBS.ActorPropertiesFBS> EndActorPropertiesFBS(FlatBufferBuilder builder) {
     int o = builder.EndTable();
     return new Offset<AspectGameEngine.FBS.ActorPropertiesFBS>(o);
@@ -60,8 +58,7 @@ static public class ActorPropertiesFBSVerify
     return verifier.VerifyTableStart(tablePos)
       && verifier.VerifyField(tablePos, 4 /*SpriteType*/, 1 /*AspectGameEngine.FBS.SpriteRefFBS*/, 1, false)
       && verifier.VerifyUnion(tablePos, 4, 6 /*Sprite*/, AspectGameEngine.FBS.SpriteRefFBSVerify.Verify, false)
-      && verifier.VerifyField(tablePos, 8 /*BlocksMovement*/, 1 /*bool*/, 1, false)
-      && verifier.VerifyField(tablePos, 10 /*TileOpacity*/, 1 /*AspectGameEngine.FBS.TileOpacityFBS*/, 1, false)
+      && verifier.VerifyField(tablePos, 8 /*TileOpacity*/, 1 /*AspectGameEngine.FBS.TileOpacityFBS*/, 1, false)
       && verifier.VerifyTableEnd(tablePos);
   }
 }
