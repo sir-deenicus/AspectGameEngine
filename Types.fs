@@ -91,8 +91,7 @@ type ComplexState =
 
     member this.IsDoorLocked() =
         match this with
-        | ClosedDoor state -> state.Locked
-        | _ -> false
+        | ClosedDoor state -> state.Locked        
 
 [<Struct>]
 type TileProperties =

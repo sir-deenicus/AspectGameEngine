@@ -1,5 +1,5 @@
 namespace AspectGameEngine
-
+//Please fix Errors
 open System
 open System.Collections.Generic
 open Google.FlatBuffers
@@ -31,6 +31,17 @@ module EntityRegistrySerializer =
     let private buildSpriteSheetRegion (builder: FlatBufferBuilder) (r: SpriteSheetRegion) =
         SpriteSheetRegionFBS.CreateSpriteSheetRegionFBS(builder, r.SheetId, r.X, r.Y, r.Width, r.Height)
 
+    let private buildSpriteSheetSpan (builder: FlatBufferBuilder) (s: SpriteSheetSpan) =
+        let tl = buildSpriteSheetCell builder s.TopLeft
+        SpriteSheetSpanFBS.CreateSpriteSheetSpanFBS(builder, tl, s.WidthCells, s.HeightCells)
+
+    let private buildSpriteSheetCells (builder: FlatBufferBuilder) (cells: SpriteSheetCell[]) =
+        let cellOffsets = cells |> Array.map (buildSpriteSheetCell builder)
+        let cellsVec = SpriteSheetCellsFBS.CreateCellsVector(builder, cellOffsets)
+        SpriteSheetCellsFBS.StartSpriteSheetCellsFBS(builder)
+        SpriteSheetCellsFBS.AddCells(builder, cellsVec)
+        SpriteSheetCellsFBS.EndSpriteSheetCellsFBS(builder)
+
     // Returns: (unionType, unionValueOffset)
     let private buildSpriteRef (builder: FlatBufferBuilder) (sprite: SpriteRef) : SpriteRefFBS * int =
         match sprite with
@@ -47,6 +58,12 @@ module EntityRegistrySerializer =
             let s = builder.CreateString(path)
             let o = SceneRefFBS.CreateSceneRefFBS(builder, s)
             (SpriteRefFBS.SceneRefFBS, o.Value)
+        | SpriteRef.SheetSpan s ->
+            let o = buildSpriteSheetSpan builder s
+            (SpriteRefFBS.SpriteSheetSpanFBS, o.Value) 
+        | SpriteRef.SheetCells cells ->
+            let o = buildSpriteSheetCells builder cells
+            (SpriteRefFBS.SpriteSheetCellsFBS, o.Value)
 
     let private tryReadSpriteRefFromItem (ip: ItemPropertiesFBS) : SpriteRef option =
         match ip.SpriteType with
@@ -66,6 +83,29 @@ module EntityRegistrySerializer =
             match Option.ofNullable (ip.Sprite<SceneRefFBS>()) with
             | Some s -> Some (SpriteRef.Scene s.Path)
             | None -> None
+        | SpriteRefFBS.SpriteSheetSpanFBS ->
+            match Option.ofNullable (ip.Sprite<SpriteSheetSpanFBS>()) with
+            | None -> None
+            | Some s ->
+                match Option.ofNullable s.TopLeft with
+                | None -> None
+                | Some tl ->
+                    Some(
+                        SpriteRef.SheetSpan
+                            { TopLeft = SpriteSheetCell(tl.SheetId, tl.Row, tl.Column)
+                              WidthCells = s.WidthCells
+                              HeightCells = s.HeightCells }
+                    )
+        | SpriteRefFBS.SpriteSheetCellsFBS ->
+            match Option.ofNullable (ip.Sprite<SpriteSheetCellsFBS>()) with
+            | None -> None
+            | Some s ->
+                let cells =
+                    [| for i = 0 to s.CellsLength - 1 do
+                           match Option.ofNullable (s.Cells(i)) with
+                           | Some c -> yield SpriteSheetCell(c.SheetId, c.Row, c.Column)
+                           | None -> () |]
+                Some (SpriteRef.SheetCells cells)
         | _ -> None
 
     let private tryReadSpriteRefFromFixture (fp: FixturePropertiesFBS) : SpriteRef option =
@@ -86,6 +126,29 @@ module EntityRegistrySerializer =
             match Option.ofNullable (fp.Sprite<SceneRefFBS>()) with
             | Some s -> Some (SpriteRef.Scene s.Path)
             | None -> None
+        | SpriteRefFBS.SpriteSheetSpanFBS ->
+            match Option.ofNullable (fp.Sprite<SpriteSheetSpanFBS>()) with
+            | None -> None
+            | Some s ->
+                match Option.ofNullable s.TopLeft with
+                | None -> None
+                | Some tl ->
+                    Some(
+                        SpriteRef.SheetSpan
+                            { TopLeft = SpriteSheetCell(tl.SheetId, tl.Row, tl.Column)
+                              WidthCells = s.WidthCells
+                              HeightCells = s.HeightCells }
+                    )
+        | SpriteRefFBS.SpriteSheetCellsFBS ->
+            match Option.ofNullable (fp.Sprite<SpriteSheetCellsFBS>()) with
+            | None -> None
+            | Some s ->
+                let cells =
+                    [| for i = 0 to s.CellsLength - 1 do
+                           match Option.ofNullable (s.Cells(i)) with
+                           | Some c -> yield SpriteSheetCell(c.SheetId, c.Row, c.Column)
+                           | None -> () |]
+                Some (SpriteRef.SheetCells cells)
         | _ -> None
 
     let private tryReadSpriteRefFromActor (ap: ActorPropertiesFBS) : SpriteRef option =
@@ -106,6 +169,30 @@ module EntityRegistrySerializer =
             match Option.ofNullable (ap.Sprite<SceneRefFBS>()) with
             | Some s -> Some (SpriteRef.Scene s.Path)
             | None -> None
+
+        | SpriteRefFBS.SpriteSheetSpanFBS ->
+            match Option.ofNullable (ap.Sprite<SpriteSheetSpanFBS>()) with
+            | None -> None
+            | Some s ->
+                match Option.ofNullable s.TopLeft with
+                | None -> None
+                | Some tl ->
+                    Some(
+                        SpriteRef.SheetSpan
+                            { TopLeft = SpriteSheetCell(tl.SheetId, tl.Row, tl.Column)
+                              WidthCells = s.WidthCells
+                              HeightCells = s.HeightCells }
+                    )
+        | SpriteRefFBS.SpriteSheetCellsFBS ->
+            match Option.ofNullable (ap.Sprite<SpriteSheetCellsFBS>()) with
+            | None -> None
+            | Some s ->
+                let cells =
+                    [| for i = 0 to s.CellsLength - 1 do
+                           match Option.ofNullable (s.Cells(i)) with
+                           | Some c -> yield SpriteSheetCell(c.SheetId, c.Row, c.Column)
+                           | None -> () |]
+                Some (SpriteRef.SheetCells cells)
         | _ -> None
 
     let private tryReadSpriteRefFromDecal (de: DecalPropsEntryFBS) : SpriteRef option =
@@ -126,42 +213,59 @@ module EntityRegistrySerializer =
             match Option.ofNullable (de.Sprite<SceneRefFBS>()) with
             | Some s -> Some (SpriteRef.Scene s.Path)
             | None -> None
+        | SpriteRefFBS.SpriteSheetSpanFBS ->
+            match Option.ofNullable (de.Sprite<SpriteSheetSpanFBS>()) with
+            | None -> None
+            | Some s ->
+                match Option.ofNullable s.TopLeft with
+                | None -> None
+                | Some tl ->
+                    Some(
+                        SpriteRef.SheetSpan
+                            { TopLeft = SpriteSheetCell(tl.SheetId, tl.Row, tl.Column)
+                              WidthCells = s.WidthCells
+                              HeightCells = s.HeightCells }
+                    )
+        | SpriteRefFBS.SpriteSheetCellsFBS ->
+            match Option.ofNullable (de.Sprite<SpriteSheetCellsFBS>()) with
+            | None -> None
+            | Some s ->
+                let cells =
+                    [| for i = 0 to s.CellsLength - 1 do
+                           match Option.ofNullable (s.Cells(i)) with
+                           | Some c -> yield SpriteSheetCell(c.SheetId, c.Row, c.Column)
+                           | None -> () |]
+                Some (SpriteRef.SheetCells cells)
         | _ -> None
 
     //=== Public data shape for deserialization ===
 
     type RegistryData =
-        { Items: (int * ItemProperties) array
-          Fixtures: (int * FixtureProperties) array
-          Actors: (int * ActorProperties) array
-          Decals: (int * SpriteRef) array }
+        { SpriteProps: (int * SpriteProperties) array }
 
     //=== Serialization ===
 
-    let serializeFrom
-        (items: IDictionary<int, ItemProperties>)
-        (fixtures: IDictionary<int, FixtureProperties>)
-        (actors: IDictionary<int, ActorProperties>)
-        (decals: IDictionary<int, SpriteRef>) : byte[] =
-
-        let countEstimate =
-            items.Count * 32 + fixtures.Count * 40 + actors.Count * 36 + decals.Count * 24 + 1024
+    let serializeFrom (spriteProps: IDictionary<int, SpriteProperties>) : byte[] =
+        let countEstimate = spriteProps.Count * 48 + 2048
         let builder = FlatBufferBuilder(max 2048 countEstimate)
 
         // Items
         let itemOffsets =
-            [| for KeyValue(id, props) in items ->
-                let sType, sOff = buildSpriteRef builder props.Sprite
-                ItemPropertiesFBS.StartItemPropertiesFBS(builder)
-                ItemPropertiesFBS.AddTileOpacity(builder, toTileOpacityFBS props.TileOpacity)
-                ItemPropertiesFBS.AddSpriteType(builder, sType)
-                ItemPropertiesFBS.AddSprite(builder, sOff)
-                let propsOff = ItemPropertiesFBS.EndItemPropertiesFBS(builder)
+            [| for KeyValue(id, sp) in spriteProps do
+                   match sp.SpriteType with
+                   | SpriteType.Item ->
+                       let sType, sOff = buildSpriteRef builder sp.Sprite
+                       ItemPropertiesFBS.StartItemPropertiesFBS(builder)
+                       ItemPropertiesFBS.AddTileOpacity(builder, toTileOpacityFBS TileOpacity.Transparent)
+                       ItemPropertiesFBS.AddSpriteType(builder, sType)
+                       ItemPropertiesFBS.AddSprite(builder, sOff)
+                       let propsOff = ItemPropertiesFBS.EndItemPropertiesFBS(builder)
 
-                ItemPropsEntryFBS.StartItemPropsEntryFBS(builder)
-                ItemPropsEntryFBS.AddId(builder, id)
-                ItemPropsEntryFBS.AddProps(builder, propsOff)
-                ItemPropsEntryFBS.EndItemPropsEntryFBS(builder) |]
+                       ItemPropsEntryFBS.StartItemPropsEntryFBS(builder)
+                       ItemPropsEntryFBS.AddId(builder, id)
+                       ItemPropsEntryFBS.AddProps(builder, propsOff)
+                       yield ItemPropsEntryFBS.EndItemPropsEntryFBS(builder)
+                   | _ -> () |]
 
         let itemsVec =
             if itemOffsets.Length = 0 then Nullable()
@@ -169,40 +273,44 @@ module EntityRegistrySerializer =
 
         // Fixtures
         let fixtureOffsets =
-            [| for KeyValue(id, props) in fixtures ->
-                let sType, sOff = buildSpriteRef builder props.Sprite
-                FixturePropertiesFBS.StartFixturePropertiesFBS(builder)
-                FixturePropertiesFBS.AddBlocksMovement(builder, props.BlocksMovement)
-                FixturePropertiesFBS.AddInteractable(builder, props.Interactable)
-                FixturePropertiesFBS.AddTileOpacity(builder, toTileOpacityFBS props.TileOpacity)
-                FixturePropertiesFBS.AddSpriteType(builder, sType)
-                FixturePropertiesFBS.AddSprite(builder, sOff)
-                let propsOff = FixturePropertiesFBS.EndFixturePropertiesFBS(builder)
+            [| for KeyValue(id, sp) in spriteProps do
+                   match sp.SpriteType with
+                   | SpriteType.Fixture fp ->
+                       let sType, sOff = buildSpriteRef builder sp.Sprite
+                       FixturePropertiesFBS.StartFixturePropertiesFBS(builder)
+                       FixturePropertiesFBS.AddBlocksMovement(builder, fp.BlocksMovement)
+                       FixturePropertiesFBS.AddInteractable(builder, fp.Interactable)
+                       FixturePropertiesFBS.AddTileOpacity(builder, toTileOpacityFBS fp.TileOpacity)
+                       FixturePropertiesFBS.AddSpriteType(builder, sType)
+                       FixturePropertiesFBS.AddSprite(builder, sOff)
+                       let propsOff = FixturePropertiesFBS.EndFixturePropertiesFBS(builder)
 
-                FixturePropsEntryFBS.StartFixturePropsEntryFBS(builder)
-                FixturePropsEntryFBS.AddId(builder, id)
-                FixturePropsEntryFBS.AddProps(builder, propsOff)
-                FixturePropsEntryFBS.EndFixturePropsEntryFBS(builder) |]
+                       FixturePropsEntryFBS.StartFixturePropsEntryFBS(builder)
+                       FixturePropsEntryFBS.AddId(builder, id)
+                       FixturePropsEntryFBS.AddProps(builder, propsOff)
+                       yield FixturePropsEntryFBS.EndFixturePropsEntryFBS(builder)
+                   | _ -> () |]
 
         let fixturesVec =
             if fixtureOffsets.Length = 0 then Nullable()
             else Nullable(EntityRegistryFBS.CreateFixturesVector(builder, fixtureOffsets))
-
-        // Actors
+ 
         let actorOffsets =
-            [| for KeyValue(id, props) in actors ->
-                let sType, sOff = buildSpriteRef builder props.Sprite
-                ActorPropertiesFBS.StartActorPropertiesFBS(builder)
-                ActorPropertiesFBS.AddBlocksMovement(builder, props.BlocksMovement)
-                ActorPropertiesFBS.AddTileOpacity(builder, toTileOpacityFBS props.TileOpacity)
-                ActorPropertiesFBS.AddSpriteType(builder, sType)
-                ActorPropertiesFBS.AddSprite(builder, sOff)
-                let propsOff = ActorPropertiesFBS.EndActorPropertiesFBS(builder)
+            [| for KeyValue(id, sp) in spriteProps do
+                   match sp.SpriteType with
+                   | SpriteType.Actor ap ->
+                       let sType, sOff = buildSpriteRef builder sp.Sprite
+                       ActorPropertiesFBS.StartActorPropertiesFBS(builder)
+                       ActorPropertiesFBS.AddTileOpacity(builder, toTileOpacityFBS ap.TileOpacity)
+                       ActorPropertiesFBS.AddSpriteType(builder, sType)
+                       ActorPropertiesFBS.AddSprite(builder, sOff)
+                       let propsOff = ActorPropertiesFBS.EndActorPropertiesFBS(builder)
 
-                ActorPropsEntryFBS.StartActorPropsEntryFBS(builder)
-                ActorPropsEntryFBS.AddId(builder, id)
-                ActorPropsEntryFBS.AddProps(builder, propsOff)
-                ActorPropsEntryFBS.EndActorPropsEntryFBS(builder) |]
+                       ActorPropsEntryFBS.StartActorPropsEntryFBS(builder)
+                       ActorPropsEntryFBS.AddId(builder, id)
+                       ActorPropsEntryFBS.AddProps(builder, propsOff)
+                       yield ActorPropsEntryFBS.EndActorPropsEntryFBS(builder)
+                   | _ -> () |]
 
         let actorsVec =
             if actorOffsets.Length = 0 then Nullable()
@@ -210,13 +318,16 @@ module EntityRegistrySerializer =
 
         // Decals
         let decalOffsets =
-            [| for KeyValue(id, sprite) in decals ->
-                let sType, sOff = buildSpriteRef builder sprite
-                DecalPropsEntryFBS.StartDecalPropsEntryFBS(builder)
-                DecalPropsEntryFBS.AddId(builder, id)
-                DecalPropsEntryFBS.AddSpriteType(builder, sType)
-                DecalPropsEntryFBS.AddSprite(builder, sOff)
-                DecalPropsEntryFBS.EndDecalPropsEntryFBS(builder) |]
+            [| for KeyValue(id, sp) in spriteProps do
+                   match sp.SpriteType with
+                   | SpriteType.Decal ->
+                       let sType, sOff = buildSpriteRef builder sp.Sprite
+                       DecalPropsEntryFBS.StartDecalPropsEntryFBS(builder)
+                       DecalPropsEntryFBS.AddId(builder, id)
+                       DecalPropsEntryFBS.AddSpriteType(builder, sType)
+                       DecalPropsEntryFBS.AddSprite(builder, sOff)
+                       yield DecalPropsEntryFBS.EndDecalPropsEntryFBS(builder)
+                   | _ -> () |]
 
         let decalsVec =
             if decalOffsets.Length = 0 then Nullable()
@@ -234,11 +345,7 @@ module EntityRegistrySerializer =
 
     // Convenience: serialize current global registry
     let serializeCurrent() =
-        serializeFrom
-            (EntityRegistry.ItemProps :> IDictionary<_, _>)
-            (EntityRegistry.FixtureProps :> IDictionary<_, _>)
-            (EntityRegistry.ActorProps :> IDictionary<_, _>)
-            (EntityRegistry.DecalProps :> IDictionary<_, _>)
+        serializeFrom (EntityRegistry.SpriteProps :> IDictionary<_, _>)
 
     //=== Deserialization ===
 
@@ -246,81 +353,67 @@ module EntityRegistrySerializer =
         let bb = ByteBuffer(bytes)
         let root = EntityRegistryFBS.GetRootAsEntityRegistryFBS(bb)
 
+        let out = ResizeArray<int * SpriteProperties>()
+
         // Items
-        let items =
-            [| for i in 0 .. root.ItemsLength - 1 do
-                   match Option.ofNullable (root.Items(i)) with
-                   | None -> ()
-                   | Some entry ->
-                       match Option.ofNullable entry.Props with
-                       | None -> ()
-                       | Some ip ->
-                           match tryReadSpriteRefFromItem ip with
-                           | None -> ()
-                           | Some sprite ->
-                               let props =
-                                   { ItemProperties.Sprite = sprite
-                                     TileOpacity = fromTileOpacityFBS ip.TileOpacity }
-                               yield (entry.Id, props) |]
+        for i = 0 to root.ItemsLength - 1 do
+            match Option.ofNullable (root.Items(i)) with
+            | None -> ()
+            | Some entry ->
+                match Option.ofNullable entry.Props with
+                | None -> ()
+                | Some ip ->
+                    match tryReadSpriteRefFromItem ip with
+                    | None -> ()
+                    | Some sprite ->
+                        out.Add(entry.Id, { Sprite = sprite; SpriteType = SpriteType.Item })
 
         // Fixtures
-        let fixtures =
-            [| for i in 0 .. root.FixturesLength - 1 do
-                   match Option.ofNullable (root.Fixtures(i)) with
-                   | None -> ()
-                   | Some entry ->
-                       match Option.ofNullable entry.Props with
-                       | None -> ()
-                       | Some fp ->
-                           match tryReadSpriteRefFromFixture fp with
-                           | None -> ()
-                           | Some sprite ->
-                               let props =
-                                   { FixtureProperties.Sprite = sprite
-                                     BlocksMovement = fp.BlocksMovement
-                                     Interactable = fp.Interactable
-                                     TileOpacity = fromTileOpacityFBS fp.TileOpacity }
-                               yield (entry.Id, props) |]
+        for i = 0 to root.FixturesLength - 1 do
+            match Option.ofNullable (root.Fixtures(i)) with
+            | None -> ()
+            | Some entry ->
+                match Option.ofNullable entry.Props with
+                | None -> ()
+                | Some fpFbs ->
+                    match tryReadSpriteRefFromFixture fpFbs with
+                    | None -> ()
+                    | Some sprite ->
+                        let fp =
+                            { BlocksMovement = fpFbs.BlocksMovement
+                              Interactable = fpFbs.Interactable
+                              TileOpacity = fromTileOpacityFBS fpFbs.TileOpacity }
+                        out.Add(entry.Id, { Sprite = sprite; SpriteType = SpriteType.Fixture fp })
 
         // Actors
-        let actors =
-            [| for i in 0 .. root.ActorsLength - 1 do
-                   match Option.ofNullable (root.Actors(i)) with
-                   | None -> ()
-                   | Some entry ->
-                       match Option.ofNullable entry.Props with
-                       | None -> ()
-                       | Some ap ->
-                           match tryReadSpriteRefFromActor ap with
-                           | None -> ()
-                           | Some sprite ->
-                               let props =
-                                   { ActorProperties.Sprite = sprite
-                                     BlocksMovement = ap.BlocksMovement
-                                     TileOpacity = fromTileOpacityFBS ap.TileOpacity }
-                               yield (entry.Id, props) |]
+        for i = 0 to root.ActorsLength - 1 do
+            match Option.ofNullable (root.Actors(i)) with
+            | None -> ()
+            | Some entry ->
+                match Option.ofNullable entry.Props with
+                | None -> ()
+                | Some apFbs ->
+                    match tryReadSpriteRefFromActor apFbs with
+                    | None -> ()
+                    | Some sprite ->
+                        let ap = { TileOpacity = fromTileOpacityFBS apFbs.TileOpacity }
+                        out.Add(entry.Id, { Sprite = sprite; SpriteType = SpriteType.Actor ap })
 
         // Decals
-        let decals =
-            [| for i in 0 .. root.DecalsLength - 1 do
-                   match Option.ofNullable (root.Decals(i)) with
-                   | None -> ()
-                   | Some entry ->
-                       match tryReadSpriteRefFromDecal entry with
-                       | Some sprite -> yield (entry.Id, sprite)
-                       | None -> () |]
+        for i = 0 to root.DecalsLength - 1 do
+            match Option.ofNullable (root.Decals(i)) with
+            | None -> ()
+            | Some entry ->
+                match tryReadSpriteRefFromDecal entry with
+                | None -> ()
+                | Some sprite ->
+                    out.Add(entry.Id, { Sprite = sprite; SpriteType = SpriteType.Decal })
 
-        { Items = items; Fixtures = fixtures; Actors = actors; Decals = decals }
+        { SpriteProps = out.ToArray() }
 
     // Convenience: load into the live EntityRegistry module (clears existing)
     let loadIntoModule (bytes: byte[]) =
         let data = deserialize bytes
-        EntityRegistry.ItemProps.Clear()
-        EntityRegistry.FixtureProps.Clear()
-        EntityRegistry.ActorProps.Clear()
-        EntityRegistry.DecalProps.Clear()
-
-        for (id, p) in data.Items do EntityRegistry.ItemProps[id] <- p
-        for (id, p) in data.Fixtures do EntityRegistry.FixtureProps[id] <- p
-        for (id, p) in data.Actors do EntityRegistry.ActorProps[id] <- p
-        for (id, s) in data.Decals do EntityRegistry.DecalProps[id] <- s
+        EntityRegistry.SpriteProps.Clear()
+        for (id, sp) in data.SpriteProps do
+            EntityRegistry.SpriteProps[id] <- sp

@@ -991,3 +991,144 @@ let runLocalizerTests () =
 runLocalizerTests ()
 
 //==============
+
+let testMigrateEntitySpriteType () =
+    printfn "\n--- Test: Migrate Entity Sprite Type ---"
+    let voidSprite = DefaultVoidSprite
+    let initialMap = EditorTileMap.New(2, 2, voidSprite, "deftileset")
+    
+    let entityId = 500
+    // Define types for migration
+    let actorType = SpriteType.Actor { TileOpacity = TileOpacity.Opaque }
+    let fixtureType = SpriteType.Fixture { BlocksMovement = true; Interactable = false; TileOpacity = TileOpacity.Opaque }
+    let decalType = SpriteType.Decal
+    let itemType = SpriteType.Item
+
+    // --- Scenario 1: Fixture -> Actor (Success) ---
+    printfn "Scenario 1: Fixture -> Actor (Empty Dest)"
+    let map1 = initialMap.SetFixture(0, 0, entityId)
+    let migrated1 = map1.MigrateEntitySpriteType(entityId, fixtureType, actorType)
+    
+    assertEquals None (migrated1.GetFixture(0, 0)) "Fixture slot cleared"
+    assertEquals (Some entityId) (migrated1.GetActor(0, 0)) "Actor slot now occupied"
+
+    // --- Scenario 2: Actor -> Fixture (Conflict / Destroy) ---
+    printfn "Scenario 2: Actor -> Fixture (Destination Occupied)"
+    let blockerId = 999
+    // Tile (0,0) has our entity in Actor slot, and a blocker in Fixture slot
+    let map2 = initialMap.SetActor(0, 0, entityId).SetFixture(0, 0, blockerId)
+    let migrated2 = map2.MigrateEntitySpriteType(entityId, actorType, fixtureType)
+    
+    assertEquals None (migrated2.GetActor(0, 0)) "Entity removed from old Actor slot"
+    assertEquals (Some blockerId) (migrated2.GetFixture(0, 0)) "Fixture slot still held by blocker; entity 500 destroyed"
+
+    // --- Scenario 3: Fixture -> Item (Cross Boundary / Destroy) ---
+    printfn "Scenario 3: Fixture -> Item (Destruction Rule)"
+    let map3 = initialMap.SetFixture(0, 0, entityId)
+    let migrated3 = map3.MigrateEntitySpriteType(entityId, fixtureType, itemType)
+    
+    assertEquals None (migrated3.GetFixture(0, 0)) "Fixture slot cleared"
+    let cell3 = migrated3.GetLayerCell(0, 0)
+    assertTrue (not (cell3.Items |> List.contains entityId)) "Entity not added to items list (boundary rule)"
+
+    // --- Scenario 4: Item -> Decal (Cross Boundary / Destroy) ---
+    printfn "Scenario 4: Item -> Decal (Destruction Rule)"
+    let map4 = initialMap.AddItem(0, 0, entityId)
+    let migrated4 = map4.MigrateEntitySpriteType(entityId, itemType, decalType)
+    
+    let cell4 = migrated4.GetLayerCell(0, 0)
+    assertTrue (not (cell4.Items |> List.contains entityId)) "Item list cleared"
+    assertEquals None (migrated4.GetDecal(0, 0)) "Decal slot NOT occupied (boundary rule)"
+
+    // --- Scenario 5: Multi-tile migration ---
+    printfn "Scenario 5: Multi-tile update"
+    let map5 = initialMap.SetFixture(0, 0, entityId).SetFixture(1, 1, entityId)
+    let migrated5 = map5.MigrateEntitySpriteType(entityId, fixtureType, actorType)
+    
+    assertEquals (Some entityId) (migrated5.GetActor(0, 0)) "Tile (0,0) migrated"
+    assertEquals (Some entityId) (migrated5.GetActor(1, 1)) "Tile (1,1) migrated"
+    assertEquals None (migrated5.GetFixture(0, 0)) "Tile (0,0) fixture slot empty"
+
+    printfn "--- TestMigrateEntitySpriteType: PASSED ---"
+
+// Call the new test
+testMigrateEntitySpriteType ()
+ 
+let testMigrateLargeVolume () =
+    printfn "\n--- Test: Large Volume Migration Stress (1000 tiles) ---"
+    let width, height = 100, 100
+    let map = EditorTileMap.New(width, height, DefaultVoidSprite, "deftileset")
+    let entityId = 888
+    let itemType = SpriteType.Item
+    let fixtureType = SpriteType.Fixture { BlocksMovement = true; Interactable = false; TileOpacity = TileOpacity.Opaque }
+
+    // Place the entity in 1000 locations (first 10 rows)
+    let swPop = Stopwatch.StartNew()
+    let mutable mapWithItems = map
+    for y in 0 .. 9 do
+        for x in 0 .. 99 do
+            mapWithItems <- mapWithItems.AddItem(x, y, entityId)
+    swPop.Stop()
+    
+    printfn "Populated 1000 tiles with entity %d in %dms" entityId swPop.ElapsedMilliseconds
+    
+    let sw = Stopwatch.StartNew()
+    let migrated = mapWithItems.MigrateEntitySpriteType(entityId, itemType, fixtureType)
+    sw.Stop()
+    
+    printfn "Migrated 1000 tiles in %dms" sw.ElapsedMilliseconds
+
+    // Verify cleanup (using the destroy rule for Item boundary crossing)
+    let mutable foundCount = 0
+    for i in 0 .. (width * height) - 1 do
+        let cell = migrated.LayerCells.[i]
+        if cell.Items |> List.contains entityId || cell.FixtureId = Some entityId then
+            foundCount <- foundCount + 1
+            
+    assertEquals 0 foundCount "Entity should be completely removed from all 1000 tiles due to destroy rule"
+    printfn "--- TestMigrateLargeVolume: PASSED ---"
+
+// Call the new stress test
+testMigrateLargeVolume ()  
+
+let testMigrateLargeVolumeSuccess () =
+    printfn "\n--- Test: Large Volume Migration Success (1000 tiles, No Destruction) ---"
+    let width, height = 100, 100
+    let map = EditorTileMap.New(width, height, DefaultVoidSprite, "deftileset")
+    let entityId = 777
+    let fixtureType = SpriteType.Fixture { BlocksMovement = true; Interactable = false; TileOpacity = TileOpacity.Opaque }
+    let actorType = SpriteType.Actor { TileOpacity = TileOpacity.Opaque }
+
+    // Place the entity in 1000 Fixture slots
+    let swPop = Stopwatch.StartNew()
+    let mutable mapWithFixtures = map
+    for y in 0 .. 9 do
+        for x in 0 .. 99 do
+            mapWithFixtures <- mapWithFixtures.SetFixture(x, y, entityId)
+    swPop.Stop()
+    
+    printfn "Populated 1000 tiles with Fixture %d in %dms" entityId swPop.ElapsedMilliseconds
+    
+    let sw = Stopwatch.StartNew()
+    let migrated = mapWithFixtures.MigrateEntitySpriteType(entityId, fixtureType, actorType)
+    sw.Stop()
+    
+    printfn "Migrated 1000 tiles in %dms" sw.ElapsedMilliseconds
+
+    // Verify preservation
+    let mutable successCount = 0
+    let mutable failureCount = 0
+    for y in 0 .. 9 do
+        for x in 0 .. 99 do
+            let cell = migrated.GetLayerCell(x, y)
+            if cell.ActorId = Some entityId && cell.FixtureId = None then
+                successCount <- successCount + 1
+            else
+                failureCount <- failureCount + 1
+            
+    assertEquals 1000 successCount "1000 entities should have successfully moved to Actor slot"
+    assertEquals 0 failureCount "No entities should have been destroyed"
+    printfn "--- TestMigrateLargeVolumeSuccess: PASSED ---"
+  
+// Call the new stress test
+testMigrateLargeVolumeSuccess ()
