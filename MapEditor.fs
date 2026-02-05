@@ -143,7 +143,7 @@ type EditorTileMap =
                     else
                         cell.Items
 
-                let isMe v = (v = Some entityId)
+                let inline isMe v = (v = Some entityId)
 
                 let a0 = if isMe cell.ActorId then changed <- true; None else cell.ActorId
                 let f0 = if isMe cell.FixtureId then changed <- true; None else cell.FixtureId

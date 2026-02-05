@@ -32,10 +32,6 @@ module EntityRegistry =
     [<Literal>]
     let MaxRenderItemsPerTile = 10
 
-    // let ItemProps = Dictionary<int, ItemProperties>()
-    // let FixtureProps = Dictionary<int, FixtureProperties>()
-    // let ActorProps = Dictionary<int, ActorProperties>()
-    // let DecalProps = Dictionary<int, SpriteRef>()
     let SpriteProps = Dictionary<int,SpriteProperties>() 
 
 
@@ -62,7 +58,7 @@ module SpritePropsQueries =
         | SpriteType.Actor _ -> true
         | SpriteType.Fixture fp -> fp.BlocksMovement
         | _ -> false 
-        
+
     let tryGetOpacity (id:int) : TileOpacity option =
         match tryGet id with
         | None -> None
