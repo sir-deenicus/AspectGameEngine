@@ -194,6 +194,13 @@ type TileMap =
                     | None -> false
                     | Some fid -> SpritePropsQueries.checkFixtureBlocksMovement(EntityRegistry.SpriteProps[fid].SpriteType)
 
+    member this.GetOpacity(x: int, y: int) : TileOpacity =
+        if x < 0 || x >= this.Width || y < 0 || y >= this.Height then TileOpacity.Opaque
+        else
+            let baseTileOpacity = (this.GetTileProperties(x, y)).TileOpacity
+            let cell = this.GetLayerCell(x, y)
+            LayerQueries.EffectiveTileOpacity(baseTileOpacity, cell) 
+
     member this.IsOpaque(x: int, y: int) : bool =
         if x < 0 || x >= this.Width || y < 0 || y >= this.Height then true
         else

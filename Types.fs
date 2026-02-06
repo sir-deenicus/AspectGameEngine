@@ -68,6 +68,7 @@ type TileOpacity =
     | Opaque = 0
     | Transparent = 1
     | Air = 2
+    | Translucent = 3
 
 module TileOpacity = 
     let inline isOpaque(opacity: TileOpacity) =

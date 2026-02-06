@@ -11,13 +11,17 @@ type FixtureProperties =
 [<Struct>]
 type ActorProperties =
   { TileOpacity: TileOpacity }
+
+[<Struct>]  
+type DecalProperties =
+  {Interactable: bool}
  
 [<Struct>]
 type SpriteType =
   | Actor of ActorProp: ActorProperties
   | Fixture of FixtureProp: FixtureProperties
   | Item 
-  | Decal 
+  | Decal of DecalProp: DecalProperties
 
 [<Struct>]
 type SpriteProperties =
@@ -66,8 +70,8 @@ module SpritePropsQueries =
             match sp.SpriteType with
             | SpriteType.Actor ap -> Some ap.TileOpacity
             | SpriteType.Fixture fp -> Some fp.TileOpacity
-            | SpriteType.Item
-            | SpriteType.Decal -> None
+            | SpriteType.Item 
+            | SpriteType.Decal _ -> None
 
 // One logical "layer cell" per tile
 type LayerCell =
@@ -129,7 +133,7 @@ module LayerQueries =
             | None -> None
             | Some id ->
                 match SpritePropsQueries.tryGetOpacity id with
-                | Some TileOpacity.Opaque -> Some TileOpacity.Opaque
+                | Some _ as o -> o
                 | _ -> None
 
         match getOpacity cell.ActorId with
@@ -154,6 +158,15 @@ type EditorLayerCell =
           ActorId = None
           DecalId = None }
 
+    member this.UpdateFixtureId(newId: int option) =
+        { this with FixtureId = newId }
+    
+    member this.UpdateActorId(newId: int option) =
+        { this with ActorId = newId }
+
+    member this.UpdateDecalId(newId: int option) =
+        { this with DecalId = newId }
+
 // Editor-side queries (immutable), separate from runtime LayerQueries
 module EditorLayerQueries =
     // Return up to top N items (treat list tail as "top")
@@ -167,7 +180,7 @@ module EditorLayerQueries =
             | None -> None
             | Some id ->
                 match SpritePropsQueries.tryGetOpacity id with
-                | Some TileOpacity.Opaque -> Some TileOpacity.Opaque
+                | Some _ as o -> o
                 | _ -> None
 
         match getOpacity cell.ActorId with
@@ -177,7 +190,7 @@ module EditorLayerQueries =
             | Some o -> o
             | None -> baseTileOpacity 
 
-// Replace EditorLayerCellUpdate to target the immutable editor cell
+/// Replace EditorLayerCellUpdate to target the immutable editor cell
 type EditorLayerCellUpdate =
     { X: int
       Y: int

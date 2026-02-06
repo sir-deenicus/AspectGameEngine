@@ -109,7 +109,7 @@ type EditorTileMap =
             match sp.SpriteType with
             | SpriteType.Actor _ -> this.SetActor(x, y, entityId)
             | SpriteType.Fixture _ -> this.SetFixture(x, y, entityId)
-            | SpriteType.Decal -> this.SetDecal(x, y, entityId)
+            | SpriteType.Decal _ -> this.SetDecal(x, y, entityId)
             | SpriteType.Item -> this.AddItem(x, y, entityId)
 
     member this.MigrateEntitySpriteType(entityId: int, oldType: SpriteType, newType: SpriteType) =
@@ -117,7 +117,7 @@ type EditorTileMap =
             match t with
             | SpriteType.Actor _ -> 0
             | SpriteType.Fixture _ -> 1
-            | SpriteType.Decal -> 2
+            | SpriteType.Decal _ -> 2
             | SpriteType.Item -> 3
 
         let oldKind = kindOf oldType
@@ -231,6 +231,11 @@ type EditorTileMap =
         match EditorLayerQueries.EffectiveTileOpacity(baseOpacity, cell) with 
         | TileOpacity.Opaque -> true
         | _ -> false
+
+    member this.Opacity(x, y) =
+        let baseOpacity = this.GetTileProperties(x, y).TileOpacity
+        let cell = this.GetLayerCell(x, y)
+        EditorLayerQueries.EffectiveTileOpacity(baseOpacity, cell)
 
     member this.UpdateName name = { this with MapName = name }
     member this.UpdateMapType mapType = { this with MapType = mapType }
