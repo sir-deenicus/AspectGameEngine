@@ -9,15 +9,15 @@ using global::System;
 using global::System.Collections.Generic;
 using global::Google.FlatBuffers;
 
-public struct ActorPropertiesFBS : IFlatbufferObject
+public struct DecalPropertiesFBS : IFlatbufferObject
 {
   private Table __p;
   public ByteBuffer ByteBuffer { get { return __p.bb; } }
   public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_25_2_10(); }
-  public static ActorPropertiesFBS GetRootAsActorPropertiesFBS(ByteBuffer _bb) { return GetRootAsActorPropertiesFBS(_bb, new ActorPropertiesFBS()); }
-  public static ActorPropertiesFBS GetRootAsActorPropertiesFBS(ByteBuffer _bb, ActorPropertiesFBS obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
+  public static DecalPropertiesFBS GetRootAsDecalPropertiesFBS(ByteBuffer _bb) { return GetRootAsDecalPropertiesFBS(_bb, new DecalPropertiesFBS()); }
+  public static DecalPropertiesFBS GetRootAsDecalPropertiesFBS(ByteBuffer _bb, DecalPropertiesFBS obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
   public void __init(int _i, ByteBuffer _bb) { __p = new Table(_i, _bb); }
-  public ActorPropertiesFBS __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
+  public DecalPropertiesFBS __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
 
   public AspectGameEngine.FBS.SpriteRefFBS SpriteType { get { int o = __p.__offset(4); return o != 0 ? (AspectGameEngine.FBS.SpriteRefFBS)__p.bb.Get(o + __p.bb_pos) : AspectGameEngine.FBS.SpriteRefFBS.NONE; } }
   public TTable? Sprite<TTable>() where TTable : struct, IFlatbufferObject { int o = __p.__offset(6); return o != 0 ? (TTable?)__p.__union<TTable>(o + __p.bb_pos) : null; }
@@ -27,7 +27,7 @@ public struct ActorPropertiesFBS : IFlatbufferObject
   public AspectGameEngine.FBS.SceneRefFBS SpriteAsSceneRefFBS() { return Sprite<AspectGameEngine.FBS.SceneRefFBS>().Value; }
   public AspectGameEngine.FBS.SpriteSheetSpanFBS SpriteAsSpriteSheetSpanFBS() { return Sprite<AspectGameEngine.FBS.SpriteSheetSpanFBS>().Value; }
   public AspectGameEngine.FBS.SpriteSheetCellsFBS SpriteAsSpriteSheetCellsFBS() { return Sprite<AspectGameEngine.FBS.SpriteSheetCellsFBS>().Value; }
-  public AspectGameEngine.FBS.TileOpacityFBS TileOpacity { get { int o = __p.__offset(8); return o != 0 ? (AspectGameEngine.FBS.TileOpacityFBS)__p.bb.GetSbyte(o + __p.bb_pos) : AspectGameEngine.FBS.TileOpacityFBS.Opaque; } }
+  public bool Interactable { get { int o = __p.__offset(8); return o != 0 ? 0!=__p.bb.Get(o + __p.bb_pos) : (bool)false; } }
   public string DescKey { get { int o = __p.__offset(10); return o != 0 ? __p.__string(o + __p.bb_pos) : null; } }
 #if ENABLE_SPAN_T
   public Span<byte> GetDescKeyBytes() { return __p.__vector_as_span<byte>(10, 1); }
@@ -36,39 +36,39 @@ public struct ActorPropertiesFBS : IFlatbufferObject
 #endif
   public byte[] GetDescKeyArray() { return __p.__vector_as_array<byte>(10); }
 
-  public static Offset<AspectGameEngine.FBS.ActorPropertiesFBS> CreateActorPropertiesFBS(FlatBufferBuilder builder,
+  public static Offset<AspectGameEngine.FBS.DecalPropertiesFBS> CreateDecalPropertiesFBS(FlatBufferBuilder builder,
       AspectGameEngine.FBS.SpriteRefFBS sprite_type = AspectGameEngine.FBS.SpriteRefFBS.NONE,
       int spriteOffset = 0,
-      AspectGameEngine.FBS.TileOpacityFBS tile_opacity = AspectGameEngine.FBS.TileOpacityFBS.Opaque,
+      bool interactable = false,
       StringOffset desc_keyOffset = default(StringOffset)) {
     builder.StartTable(4);
-    ActorPropertiesFBS.AddDescKey(builder, desc_keyOffset);
-    ActorPropertiesFBS.AddSprite(builder, spriteOffset);
-    ActorPropertiesFBS.AddTileOpacity(builder, tile_opacity);
-    ActorPropertiesFBS.AddSpriteType(builder, sprite_type);
-    return ActorPropertiesFBS.EndActorPropertiesFBS(builder);
+    DecalPropertiesFBS.AddDescKey(builder, desc_keyOffset);
+    DecalPropertiesFBS.AddSprite(builder, spriteOffset);
+    DecalPropertiesFBS.AddInteractable(builder, interactable);
+    DecalPropertiesFBS.AddSpriteType(builder, sprite_type);
+    return DecalPropertiesFBS.EndDecalPropertiesFBS(builder);
   }
 
-  public static void StartActorPropertiesFBS(FlatBufferBuilder builder) { builder.StartTable(4); }
+  public static void StartDecalPropertiesFBS(FlatBufferBuilder builder) { builder.StartTable(4); }
   public static void AddSpriteType(FlatBufferBuilder builder, AspectGameEngine.FBS.SpriteRefFBS spriteType) { builder.AddByte(0, (byte)spriteType, 0); }
   public static void AddSprite(FlatBufferBuilder builder, int spriteOffset) { builder.AddOffset(1, spriteOffset, 0); }
-  public static void AddTileOpacity(FlatBufferBuilder builder, AspectGameEngine.FBS.TileOpacityFBS tileOpacity) { builder.AddSbyte(2, (sbyte)tileOpacity, 0); }
+  public static void AddInteractable(FlatBufferBuilder builder, bool interactable) { builder.AddBool(2, interactable, false); }
   public static void AddDescKey(FlatBufferBuilder builder, StringOffset descKeyOffset) { builder.AddOffset(3, descKeyOffset.Value, 0); }
-  public static Offset<AspectGameEngine.FBS.ActorPropertiesFBS> EndActorPropertiesFBS(FlatBufferBuilder builder) {
+  public static Offset<AspectGameEngine.FBS.DecalPropertiesFBS> EndDecalPropertiesFBS(FlatBufferBuilder builder) {
     int o = builder.EndTable();
-    return new Offset<AspectGameEngine.FBS.ActorPropertiesFBS>(o);
+    return new Offset<AspectGameEngine.FBS.DecalPropertiesFBS>(o);
   }
 }
 
 
-static public class ActorPropertiesFBSVerify
+static public class DecalPropertiesFBSVerify
 {
   static public bool Verify(Google.FlatBuffers.Verifier verifier, uint tablePos)
   {
     return verifier.VerifyTableStart(tablePos)
       && verifier.VerifyField(tablePos, 4 /*SpriteType*/, 1 /*AspectGameEngine.FBS.SpriteRefFBS*/, 1, false)
       && verifier.VerifyUnion(tablePos, 4, 6 /*Sprite*/, AspectGameEngine.FBS.SpriteRefFBSVerify.Verify, false)
-      && verifier.VerifyField(tablePos, 8 /*TileOpacity*/, 1 /*AspectGameEngine.FBS.TileOpacityFBS*/, 1, false)
+      && verifier.VerifyField(tablePos, 8 /*Interactable*/, 1 /*bool*/, 1, false)
       && verifier.VerifyString(tablePos, 10 /*DescKey*/, false)
       && verifier.VerifyTableEnd(tablePos);
   }

@@ -50,6 +50,7 @@ let populateTestRegistries() =
         SpriteType = SpriteType.Fixture {
             BlocksMovement = true
             Interactable = false
+            DescKey = "fixture_stone_wall"
             TileOpacity = TileOpacity.Opaque
         }
     }
@@ -59,6 +60,7 @@ let populateTestRegistries() =
         SpriteType = SpriteType.Fixture {
             BlocksMovement = false
             Interactable = true
+            DescKey = "fixture_lever"
             TileOpacity = TileOpacity.Transparent
         }
     }
@@ -68,6 +70,7 @@ let populateTestRegistries() =
         SpriteType = SpriteType.Fixture {
             BlocksMovement = true
             Interactable = true
+            DescKey = "fixture_chest"
             TileOpacity = TileOpacity.Opaque
         }
     }
@@ -77,6 +80,7 @@ let populateTestRegistries() =
         Sprite = SpriteRef.SheetCell(SpriteSheetCell(2, 10, 10))
         SpriteType = SpriteType.Actor {
             TileOpacity = TileOpacity.Opaque
+            DescKey = "actor_goblin"
         }
     }
     
@@ -84,13 +88,22 @@ let populateTestRegistries() =
         Sprite = SpriteRef.SheetRegion({ SheetId = 3; X = 64; Y = 64; Width = 48; Height = 48 })
         SpriteType = SpriteType.Actor {
             TileOpacity = TileOpacity.Air
+            DescKey = "actor_ghost"
+        }
+    }
+
+    EntityRegistry.SpriteProps.[3003] <- {
+        Sprite = SpriteRef.TextureId(8000)
+        SpriteType = SpriteType.Actor {
+            TileOpacity = TileOpacity.Translucent
+            DescKey = "actor_slime"
         }
     }
     
     // Add test decals
-    EntityRegistry.SpriteProps.[4001] <- { Sprite = SpriteRef.SheetCell(SpriteSheetCell(4, 2, 3)); SpriteType = SpriteType.Decal }
-    EntityRegistry.SpriteProps.[4002] <- { Sprite = SpriteRef.TextureId(7000); SpriteType = SpriteType.Decal }
-    EntityRegistry.SpriteProps.[4003] <- { Sprite = SpriteRef.Scene("res://decals/blood.tscn"); SpriteType = SpriteType.Decal }
+    EntityRegistry.SpriteProps.[4001] <- { Sprite = SpriteRef.SheetCell(SpriteSheetCell(4, 2, 3)); SpriteType = SpriteType.Decal { Interactable = false; DescKey = "decal_stain" } }
+    EntityRegistry.SpriteProps.[4002] <- { Sprite = SpriteRef.TextureId(7000); SpriteType = SpriteType.Decal { Interactable = true; DescKey = "decal_mark" } }
+    EntityRegistry.SpriteProps.[4003] <- { Sprite = SpriteRef.Scene("res://decals/blood.tscn"); SpriteType = SpriteType.Decal { Interactable = false; DescKey = "decal_blood" } }
 
 let testBasicSerialization() =
     printfn "\n--- Test: Basic Registry Serialization ---"
@@ -105,17 +118,17 @@ let testBasicSerialization() =
     let data = EntityRegistrySerializer.deserialize bytes
     
     // Verify total count
-    assertEquals 12 data.SpriteProps.Length "Total sprite props count"
+    assertEquals 13 data.SpriteProps.Length "Total sprite props count"
     
     // Verify individual counts by filtering
     let items = data.SpriteProps |> Array.filter (fun (_, sp) -> match sp.SpriteType with SpriteType.Item -> true | _ -> false)
     let fixtures = data.SpriteProps |> Array.filter (fun (_, sp) -> match sp.SpriteType with SpriteType.Fixture _ -> true | _ -> false)
     let actors = data.SpriteProps |> Array.filter (fun (_, sp) -> match sp.SpriteType with SpriteType.Actor _ -> true | _ -> false)
-    let decals = data.SpriteProps |> Array.filter (fun (_, sp) -> match sp.SpriteType with SpriteType.Decal -> true | _ -> false)
+    let decals = data.SpriteProps |> Array.filter (fun (_, sp) -> match sp.SpriteType with SpriteType.Decal _ -> true | _ -> false)
 
     assertEquals 4 items.Length "Item count"
     assertEquals 3 fixtures.Length "Fixture count"
-    assertEquals 2 actors.Length "Actor count"
+    assertEquals 3 actors.Length "Actor count"
     assertEquals 3 decals.Length "Decal count"
     
     printfn "--- Basic Registry Serialization: PASSED ---"
@@ -190,6 +203,7 @@ let testFixturePropertiesIntegrity() =
     
     assertTrue f1.BlocksMovement "Fixture 2001 blocks movement"
     assertTrue (not f1.Interactable) "Fixture 2001 not interactable"
+    assertEquals "fixture_stone_wall" f1.DescKey "Fixture 2001 DescKey"
     assertEquals TileOpacity.Opaque f1.TileOpacity "Fixture 2001 opacity"
     
     // Verify fixture 2002
@@ -199,6 +213,7 @@ let testFixturePropertiesIntegrity() =
     
     assertTrue (not f2.BlocksMovement) "Fixture 2002 doesn't block movement"
     assertTrue f2.Interactable "Fixture 2002 interactable"
+    assertEquals "fixture_lever" f2.DescKey "Fixture 2002 DescKey"
     assertEquals TileOpacity.Transparent f2.TileOpacity "Fixture 2002 opacity"
     
     // Verify fixture 2003 (Scene)
@@ -208,6 +223,7 @@ let testFixturePropertiesIntegrity() =
     
     assertTrue f3.BlocksMovement "Fixture 2003 blocks movement"
     assertTrue f3.Interactable "Fixture 2003 interactable"
+    assertEquals "fixture_chest" f3.DescKey "Fixture 2003 DescKey"
     
     printfn "--- Fixture Properties Integrity: PASSED ---"
 
@@ -226,6 +242,7 @@ let testActorPropertiesIntegrity() =
 
     let s1, a1 = getActorProps 3001
     let s2, a2 = getActorProps 3002
+    let s3, a3 = getActorProps 3003
     
     // Verify actor 3001
     match s1 with
@@ -236,6 +253,7 @@ let testActorPropertiesIntegrity() =
     | _ -> failwith "Actor 3001 should be SheetCell"
     
     assertEquals TileOpacity.Opaque a1.TileOpacity "Actor 3001 opacity"
+    assertEquals "actor_goblin" a1.DescKey "Actor 3001 DescKey"
     
     // Verify actor 3002
     match s2 with
@@ -248,6 +266,14 @@ let testActorPropertiesIntegrity() =
     | _ -> failwith "Actor 3002 should be SheetRegion"
     
     assertEquals TileOpacity.Air a2.TileOpacity "Actor 3002 opacity"
+    assertEquals "actor_ghost" a2.DescKey "Actor 3002 DescKey"
+
+    // Verify actor 3003
+    match s3 with
+    | SpriteRef.TextureId id -> assertEquals 8000 id "Actor 3003 TextureId"
+    | _ -> failwith "Actor 3003 should be TextureId"
+    assertEquals TileOpacity.Translucent a3.TileOpacity "Actor 3003 opacity"
+    assertEquals "actor_slime" a3.DescKey "Actor 3003 DescKey"
     
     printfn "--- Actor Properties Integrity: PASSED ---"
 
@@ -258,15 +284,15 @@ let testDecalPropertiesIntegrity() =
     let bytes = EntityRegistrySerializer.serializeCurrent()
     let data = EntityRegistrySerializer.deserialize bytes
     
-    let getDecalSprite id =
+    let getDecalProps id =
         let sp = data.SpriteProps |> Array.find (fun (did, _) -> did = id) |> snd
         match sp.SpriteType with
-        | SpriteType.Decal -> sp.Sprite
+        | SpriteType.Decal dp -> sp.Sprite, dp
         | _ -> failwithf "Entity %d is not a decal" id
 
-    let decal4001 = getDecalSprite 4001
-    let decal4002 = getDecalSprite 4002
-    let decal4003 = getDecalSprite 4003
+    let decal4001, dp1 = getDecalProps 4001
+    let decal4002, dp2 = getDecalProps 4002
+    let decal4003, dp3 = getDecalProps 4003
     
     // Verify decal 4001
     match decal4001 with
@@ -275,16 +301,22 @@ let testDecalPropertiesIntegrity() =
         assertEquals 2 cell.Row "Decal 4001 Row"
         assertEquals 3 cell.Column "Decal 4001 Column"
     | _ -> failwith "Decal 4001 should be SheetCell"
+    assertTrue (not dp1.Interactable) "Decal 4001 not interactable"
+    assertEquals "decal_stain" dp1.DescKey "Decal 4001 DescKey"
     
     // Verify decal 4002
     match decal4002 with
     | SpriteRef.TextureId id -> assertEquals 7000 id "Decal 4002 TextureId"
     | _ -> failwith "Decal 4002 should be TextureId"
+    assertTrue dp2.Interactable "Decal 4002 interactable"
+    assertEquals "decal_mark" dp2.DescKey "Decal 4002 DescKey"
     
     // Verify decal 4003
     match decal4003 with
     | SpriteRef.Scene path -> assertEquals "res://decals/blood.tscn" path "Decal 4003 Scene path"
     | _ -> failwith "Decal 4003 should be Scene"
+    assertTrue (not dp3.Interactable) "Decal 4003 not interactable"
+    assertEquals "decal_blood" dp3.DescKey "Decal 4003 DescKey"
     
     printfn "--- Decal Properties Integrity: PASSED ---"
 
@@ -314,7 +346,7 @@ let testLoadIntoModule() =
     EntityRegistrySerializer.loadIntoModule bytes
     
     // Verify loaded data
-    assertEquals 12 EntityRegistry.SpriteProps.Count "SpriteProps loaded"
+    assertEquals 13 EntityRegistry.SpriteProps.Count "SpriteProps loaded"
     
     // Spot check
     assertTrue (EntityRegistry.SpriteProps.ContainsKey(1001)) "Item 1001 exists"
@@ -345,7 +377,7 @@ let testRoundTripMultiple() =
     let data = EntityRegistrySerializer.deserialize bytes
     
     // Verify integrity after multiple round-trips
-    assertEquals 12 data.SpriteProps.Length "SpriteProps after 5 round-trips"
+    assertEquals 13 data.SpriteProps.Length "SpriteProps after 5 round-trips"
     
     // Spot check specific property
     let item1003 = data.SpriteProps |> Array.find (fun (id, _) -> id = 1003) |> snd
@@ -364,17 +396,17 @@ let testAllOpacityValues() =
     
     EntityRegistry.SpriteProps.[1] <- {
         Sprite = SpriteRef.TextureId(1)
-        SpriteType = SpriteType.Fixture { BlocksMovement = true; Interactable = false; TileOpacity = TileOpacity.Opaque }
+        SpriteType = SpriteType.Fixture { BlocksMovement = true; Interactable = false; DescKey = ""; TileOpacity = TileOpacity.Opaque }
     }
     
     EntityRegistry.SpriteProps.[2] <- {
         Sprite = SpriteRef.TextureId(2)
-        SpriteType = SpriteType.Fixture { BlocksMovement = true; Interactable = false; TileOpacity = TileOpacity.Transparent }
+        SpriteType = SpriteType.Fixture { BlocksMovement = true; Interactable = false; DescKey = ""; TileOpacity = TileOpacity.Transparent }
     }
     
     EntityRegistry.SpriteProps.[3] <- {
         Sprite = SpriteRef.TextureId(3)
-        SpriteType = SpriteType.Fixture { BlocksMovement = true; Interactable = false; TileOpacity = TileOpacity.Air }
+        SpriteType = SpriteType.Fixture { BlocksMovement = true; Interactable = false; DescKey = ""; TileOpacity = TileOpacity.Air }
     }
     
     let bytes = EntityRegistrySerializer.serializeCurrent()
@@ -408,6 +440,7 @@ let testLargeRegistry() =
             SpriteType = SpriteType.Fixture {
                 BlocksMovement = i % 2 = 0
                 Interactable = i % 3 = 0
+                DescKey = sprintf "fixture_%d" i
                 TileOpacity = if i % 2 = 0 then TileOpacity.Opaque else TileOpacity.Transparent
             }
         }

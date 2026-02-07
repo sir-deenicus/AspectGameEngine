@@ -999,9 +999,9 @@ let testMigrateEntitySpriteType () =
     
     let entityId = 500
     // Define types for migration
-    let actorType = SpriteType.Actor { TileOpacity = TileOpacity.Opaque }
-    let fixtureType = SpriteType.Fixture { BlocksMovement = true; Interactable = false; TileOpacity = TileOpacity.Opaque }
-    let decalType = SpriteType.Decal
+    let actorType = SpriteType.Actor { TileOpacity = TileOpacity.Opaque; DescKey = "" }
+    let fixtureType = SpriteType.Fixture { BlocksMovement = true; Interactable = false; DescKey = ""; TileOpacity = TileOpacity.Opaque }
+    let decalType = SpriteType.Decal { Interactable = false; DescKey = "" }
     let itemType = SpriteType.Item
 
     // --- Scenario 1: Fixture -> Actor (Success) ---
@@ -1060,7 +1060,7 @@ let testMigrateLargeVolume () =
     let map = EditorTileMap.New(width, height, DefaultVoidSprite, "deftileset")
     let entityId = 888
     let itemType = SpriteType.Item
-    let fixtureType = SpriteType.Fixture { BlocksMovement = true; Interactable = false; TileOpacity = TileOpacity.Opaque }
+    let fixtureType = SpriteType.Fixture { BlocksMovement = true; Interactable = false; DescKey = ""; TileOpacity = TileOpacity.Opaque }
 
     // Place the entity in 1000 locations (first 10 rows)
     let swPop = Stopwatch.StartNew()
@@ -1096,8 +1096,8 @@ let testMigrateLargeVolumeSuccess () =
     let width, height = 100, 100
     let map = EditorTileMap.New(width, height, DefaultVoidSprite, "deftileset")
     let entityId = 777
-    let fixtureType = SpriteType.Fixture { BlocksMovement = true; Interactable = false; TileOpacity = TileOpacity.Opaque }
-    let actorType = SpriteType.Actor { TileOpacity = TileOpacity.Opaque }
+    let fixtureType = SpriteType.Fixture { BlocksMovement = true; Interactable = false; DescKey = ""; TileOpacity = TileOpacity.Opaque }
+    let actorType = SpriteType.Actor { TileOpacity = TileOpacity.Opaque; DescKey = "" }
 
     // Place the entity in 1000 Fixture slots
     let swPop = Stopwatch.StartNew()

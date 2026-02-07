@@ -20,30 +20,20 @@ public struct DecalPropsEntryFBS : IFlatbufferObject
   public DecalPropsEntryFBS __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
 
   public int Id { get { int o = __p.__offset(4); return o != 0 ? __p.bb.GetInt(o + __p.bb_pos) : (int)0; } }
-  public AspectGameEngine.FBS.SpriteRefFBS SpriteType { get { int o = __p.__offset(6); return o != 0 ? (AspectGameEngine.FBS.SpriteRefFBS)__p.bb.Get(o + __p.bb_pos) : AspectGameEngine.FBS.SpriteRefFBS.NONE; } }
-  public TTable? Sprite<TTable>() where TTable : struct, IFlatbufferObject { int o = __p.__offset(8); return o != 0 ? (TTable?)__p.__union<TTable>(o + __p.bb_pos) : null; }
-  public AspectGameEngine.FBS.SpriteSheetRegionFBS SpriteAsSpriteSheetRegionFBS() { return Sprite<AspectGameEngine.FBS.SpriteSheetRegionFBS>().Value; }
-  public AspectGameEngine.FBS.SpriteSheetCellFBS SpriteAsSpriteSheetCellFBS() { return Sprite<AspectGameEngine.FBS.SpriteSheetCellFBS>().Value; }
-  public AspectGameEngine.FBS.TextureIdFBS SpriteAsTextureIdFBS() { return Sprite<AspectGameEngine.FBS.TextureIdFBS>().Value; }
-  public AspectGameEngine.FBS.SceneRefFBS SpriteAsSceneRefFBS() { return Sprite<AspectGameEngine.FBS.SceneRefFBS>().Value; }
-  public AspectGameEngine.FBS.SpriteSheetSpanFBS SpriteAsSpriteSheetSpanFBS() { return Sprite<AspectGameEngine.FBS.SpriteSheetSpanFBS>().Value; }
-  public AspectGameEngine.FBS.SpriteSheetCellsFBS SpriteAsSpriteSheetCellsFBS() { return Sprite<AspectGameEngine.FBS.SpriteSheetCellsFBS>().Value; }
+  public AspectGameEngine.FBS.DecalPropertiesFBS? Props { get { int o = __p.__offset(6); return o != 0 ? (AspectGameEngine.FBS.DecalPropertiesFBS?)(new AspectGameEngine.FBS.DecalPropertiesFBS()).__assign(__p.__indirect(o + __p.bb_pos), __p.bb) : null; } }
 
   public static Offset<AspectGameEngine.FBS.DecalPropsEntryFBS> CreateDecalPropsEntryFBS(FlatBufferBuilder builder,
       int id = 0,
-      AspectGameEngine.FBS.SpriteRefFBS sprite_type = AspectGameEngine.FBS.SpriteRefFBS.NONE,
-      int spriteOffset = 0) {
-    builder.StartTable(3);
-    DecalPropsEntryFBS.AddSprite(builder, spriteOffset);
+      Offset<AspectGameEngine.FBS.DecalPropertiesFBS> propsOffset = default(Offset<AspectGameEngine.FBS.DecalPropertiesFBS>)) {
+    builder.StartTable(2);
+    DecalPropsEntryFBS.AddProps(builder, propsOffset);
     DecalPropsEntryFBS.AddId(builder, id);
-    DecalPropsEntryFBS.AddSpriteType(builder, sprite_type);
     return DecalPropsEntryFBS.EndDecalPropsEntryFBS(builder);
   }
 
-  public static void StartDecalPropsEntryFBS(FlatBufferBuilder builder) { builder.StartTable(3); }
+  public static void StartDecalPropsEntryFBS(FlatBufferBuilder builder) { builder.StartTable(2); }
   public static void AddId(FlatBufferBuilder builder, int id) { builder.AddInt(0, id, 0); }
-  public static void AddSpriteType(FlatBufferBuilder builder, AspectGameEngine.FBS.SpriteRefFBS spriteType) { builder.AddByte(1, (byte)spriteType, 0); }
-  public static void AddSprite(FlatBufferBuilder builder, int spriteOffset) { builder.AddOffset(2, spriteOffset, 0); }
+  public static void AddProps(FlatBufferBuilder builder, Offset<AspectGameEngine.FBS.DecalPropertiesFBS> propsOffset) { builder.AddOffset(1, propsOffset.Value, 0); }
   public static Offset<AspectGameEngine.FBS.DecalPropsEntryFBS> EndDecalPropsEntryFBS(FlatBufferBuilder builder) {
     int o = builder.EndTable();
     return new Offset<AspectGameEngine.FBS.DecalPropsEntryFBS>(o);
@@ -57,8 +47,7 @@ static public class DecalPropsEntryFBSVerify
   {
     return verifier.VerifyTableStart(tablePos)
       && verifier.VerifyField(tablePos, 4 /*Id*/, 4 /*int*/, 4, false)
-      && verifier.VerifyField(tablePos, 6 /*SpriteType*/, 1 /*AspectGameEngine.FBS.SpriteRefFBS*/, 1, false)
-      && verifier.VerifyUnion(tablePos, 6, 8 /*Sprite*/, AspectGameEngine.FBS.SpriteRefFBSVerify.Verify, false)
+      && verifier.VerifyTable(tablePos, 6 /*Props*/, AspectGameEngine.FBS.DecalPropertiesFBSVerify.Verify, false)
       && verifier.VerifyTableEnd(tablePos);
   }
 }

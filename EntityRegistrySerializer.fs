@@ -14,6 +14,7 @@ module EntityRegistrySerializer =
         | TileOpacity.Opaque -> TileOpacityFBS.Opaque
         | TileOpacity.Transparent -> TileOpacityFBS.Transparent
         | TileOpacity.Air -> TileOpacityFBS.Air
+        | TileOpacity.Translucent -> TileOpacityFBS.Translucent
         | _ -> TileOpacityFBS.Opaque
 
     let private fromTileOpacityFBS (opacityFBS: TileOpacityFBS) : TileOpacity =
@@ -21,6 +22,7 @@ module EntityRegistrySerializer =
         | TileOpacityFBS.Opaque -> TileOpacity.Opaque
         | TileOpacityFBS.Transparent -> TileOpacity.Transparent
         | TileOpacityFBS.Air -> TileOpacity.Air
+        | TileOpacityFBS.Translucent -> TileOpacity.Translucent
         | _ -> TileOpacity.Opaque
 
     //=== SpriteRef helpers ===
@@ -195,26 +197,26 @@ module EntityRegistrySerializer =
                 Some (SpriteRef.SheetCells cells)
         | _ -> None
 
-    let private tryReadSpriteRefFromDecal (de: DecalPropsEntryFBS) : SpriteRef option =
-        match de.SpriteType with
+    let private tryReadSpriteRefFromDecalProperties (dp: DecalPropertiesFBS) : SpriteRef option =
+        match dp.SpriteType with
         | SpriteRefFBS.SpriteSheetRegionFBS ->
-            match Option.ofNullable (de.Sprite<SpriteSheetRegionFBS>()) with
+            match Option.ofNullable (dp.Sprite<SpriteSheetRegionFBS>()) with
             | Some s -> Some (SpriteRef.SheetRegion { SheetId = s.SheetId; X = s.X; Y = s.Y; Width = s.Width; Height = s.Height })
             | None -> None
         | SpriteRefFBS.SpriteSheetCellFBS ->
-            match Option.ofNullable (de.Sprite<SpriteSheetCellFBS>()) with 
+            match Option.ofNullable (dp.Sprite<SpriteSheetCellFBS>()) with 
             | Some s -> Some (SpriteRef.SheetCell(SpriteSheetCell(sheetId = s.SheetId, row = s.Row, column = s.Column )))
             | None -> None
         | SpriteRefFBS.TextureIdFBS ->
-            match Option.ofNullable (de.Sprite<TextureIdFBS>()) with
+            match Option.ofNullable (dp.Sprite<TextureIdFBS>()) with
             | Some s -> Some (SpriteRef.TextureId s.Id)
             | None -> None
         | SpriteRefFBS.SceneRefFBS ->
-            match Option.ofNullable (de.Sprite<SceneRefFBS>()) with
+            match Option.ofNullable (dp.Sprite<SceneRefFBS>()) with
             | Some s -> Some (SpriteRef.Scene s.Path)
             | None -> None
         | SpriteRefFBS.SpriteSheetSpanFBS ->
-            match Option.ofNullable (de.Sprite<SpriteSheetSpanFBS>()) with
+            match Option.ofNullable (dp.Sprite<SpriteSheetSpanFBS>()) with
             | None -> None
             | Some s ->
                 match Option.ofNullable s.TopLeft with
@@ -227,7 +229,7 @@ module EntityRegistrySerializer =
                               HeightCells = s.HeightCells }
                     )
         | SpriteRefFBS.SpriteSheetCellsFBS ->
-            match Option.ofNullable (de.Sprite<SpriteSheetCellsFBS>()) with
+            match Option.ofNullable (dp.Sprite<SpriteSheetCellsFBS>()) with
             | None -> None
             | Some s ->
                 let cells =
@@ -277,9 +279,11 @@ module EntityRegistrySerializer =
                    match sp.SpriteType with
                    | SpriteType.Fixture fp ->
                        let sType, sOff = buildSpriteRef builder sp.Sprite
+                       let descOff = builder.CreateString(fp.DescKey)
                        FixturePropertiesFBS.StartFixturePropertiesFBS(builder)
                        FixturePropertiesFBS.AddBlocksMovement(builder, fp.BlocksMovement)
                        FixturePropertiesFBS.AddInteractable(builder, fp.Interactable)
+                       FixturePropertiesFBS.AddDescKey(builder, descOff)
                        FixturePropertiesFBS.AddTileOpacity(builder, toTileOpacityFBS fp.TileOpacity)
                        FixturePropertiesFBS.AddSpriteType(builder, sType)
                        FixturePropertiesFBS.AddSprite(builder, sOff)
@@ -300,8 +304,10 @@ module EntityRegistrySerializer =
                    match sp.SpriteType with
                    | SpriteType.Actor ap ->
                        let sType, sOff = buildSpriteRef builder sp.Sprite
+                       let descOff = builder.CreateString(ap.DescKey)
                        ActorPropertiesFBS.StartActorPropertiesFBS(builder)
                        ActorPropertiesFBS.AddTileOpacity(builder, toTileOpacityFBS ap.TileOpacity)
+                       ActorPropertiesFBS.AddDescKey(builder, descOff)
                        ActorPropertiesFBS.AddSpriteType(builder, sType)
                        ActorPropertiesFBS.AddSprite(builder, sOff)
                        let propsOff = ActorPropertiesFBS.EndActorPropertiesFBS(builder)
@@ -320,12 +326,19 @@ module EntityRegistrySerializer =
         let decalOffsets =
             [| for KeyValue(id, sp) in spriteProps do
                    match sp.SpriteType with
-                   | SpriteType.Decal ->
+                   | SpriteType.Decal dp ->
                        let sType, sOff = buildSpriteRef builder sp.Sprite
+                       let descOff = builder.CreateString(dp.DescKey)
+                       DecalPropertiesFBS.StartDecalPropertiesFBS(builder)
+                       DecalPropertiesFBS.AddInteractable(builder, dp.Interactable)
+                       DecalPropertiesFBS.AddDescKey(builder, descOff)
+                       DecalPropertiesFBS.AddSpriteType(builder, sType)
+                       DecalPropertiesFBS.AddSprite(builder, sOff)
+                       let propsOff = DecalPropertiesFBS.EndDecalPropertiesFBS(builder)
+
                        DecalPropsEntryFBS.StartDecalPropsEntryFBS(builder)
                        DecalPropsEntryFBS.AddId(builder, id)
-                       DecalPropsEntryFBS.AddSpriteType(builder, sType)
-                       DecalPropsEntryFBS.AddSprite(builder, sOff)
+                       DecalPropsEntryFBS.AddProps(builder, propsOff)
                        yield DecalPropsEntryFBS.EndDecalPropsEntryFBS(builder)
                    | _ -> () |]
 
@@ -382,6 +395,7 @@ module EntityRegistrySerializer =
                         let fp =
                             { BlocksMovement = fpFbs.BlocksMovement
                               Interactable = fpFbs.Interactable
+                              DescKey = fpFbs.DescKey
                               TileOpacity = fromTileOpacityFBS fpFbs.TileOpacity }
                         out.Add(entry.Id, { Sprite = sprite; SpriteType = SpriteType.Fixture fp })
 
@@ -396,7 +410,7 @@ module EntityRegistrySerializer =
                     match tryReadSpriteRefFromActor apFbs with
                     | None -> ()
                     | Some sprite ->
-                        let ap = { TileOpacity = fromTileOpacityFBS apFbs.TileOpacity }
+                        let ap = { TileOpacity = fromTileOpacityFBS apFbs.TileOpacity; DescKey = apFbs.DescKey }
                         out.Add(entry.Id, { Sprite = sprite; SpriteType = SpriteType.Actor ap })
 
         // Decals
@@ -404,10 +418,14 @@ module EntityRegistrySerializer =
             match Option.ofNullable (root.Decals(i)) with
             | None -> ()
             | Some entry ->
-                match tryReadSpriteRefFromDecal entry with
+                match Option.ofNullable entry.Props with
                 | None -> ()
-                | Some sprite ->
-                    out.Add(entry.Id, { Sprite = sprite; SpriteType = SpriteType.Decal })
+                | Some dpFbs ->
+                    match tryReadSpriteRefFromDecalProperties dpFbs with
+                    | None -> ()
+                    | Some sprite ->
+                        let dp = { Interactable = dpFbs.Interactable; DescKey = dpFbs.DescKey }
+                        out.Add(entry.Id, { Sprite = sprite; SpriteType = SpriteType.Decal dp })
 
         { SpriteProps = out.ToArray() }
 

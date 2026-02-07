@@ -6,15 +6,18 @@ open System.Collections.Generic
 type FixtureProperties =
   { BlocksMovement: bool
     Interactable: bool
+    DescKey: string
     TileOpacity: TileOpacity }
 
 [<Struct>]
 type ActorProperties =
-  { TileOpacity: TileOpacity }
+  { TileOpacity: TileOpacity 
+    DescKey: string }
 
 [<Struct>]  
 type DecalProperties =
-  {Interactable: bool}
+  {Interactable: bool
+   DescKey: string }
  
 [<Struct>]
 type SpriteType =
@@ -131,10 +134,7 @@ module LayerQueries =
         let inline getOpacity (spriteIdOpt:int option) =
             match spriteIdOpt with
             | None -> None
-            | Some id ->
-                match SpritePropsQueries.tryGetOpacity id with
-                | Some _ as o -> o
-                | _ -> None
+            | Some id -> SpritePropsQueries.tryGetOpacity id
 
         match getOpacity cell.ActorId with
         | Some o -> o
@@ -175,13 +175,8 @@ module EditorLayerQueries =
 
     // Items never affect opacity; only actor/fixture vs base tile.
     let EffectiveTileOpacity (baseTileOpacity: TileOpacity, cell: EditorLayerCell) =
-        let inline getOpacity (spriteIdOpt:int option) =
-            match spriteIdOpt with
-            | None -> None
-            | Some id ->
-                match SpritePropsQueries.tryGetOpacity id with
-                | Some _ as o -> o
-                | _ -> None
+        let inline getOpacity (spriteIdOpt:int option) = 
+            Option.bind SpritePropsQueries.tryGetOpacity spriteIdOpt
 
         match getOpacity cell.ActorId with
         | Some o -> o

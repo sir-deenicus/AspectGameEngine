@@ -100,6 +100,15 @@ type EditorTileMap =
         { this with
             LayerCells = this.LayerCells.Update(index, { cell with DecalId = None }) }
 
+    member this.RemoveTopMostItem(x: int, y: int) =
+        let index = this.GetFlatIndex(x, y)
+        let cell = this.LayerCells.[index]
+        match cell.Items with
+        | [] -> this // No items to remove, return unchanged map.
+        | _ :: restItems ->
+            { this with
+                LayerCells = this.LayerCells.Update(index, { cell with Items = restItems }) }
+
     member this.SetEntityAuto(x: int, y: int, entityId: int) =
         match SpritePropsQueries.tryGet entityId with
         | None ->
@@ -478,6 +487,10 @@ type EditorHistory =
 
     member this.AddItem(x:int, y:int, itemId:int) =
         let current = this.CurrentTileMap.AddItem(x, y, itemId)
+        this.AddTileMap current
+
+    member this.RemoveTopMostItem(x: int, y: int) =
+        let current = this.CurrentTileMap.RemoveTopMostItem(x, y)
         this.AddTileMap current
 
     member this.UpdateLayerCell(x: int, y: int, cell: EditorLayerCell) =  

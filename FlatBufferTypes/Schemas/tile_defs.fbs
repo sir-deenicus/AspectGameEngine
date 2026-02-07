@@ -33,7 +33,8 @@ enum TileTypeFBS : byte {
 enum TileOpacityFBS : byte {
     Opaque = 0,
     Transparent = 1,
-    Air = 2
+    Air = 2,
+    Translucent = 3
 }
  
 table SpriteLocFBS {

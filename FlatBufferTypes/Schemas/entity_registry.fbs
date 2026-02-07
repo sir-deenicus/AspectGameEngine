@@ -45,6 +45,7 @@ table ItemPropertiesFBS {
     // Items never block light; should use Transparent or Air in engine.
     sprite:SpriteRefFBS;
     tile_opacity:TileOpacityFBS;
+    desc_key:string;
 }
 
 table FixturePropertiesFBS {
@@ -52,11 +53,13 @@ table FixturePropertiesFBS {
     blocks_movement:bool;
     interactable:bool;
     tile_opacity:TileOpacityFBS;
+    desc_key:string;
 }
 
 table ActorPropertiesFBS {
     sprite:SpriteRefFBS;
     tile_opacity:TileOpacityFBS;
+    desc_key:string;
 }
 
 // Registry entry rows (int id -> props)
@@ -75,9 +78,15 @@ table ActorPropsEntryFBS {
     props:ActorPropertiesFBS;
 }
 
+table DecalPropertiesFBS {
+    sprite:SpriteRefFBS;
+    interactable:bool;
+    desc_key:string;
+}
+
 table DecalPropsEntryFBS {
     id:int;
-    sprite:SpriteRefFBS;
+    props:DecalPropertiesFBS;
 }
 
 // Root container for all registries

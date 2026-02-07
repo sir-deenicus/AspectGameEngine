@@ -66,6 +66,7 @@ module TilePropertiesSerializer =
         | TileOpacity.Opaque -> TileOpacityFBS.Opaque
         | TileOpacity.Transparent -> TileOpacityFBS.Transparent
         | TileOpacity.Air -> TileOpacityFBS.Air
+        | TileOpacity.Translucent -> TileOpacityFBS.Translucent
         | _ -> TileOpacityFBS.Opaque
 
     let internal fromTileOpacityFBS (opacityFBS: TileOpacityFBS) : TileOpacity =
@@ -73,6 +74,7 @@ module TilePropertiesSerializer =
         | TileOpacityFBS.Opaque -> TileOpacity.Opaque
         | TileOpacityFBS.Transparent -> TileOpacity.Transparent
         | TileOpacityFBS.Air -> TileOpacity.Air
+        | TileOpacityFBS.Translucent -> TileOpacity.Translucent
         | _ -> TileOpacity.Opaque
 
     let private createSpriteLocFBS (builder: FlatBufferBuilder) (spriteLoc: SpriteLoc) =
