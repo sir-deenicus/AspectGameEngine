@@ -26,22 +26,22 @@ let populateTestRegistries() =
     // Add test items
     EntityRegistry.SpriteProps.[1001] <- {
         Sprite = SpriteRef.SheetCell(SpriteSheetCell(0, 1, 1))
-        SpriteType = SpriteType.Item
+        SpriteType = SpriteType.Item { DescKey = "item_sword" }
     }
     
     EntityRegistry.SpriteProps.[1002] <- {
         Sprite = SpriteRef.TextureId(5000)
-        SpriteType = SpriteType.Item
+        SpriteType = SpriteType.Item { DescKey = "item_shield" }
     }
     
     EntityRegistry.SpriteProps.[1003] <- {
         Sprite = SpriteRef.SheetRegion({ SheetId = 2; X = 10; Y = 20; Width = 32; Height = 32 })
-        SpriteType = SpriteType.Item
+        SpriteType = SpriteType.Item { DescKey = "item_helmet" }
     }
     
     EntityRegistry.SpriteProps.[1004] <- {
         Sprite = SpriteRef.Scene("res://sprites/items/potion.tscn")
-        SpriteType = SpriteType.Item
+        SpriteType = SpriteType.Item { DescKey = "item_potion" }
     }
     
     // Add test fixtures
@@ -121,7 +121,7 @@ let testBasicSerialization() =
     assertEquals 13 data.SpriteProps.Length "Total sprite props count"
     
     // Verify individual counts by filtering
-    let items = data.SpriteProps |> Array.filter (fun (_, sp) -> match sp.SpriteType with SpriteType.Item -> true | _ -> false)
+    let items = data.SpriteProps |> Array.filter (fun (_, sp) -> match sp.SpriteType with SpriteType.Item _ -> true | _ -> false)
     let fixtures = data.SpriteProps |> Array.filter (fun (_, sp) -> match sp.SpriteType with SpriteType.Fixture _ -> true | _ -> false)
     let actors = data.SpriteProps |> Array.filter (fun (_, sp) -> match sp.SpriteType with SpriteType.Actor _ -> true | _ -> false)
     let decals = data.SpriteProps |> Array.filter (fun (_, sp) -> match sp.SpriteType with SpriteType.Decal _ -> true | _ -> false)
@@ -145,6 +145,11 @@ let testItemPropertiesIntegrity() =
     let item1002 = data.SpriteProps |> Array.find (fun (id, _) -> id = 1002) |> snd
     let item1003 = data.SpriteProps |> Array.find (fun (id, _) -> id = 1003) |> snd
     let item1004 = data.SpriteProps |> Array.find (fun (id, _) -> id = 1004) |> snd
+
+    match item1001.SpriteType with
+    | SpriteType.Item ip ->
+        assertEquals "item_sword" ip.DescKey "Item 1001 DescKey" 
+    | _ -> failwith "Item 1001 should be Item type"
     
     // Verify SheetCell sprite
     match item1001.Sprite with
@@ -356,7 +361,7 @@ let testLoadIntoModule() =
     
     let sp1001 = EntityRegistry.SpriteProps.[1001]
     match sp1001.SpriteType with
-    | SpriteType.Item -> ()
+    | SpriteType.Item _ -> ()
     | _ -> failwith "Item 1001 has wrong type"
     
     printfn "--- Load Into Module: PASSED ---"
@@ -431,7 +436,7 @@ let testLargeRegistry() =
     for i in 1..1000 do
         EntityRegistry.SpriteProps.[i] <- {
             Sprite = SpriteRef.SheetCell(SpriteSheetCell(i % 10, i % 100, i % 100))
-            SpriteType = SpriteType.Item
+            SpriteType = SpriteType.Item { DescKey = "" }
         }
     
     for i in 1001..2000 do
@@ -474,32 +479,32 @@ let testAllSpriteRefVariants() =
     // Test each variant
     EntityRegistry.SpriteProps.[1] <- {
         Sprite = SpriteRef.SheetCell(SpriteSheetCell(1, 2, 3))
-        SpriteType = SpriteType.Item
+        SpriteType = SpriteType.Item { DescKey = "" }
     }
     
     EntityRegistry.SpriteProps.[2] <- {
         Sprite = SpriteRef.SheetRegion({ SheetId = 5; X = 100; Y = 200; Width = 64; Height = 64 })
-        SpriteType = SpriteType.Item
+        SpriteType = SpriteType.Item { DescKey = "" }
     }
     
     EntityRegistry.SpriteProps.[3] <- {
         Sprite = SpriteRef.TextureId(9999)
-        SpriteType = SpriteType.Item
+        SpriteType = SpriteType.Item { DescKey = "" }
     }
     
     EntityRegistry.SpriteProps.[4] <- {
         Sprite = SpriteRef.Scene("res://test/sprite.tscn")
-        SpriteType = SpriteType.Item
+        SpriteType = SpriteType.Item { DescKey = "" }
     }
 
     EntityRegistry.SpriteProps.[5] <- {
         Sprite = SpriteRef.SheetSpan({ TopLeft = SpriteSheetCell(1, 0, 0); WidthCells = 2; HeightCells = 2 })
-        SpriteType = SpriteType.Item
+        SpriteType = SpriteType.Item { DescKey = "" }
     }
 
     EntityRegistry.SpriteProps.[6] <- {
         Sprite = SpriteRef.SheetCells([| SpriteSheetCell(1, 0, 0); SpriteSheetCell(1, 0, 1) |])
-        SpriteType = SpriteType.Item
+        SpriteType = SpriteType.Item { DescKey = "" }
     }
     
     let bytes = EntityRegistrySerializer.serializeCurrent()
@@ -541,7 +546,7 @@ let testSerializeFromCustomDictionary() =
     let customProps = Dictionary<int, SpriteProperties>()
     customProps.[100] <- {
         Sprite = SpriteRef.TextureId(1234)
-        SpriteType = SpriteType.Item
+        SpriteType = SpriteType.Item { DescKey = "" }
     }
     
     let bytes = EntityRegistrySerializer.serializeFrom customProps

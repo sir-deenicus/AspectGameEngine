@@ -119,7 +119,7 @@ type EditorTileMap =
             | SpriteType.Actor _ -> this.SetActor(x, y, entityId)
             | SpriteType.Fixture _ -> this.SetFixture(x, y, entityId)
             | SpriteType.Decal _ -> this.SetDecal(x, y, entityId)
-            | SpriteType.Item -> this.AddItem(x, y, entityId)
+            | SpriteType.Item _ -> this.AddItem(x, y, entityId)
 
     member this.MigrateEntitySpriteType(entityId: int, oldType: SpriteType, newType: SpriteType) =
         let kindOf (t: SpriteType) =
@@ -127,7 +127,7 @@ type EditorTileMap =
             | SpriteType.Actor _ -> 0
             | SpriteType.Fixture _ -> 1
             | SpriteType.Decal _ -> 2
-            | SpriteType.Item -> 3
+            | SpriteType.Item _ -> 3
 
         let oldKind = kindOf oldType
         let newKind = kindOf newType

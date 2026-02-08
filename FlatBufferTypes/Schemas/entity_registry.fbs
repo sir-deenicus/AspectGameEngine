@@ -44,7 +44,6 @@ union SpriteRefFBS {
 table ItemPropertiesFBS {
     // Items never block light; should use Transparent or Air in engine.
     sprite:SpriteRefFBS;
-    tile_opacity:TileOpacityFBS;
     desc_key:string;
 }
 

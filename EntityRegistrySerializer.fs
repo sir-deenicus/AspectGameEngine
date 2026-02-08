@@ -255,10 +255,11 @@ module EntityRegistrySerializer =
         let itemOffsets =
             [| for KeyValue(id, sp) in spriteProps do
                    match sp.SpriteType with
-                   | SpriteType.Item ->
+                   | SpriteType.Item (ip: ItemProperties) ->
                        let sType, sOff = buildSpriteRef builder sp.Sprite
+                       let descOff = builder.CreateString(ip.DescKey)
                        ItemPropertiesFBS.StartItemPropertiesFBS(builder)
-                       ItemPropertiesFBS.AddTileOpacity(builder, toTileOpacityFBS TileOpacity.Transparent)
+                       ItemPropertiesFBS.AddDescKey(builder, descOff)
                        ItemPropertiesFBS.AddSpriteType(builder, sType)
                        ItemPropertiesFBS.AddSprite(builder, sOff)
                        let propsOff = ItemPropertiesFBS.EndItemPropertiesFBS(builder)
@@ -375,11 +376,12 @@ module EntityRegistrySerializer =
             | Some entry ->
                 match Option.ofNullable entry.Props with
                 | None -> ()
-                | Some ip ->
-                    match tryReadSpriteRefFromItem ip with
+                | Some ipFbs ->
+                    match tryReadSpriteRefFromItem ipFbs with
                     | None -> ()
                     | Some sprite ->
-                        out.Add(entry.Id, { Sprite = sprite; SpriteType = SpriteType.Item })
+                        let ip = { DescKey = ipFbs.DescKey }
+                        out.Add(entry.Id, { Sprite = sprite; SpriteType = SpriteType.Item ip })
 
         // Fixtures
         for i = 0 to root.FixturesLength - 1 do

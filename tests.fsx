@@ -1002,7 +1002,7 @@ let testMigrateEntitySpriteType () =
     let actorType = SpriteType.Actor { TileOpacity = TileOpacity.Opaque; DescKey = "" }
     let fixtureType = SpriteType.Fixture { BlocksMovement = true; Interactable = false; DescKey = ""; TileOpacity = TileOpacity.Opaque }
     let decalType = SpriteType.Decal { Interactable = false; DescKey = "" }
-    let itemType = SpriteType.Item
+    let itemType = SpriteType.Item { DescKey = "" }
 
     // --- Scenario 1: Fixture -> Actor (Success) ---
     printfn "Scenario 1: Fixture -> Actor (Empty Dest)"
@@ -1059,7 +1059,7 @@ let testMigrateLargeVolume () =
     let width, height = 100, 100
     let map = EditorTileMap.New(width, height, DefaultVoidSprite, "deftileset")
     let entityId = 888
-    let itemType = SpriteType.Item
+    let itemType = SpriteType.Item { DescKey = "" }
     let fixtureType = SpriteType.Fixture { BlocksMovement = true; Interactable = false; DescKey = ""; TileOpacity = TileOpacity.Opaque }
 
     // Place the entity in 1000 locations (first 10 rows)

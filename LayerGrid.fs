@@ -18,12 +18,16 @@ type ActorProperties =
 type DecalProperties =
   {Interactable: bool
    DescKey: string }
+
+[<Struct>]
+type ItemProperties =
+  { DescKey: string }
  
 [<Struct>]
 type SpriteType =
   | Actor of ActorProp: ActorProperties
   | Fixture of FixtureProp: FixtureProperties
-  | Item 
+  | Item of ItemProp: ItemProperties
   | Decal of DecalProp: DecalProperties
 
 [<Struct>]
@@ -73,7 +77,7 @@ module SpritePropsQueries =
             match sp.SpriteType with
             | SpriteType.Actor ap -> Some ap.TileOpacity
             | SpriteType.Fixture fp -> Some fp.TileOpacity
-            | SpriteType.Item 
+            | SpriteType.Item _
             | SpriteType.Decal _ -> None
 
 // One logical "layer cell" per tile
