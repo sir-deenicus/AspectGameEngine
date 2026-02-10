@@ -44,11 +44,13 @@ union SpriteRefFBS {
 table ItemPropertiesFBS {
     // Items never block light; should use Transparent or Air in engine.
     sprite:SpriteRefFBS;
+    render_layer:int;
     desc_key:string;
 }
 
 table FixturePropertiesFBS {
     sprite:SpriteRefFBS;
+    render_layer:int;
     blocks_movement:bool;
     interactable:bool;
     tile_opacity:TileOpacityFBS;
@@ -57,6 +59,7 @@ table FixturePropertiesFBS {
 
 table ActorPropertiesFBS {
     sprite:SpriteRefFBS;
+    render_layer:int;
     tile_opacity:TileOpacityFBS;
     desc_key:string;
 }
@@ -79,6 +82,7 @@ table ActorPropsEntryFBS {
 
 table DecalPropertiesFBS {
     sprite:SpriteRefFBS;
+    render_layer:int;
     interactable:bool;
     desc_key:string;
 }

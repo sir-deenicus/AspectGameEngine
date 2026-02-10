@@ -27,33 +27,37 @@ public struct DecalPropertiesFBS : IFlatbufferObject
   public AspectGameEngine.FBS.SceneRefFBS SpriteAsSceneRefFBS() { return Sprite<AspectGameEngine.FBS.SceneRefFBS>().Value; }
   public AspectGameEngine.FBS.SpriteSheetSpanFBS SpriteAsSpriteSheetSpanFBS() { return Sprite<AspectGameEngine.FBS.SpriteSheetSpanFBS>().Value; }
   public AspectGameEngine.FBS.SpriteSheetCellsFBS SpriteAsSpriteSheetCellsFBS() { return Sprite<AspectGameEngine.FBS.SpriteSheetCellsFBS>().Value; }
-  public bool Interactable { get { int o = __p.__offset(8); return o != 0 ? 0!=__p.bb.Get(o + __p.bb_pos) : (bool)false; } }
-  public string DescKey { get { int o = __p.__offset(10); return o != 0 ? __p.__string(o + __p.bb_pos) : null; } }
+  public int RenderLayer { get { int o = __p.__offset(8); return o != 0 ? __p.bb.GetInt(o + __p.bb_pos) : (int)0; } }
+  public bool Interactable { get { int o = __p.__offset(10); return o != 0 ? 0!=__p.bb.Get(o + __p.bb_pos) : (bool)false; } }
+  public string DescKey { get { int o = __p.__offset(12); return o != 0 ? __p.__string(o + __p.bb_pos) : null; } }
 #if ENABLE_SPAN_T
-  public Span<byte> GetDescKeyBytes() { return __p.__vector_as_span<byte>(10, 1); }
+  public Span<byte> GetDescKeyBytes() { return __p.__vector_as_span<byte>(12, 1); }
 #else
-  public ArraySegment<byte>? GetDescKeyBytes() { return __p.__vector_as_arraysegment(10); }
+  public ArraySegment<byte>? GetDescKeyBytes() { return __p.__vector_as_arraysegment(12); }
 #endif
-  public byte[] GetDescKeyArray() { return __p.__vector_as_array<byte>(10); }
+  public byte[] GetDescKeyArray() { return __p.__vector_as_array<byte>(12); }
 
   public static Offset<AspectGameEngine.FBS.DecalPropertiesFBS> CreateDecalPropertiesFBS(FlatBufferBuilder builder,
       AspectGameEngine.FBS.SpriteRefFBS sprite_type = AspectGameEngine.FBS.SpriteRefFBS.NONE,
       int spriteOffset = 0,
+      int render_layer = 0,
       bool interactable = false,
       StringOffset desc_keyOffset = default(StringOffset)) {
-    builder.StartTable(4);
+    builder.StartTable(5);
     DecalPropertiesFBS.AddDescKey(builder, desc_keyOffset);
+    DecalPropertiesFBS.AddRenderLayer(builder, render_layer);
     DecalPropertiesFBS.AddSprite(builder, spriteOffset);
     DecalPropertiesFBS.AddInteractable(builder, interactable);
     DecalPropertiesFBS.AddSpriteType(builder, sprite_type);
     return DecalPropertiesFBS.EndDecalPropertiesFBS(builder);
   }
 
-  public static void StartDecalPropertiesFBS(FlatBufferBuilder builder) { builder.StartTable(4); }
+  public static void StartDecalPropertiesFBS(FlatBufferBuilder builder) { builder.StartTable(5); }
   public static void AddSpriteType(FlatBufferBuilder builder, AspectGameEngine.FBS.SpriteRefFBS spriteType) { builder.AddByte(0, (byte)spriteType, 0); }
   public static void AddSprite(FlatBufferBuilder builder, int spriteOffset) { builder.AddOffset(1, spriteOffset, 0); }
-  public static void AddInteractable(FlatBufferBuilder builder, bool interactable) { builder.AddBool(2, interactable, false); }
-  public static void AddDescKey(FlatBufferBuilder builder, StringOffset descKeyOffset) { builder.AddOffset(3, descKeyOffset.Value, 0); }
+  public static void AddRenderLayer(FlatBufferBuilder builder, int renderLayer) { builder.AddInt(2, renderLayer, 0); }
+  public static void AddInteractable(FlatBufferBuilder builder, bool interactable) { builder.AddBool(3, interactable, false); }
+  public static void AddDescKey(FlatBufferBuilder builder, StringOffset descKeyOffset) { builder.AddOffset(4, descKeyOffset.Value, 0); }
   public static Offset<AspectGameEngine.FBS.DecalPropertiesFBS> EndDecalPropertiesFBS(FlatBufferBuilder builder) {
     int o = builder.EndTable();
     return new Offset<AspectGameEngine.FBS.DecalPropertiesFBS>(o);
@@ -68,8 +72,9 @@ static public class DecalPropertiesFBSVerify
     return verifier.VerifyTableStart(tablePos)
       && verifier.VerifyField(tablePos, 4 /*SpriteType*/, 1 /*AspectGameEngine.FBS.SpriteRefFBS*/, 1, false)
       && verifier.VerifyUnion(tablePos, 4, 6 /*Sprite*/, AspectGameEngine.FBS.SpriteRefFBSVerify.Verify, false)
-      && verifier.VerifyField(tablePos, 8 /*Interactable*/, 1 /*bool*/, 1, false)
-      && verifier.VerifyString(tablePos, 10 /*DescKey*/, false)
+      && verifier.VerifyField(tablePos, 8 /*RenderLayer*/, 4 /*int*/, 4, false)
+      && verifier.VerifyField(tablePos, 10 /*Interactable*/, 1 /*bool*/, 1, false)
+      && verifier.VerifyString(tablePos, 12 /*DescKey*/, false)
       && verifier.VerifyTableEnd(tablePos);
   }
 }

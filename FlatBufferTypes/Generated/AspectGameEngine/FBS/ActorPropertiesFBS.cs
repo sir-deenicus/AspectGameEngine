@@ -27,33 +27,37 @@ public struct ActorPropertiesFBS : IFlatbufferObject
   public AspectGameEngine.FBS.SceneRefFBS SpriteAsSceneRefFBS() { return Sprite<AspectGameEngine.FBS.SceneRefFBS>().Value; }
   public AspectGameEngine.FBS.SpriteSheetSpanFBS SpriteAsSpriteSheetSpanFBS() { return Sprite<AspectGameEngine.FBS.SpriteSheetSpanFBS>().Value; }
   public AspectGameEngine.FBS.SpriteSheetCellsFBS SpriteAsSpriteSheetCellsFBS() { return Sprite<AspectGameEngine.FBS.SpriteSheetCellsFBS>().Value; }
-  public AspectGameEngine.FBS.TileOpacityFBS TileOpacity { get { int o = __p.__offset(8); return o != 0 ? (AspectGameEngine.FBS.TileOpacityFBS)__p.bb.GetSbyte(o + __p.bb_pos) : AspectGameEngine.FBS.TileOpacityFBS.Opaque; } }
-  public string DescKey { get { int o = __p.__offset(10); return o != 0 ? __p.__string(o + __p.bb_pos) : null; } }
+  public int RenderLayer { get { int o = __p.__offset(8); return o != 0 ? __p.bb.GetInt(o + __p.bb_pos) : (int)0; } }
+  public AspectGameEngine.FBS.TileOpacityFBS TileOpacity { get { int o = __p.__offset(10); return o != 0 ? (AspectGameEngine.FBS.TileOpacityFBS)__p.bb.GetSbyte(o + __p.bb_pos) : AspectGameEngine.FBS.TileOpacityFBS.Opaque; } }
+  public string DescKey { get { int o = __p.__offset(12); return o != 0 ? __p.__string(o + __p.bb_pos) : null; } }
 #if ENABLE_SPAN_T
-  public Span<byte> GetDescKeyBytes() { return __p.__vector_as_span<byte>(10, 1); }
+  public Span<byte> GetDescKeyBytes() { return __p.__vector_as_span<byte>(12, 1); }
 #else
-  public ArraySegment<byte>? GetDescKeyBytes() { return __p.__vector_as_arraysegment(10); }
+  public ArraySegment<byte>? GetDescKeyBytes() { return __p.__vector_as_arraysegment(12); }
 #endif
-  public byte[] GetDescKeyArray() { return __p.__vector_as_array<byte>(10); }
+  public byte[] GetDescKeyArray() { return __p.__vector_as_array<byte>(12); }
 
   public static Offset<AspectGameEngine.FBS.ActorPropertiesFBS> CreateActorPropertiesFBS(FlatBufferBuilder builder,
       AspectGameEngine.FBS.SpriteRefFBS sprite_type = AspectGameEngine.FBS.SpriteRefFBS.NONE,
       int spriteOffset = 0,
+      int render_layer = 0,
       AspectGameEngine.FBS.TileOpacityFBS tile_opacity = AspectGameEngine.FBS.TileOpacityFBS.Opaque,
       StringOffset desc_keyOffset = default(StringOffset)) {
-    builder.StartTable(4);
+    builder.StartTable(5);
     ActorPropertiesFBS.AddDescKey(builder, desc_keyOffset);
+    ActorPropertiesFBS.AddRenderLayer(builder, render_layer);
     ActorPropertiesFBS.AddSprite(builder, spriteOffset);
     ActorPropertiesFBS.AddTileOpacity(builder, tile_opacity);
     ActorPropertiesFBS.AddSpriteType(builder, sprite_type);
     return ActorPropertiesFBS.EndActorPropertiesFBS(builder);
   }
 
-  public static void StartActorPropertiesFBS(FlatBufferBuilder builder) { builder.StartTable(4); }
+  public static void StartActorPropertiesFBS(FlatBufferBuilder builder) { builder.StartTable(5); }
   public static void AddSpriteType(FlatBufferBuilder builder, AspectGameEngine.FBS.SpriteRefFBS spriteType) { builder.AddByte(0, (byte)spriteType, 0); }
   public static void AddSprite(FlatBufferBuilder builder, int spriteOffset) { builder.AddOffset(1, spriteOffset, 0); }
-  public static void AddTileOpacity(FlatBufferBuilder builder, AspectGameEngine.FBS.TileOpacityFBS tileOpacity) { builder.AddSbyte(2, (sbyte)tileOpacity, 0); }
-  public static void AddDescKey(FlatBufferBuilder builder, StringOffset descKeyOffset) { builder.AddOffset(3, descKeyOffset.Value, 0); }
+  public static void AddRenderLayer(FlatBufferBuilder builder, int renderLayer) { builder.AddInt(2, renderLayer, 0); }
+  public static void AddTileOpacity(FlatBufferBuilder builder, AspectGameEngine.FBS.TileOpacityFBS tileOpacity) { builder.AddSbyte(3, (sbyte)tileOpacity, 0); }
+  public static void AddDescKey(FlatBufferBuilder builder, StringOffset descKeyOffset) { builder.AddOffset(4, descKeyOffset.Value, 0); }
   public static Offset<AspectGameEngine.FBS.ActorPropertiesFBS> EndActorPropertiesFBS(FlatBufferBuilder builder) {
     int o = builder.EndTable();
     return new Offset<AspectGameEngine.FBS.ActorPropertiesFBS>(o);
@@ -68,8 +72,9 @@ static public class ActorPropertiesFBSVerify
     return verifier.VerifyTableStart(tablePos)
       && verifier.VerifyField(tablePos, 4 /*SpriteType*/, 1 /*AspectGameEngine.FBS.SpriteRefFBS*/, 1, false)
       && verifier.VerifyUnion(tablePos, 4, 6 /*Sprite*/, AspectGameEngine.FBS.SpriteRefFBSVerify.Verify, false)
-      && verifier.VerifyField(tablePos, 8 /*TileOpacity*/, 1 /*AspectGameEngine.FBS.TileOpacityFBS*/, 1, false)
-      && verifier.VerifyString(tablePos, 10 /*DescKey*/, false)
+      && verifier.VerifyField(tablePos, 8 /*RenderLayer*/, 4 /*int*/, 4, false)
+      && verifier.VerifyField(tablePos, 10 /*TileOpacity*/, 1 /*AspectGameEngine.FBS.TileOpacityFBS*/, 1, false)
+      && verifier.VerifyString(tablePos, 12 /*DescKey*/, false)
       && verifier.VerifyTableEnd(tablePos);
   }
 }

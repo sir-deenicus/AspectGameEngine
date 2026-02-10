@@ -30,13 +30,23 @@ public struct LayerCellFBS : IFlatbufferObject
   public int FixtureId { get { int o = __p.__offset(6); return o != 0 ? __p.bb.GetInt(o + __p.bb_pos) : (int)-1; } }
   public int ActorId { get { int o = __p.__offset(8); return o != 0 ? __p.bb.GetInt(o + __p.bb_pos) : (int)-1; } }
   public int DecalId { get { int o = __p.__offset(10); return o != 0 ? __p.bb.GetInt(o + __p.bb_pos) : (int)-1; } }
+  public int Decals(int j) { int o = __p.__offset(12); return o != 0 ? __p.bb.GetInt(__p.__vector(o) + j * 4) : (int)0; }
+  public int DecalsLength { get { int o = __p.__offset(12); return o != 0 ? __p.__vector_len(o) : 0; } }
+#if ENABLE_SPAN_T
+  public Span<int> GetDecalsBytes() { return __p.__vector_as_span<int>(12, 4); }
+#else
+  public ArraySegment<byte>? GetDecalsBytes() { return __p.__vector_as_arraysegment(12); }
+#endif
+  public int[] GetDecalsArray() { return __p.__vector_as_array<int>(12); }
 
   public static Offset<AspectGameEngine.FBS.LayerCellFBS> CreateLayerCellFBS(FlatBufferBuilder builder,
       VectorOffset itemsOffset = default(VectorOffset),
       int fixture_id = -1,
       int actor_id = -1,
-      int decal_id = -1) {
-    builder.StartTable(4);
+      int decal_id = -1,
+      VectorOffset decalsOffset = default(VectorOffset)) {
+    builder.StartTable(5);
+    LayerCellFBS.AddDecals(builder, decalsOffset);
     LayerCellFBS.AddDecalId(builder, decal_id);
     LayerCellFBS.AddActorId(builder, actor_id);
     LayerCellFBS.AddFixtureId(builder, fixture_id);
@@ -44,7 +54,7 @@ public struct LayerCellFBS : IFlatbufferObject
     return LayerCellFBS.EndLayerCellFBS(builder);
   }
 
-  public static void StartLayerCellFBS(FlatBufferBuilder builder) { builder.StartTable(4); }
+  public static void StartLayerCellFBS(FlatBufferBuilder builder) { builder.StartTable(5); }
   public static void AddItems(FlatBufferBuilder builder, VectorOffset itemsOffset) { builder.AddOffset(0, itemsOffset.Value, 0); }
   public static VectorOffset CreateItemsVector(FlatBufferBuilder builder, int[] data) { builder.StartVector(4, data.Length, 4); for (int i = data.Length - 1; i >= 0; i--) builder.AddInt(data[i]); return builder.EndVector(); }
   public static VectorOffset CreateItemsVectorBlock(FlatBufferBuilder builder, int[] data) { builder.StartVector(4, data.Length, 4); builder.Add(data); return builder.EndVector(); }
@@ -54,6 +64,12 @@ public struct LayerCellFBS : IFlatbufferObject
   public static void AddFixtureId(FlatBufferBuilder builder, int fixtureId) { builder.AddInt(1, fixtureId, -1); }
   public static void AddActorId(FlatBufferBuilder builder, int actorId) { builder.AddInt(2, actorId, -1); }
   public static void AddDecalId(FlatBufferBuilder builder, int decalId) { builder.AddInt(3, decalId, -1); }
+  public static void AddDecals(FlatBufferBuilder builder, VectorOffset decalsOffset) { builder.AddOffset(4, decalsOffset.Value, 0); }
+  public static VectorOffset CreateDecalsVector(FlatBufferBuilder builder, int[] data) { builder.StartVector(4, data.Length, 4); for (int i = data.Length - 1; i >= 0; i--) builder.AddInt(data[i]); return builder.EndVector(); }
+  public static VectorOffset CreateDecalsVectorBlock(FlatBufferBuilder builder, int[] data) { builder.StartVector(4, data.Length, 4); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateDecalsVectorBlock(FlatBufferBuilder builder, ArraySegment<int> data) { builder.StartVector(4, data.Count, 4); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateDecalsVectorBlock(FlatBufferBuilder builder, IntPtr dataPtr, int sizeInBytes) { builder.StartVector(1, sizeInBytes, 1); builder.Add<int>(dataPtr, sizeInBytes); return builder.EndVector(); }
+  public static void StartDecalsVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(4, numElems, 4); }
   public static Offset<AspectGameEngine.FBS.LayerCellFBS> EndLayerCellFBS(FlatBufferBuilder builder) {
     int o = builder.EndTable();
     return new Offset<AspectGameEngine.FBS.LayerCellFBS>(o);
@@ -70,6 +86,7 @@ static public class LayerCellFBSVerify
       && verifier.VerifyField(tablePos, 6 /*FixtureId*/, 4 /*int*/, 4, false)
       && verifier.VerifyField(tablePos, 8 /*ActorId*/, 4 /*int*/, 4, false)
       && verifier.VerifyField(tablePos, 10 /*DecalId*/, 4 /*int*/, 4, false)
+      && verifier.VerifyVectorOfData(tablePos, 12 /*Decals*/, 4 /*int*/, false)
       && verifier.VerifyTableEnd(tablePos);
   }
 }

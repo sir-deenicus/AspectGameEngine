@@ -37,8 +37,24 @@ module TileMapSerializer =
         let itemsVector = LayerCellFBS.CreateItemsVector(builder, itemsArray)
         let fixtureId = match cell.FixtureId with Some id -> id | None -> -1
         let actorId = match cell.ActorId with Some id -> id | None -> -1
-        let decalId = match cell.DecalId with Some id -> id | None -> -1
-        LayerCellFBS.CreateLayerCellFBS(builder, itemsVector, fixtureId, actorId, decalId)
+        let decalId = match LayerQueries.TryGetTopDecalId cell with Some id -> id | None -> -1
+
+        let decalsView = LayerQueries.GetDecalView cell
+        let decalsVector =
+            if decalsView.Count = 0 then
+                Unchecked.defaultof<VectorOffset>
+            else
+                let decalsArray = Array.init decalsView.Count (fun i -> decalsView.Decals.[i])
+                LayerCellFBS.CreateDecalsVector(builder, decalsArray)
+
+        LayerCellFBS.StartLayerCellFBS(builder)
+        LayerCellFBS.AddItems(builder, itemsVector)
+        LayerCellFBS.AddFixtureId(builder, fixtureId)
+        LayerCellFBS.AddActorId(builder, actorId)
+        LayerCellFBS.AddDecalId(builder, decalId)
+        if decalsView.Count > 0 then
+            LayerCellFBS.AddDecals(builder, decalsVector)
+        LayerCellFBS.EndLayerCellFBS(builder)
 
     let serialize (tileMap: TileMap) : byte[] =
         // Estimate buffer size
@@ -93,8 +109,22 @@ module TileMapSerializer =
                        let items = ResizeArray(cellFBS.GetItemsArray())
                        let fixtureId = if cellFBS.FixtureId = -1 then None else Some cellFBS.FixtureId
                        let actorId = if cellFBS.ActorId = -1 then None else Some cellFBS.ActorId
-                       let decalId = if cellFBS.DecalId = -1 then None else Some cellFBS.DecalId
-                       yield { LayerCell.Items = items; FixtureId = fixtureId; ActorId = actorId; DecalId = decalId }
+                       let cell =
+                           { LayerCell.Items = items
+                             FixtureId = fixtureId
+                             ActorId = actorId
+                             Decals = null
+                             DecalCount = 0 }
+
+                       // Prefer decals vector; fall back to legacy single decal_id.
+                       if cellFBS.DecalsLength > 0 then
+                           for j = 0 to cellFBS.DecalsLength - 1 do
+                               LayerQueries.AddDecal(cell, cellFBS.Decals(j))
+                       else
+                           if cellFBS.DecalId <> -1 then
+                               LayerQueries.AddDecal(cell, cellFBS.DecalId)
+
+                       yield cell
                    | None -> yield LayerCell.Create() |]
 
         let voidSpriteLoc = createSpriteLoc tileMapFBS.VoidSpriteLoc.Value

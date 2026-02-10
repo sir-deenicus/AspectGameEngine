@@ -259,6 +259,7 @@ module EntityRegistrySerializer =
                        let sType, sOff = buildSpriteRef builder sp.Sprite
                        let descOff = builder.CreateString(ip.DescKey)
                        ItemPropertiesFBS.StartItemPropertiesFBS(builder)
+                       ItemPropertiesFBS.AddRenderLayer(builder, sp.RenderLayer)
                        ItemPropertiesFBS.AddDescKey(builder, descOff)
                        ItemPropertiesFBS.AddSpriteType(builder, sType)
                        ItemPropertiesFBS.AddSprite(builder, sOff)
@@ -282,6 +283,7 @@ module EntityRegistrySerializer =
                        let sType, sOff = buildSpriteRef builder sp.Sprite
                        let descOff = builder.CreateString(fp.DescKey)
                        FixturePropertiesFBS.StartFixturePropertiesFBS(builder)
+                       FixturePropertiesFBS.AddRenderLayer(builder, sp.RenderLayer)
                        FixturePropertiesFBS.AddBlocksMovement(builder, fp.BlocksMovement)
                        FixturePropertiesFBS.AddInteractable(builder, fp.Interactable)
                        FixturePropertiesFBS.AddDescKey(builder, descOff)
@@ -307,6 +309,7 @@ module EntityRegistrySerializer =
                        let sType, sOff = buildSpriteRef builder sp.Sprite
                        let descOff = builder.CreateString(ap.DescKey)
                        ActorPropertiesFBS.StartActorPropertiesFBS(builder)
+                       ActorPropertiesFBS.AddRenderLayer(builder, sp.RenderLayer)
                        ActorPropertiesFBS.AddTileOpacity(builder, toTileOpacityFBS ap.TileOpacity)
                        ActorPropertiesFBS.AddDescKey(builder, descOff)
                        ActorPropertiesFBS.AddSpriteType(builder, sType)
@@ -331,6 +334,7 @@ module EntityRegistrySerializer =
                        let sType, sOff = buildSpriteRef builder sp.Sprite
                        let descOff = builder.CreateString(dp.DescKey)
                        DecalPropertiesFBS.StartDecalPropertiesFBS(builder)
+                       DecalPropertiesFBS.AddRenderLayer(builder, sp.RenderLayer)
                        DecalPropertiesFBS.AddInteractable(builder, dp.Interactable)
                        DecalPropertiesFBS.AddDescKey(builder, descOff)
                        DecalPropertiesFBS.AddSpriteType(builder, sType)
@@ -381,7 +385,7 @@ module EntityRegistrySerializer =
                     | None -> ()
                     | Some sprite ->
                         let ip = { DescKey = ipFbs.DescKey }
-                        out.Add(entry.Id, { Sprite = sprite; SpriteType = SpriteType.Item ip })
+                        out.Add(entry.Id, { Sprite = sprite; SpriteType = SpriteType.Item ip; RenderLayer = ipFbs.RenderLayer })
 
         // Fixtures
         for i = 0 to root.FixturesLength - 1 do
@@ -399,7 +403,7 @@ module EntityRegistrySerializer =
                               Interactable = fpFbs.Interactable
                               DescKey = fpFbs.DescKey
                               TileOpacity = fromTileOpacityFBS fpFbs.TileOpacity }
-                        out.Add(entry.Id, { Sprite = sprite; SpriteType = SpriteType.Fixture fp })
+                        out.Add(entry.Id, { Sprite = sprite; SpriteType = SpriteType.Fixture fp; RenderLayer = fpFbs.RenderLayer })
 
         // Actors
         for i = 0 to root.ActorsLength - 1 do
@@ -413,7 +417,7 @@ module EntityRegistrySerializer =
                     | None -> ()
                     | Some sprite ->
                         let ap = { TileOpacity = fromTileOpacityFBS apFbs.TileOpacity; DescKey = apFbs.DescKey }
-                        out.Add(entry.Id, { Sprite = sprite; SpriteType = SpriteType.Actor ap })
+                        out.Add(entry.Id, { Sprite = sprite; SpriteType = SpriteType.Actor ap; RenderLayer = apFbs.RenderLayer })
 
         // Decals
         for i = 0 to root.DecalsLength - 1 do
@@ -427,7 +431,7 @@ module EntityRegistrySerializer =
                     | None -> ()
                     | Some sprite ->
                         let dp = { Interactable = dpFbs.Interactable; DescKey = dpFbs.DescKey }
-                        out.Add(entry.Id, { Sprite = sprite; SpriteType = SpriteType.Decal dp })
+                        out.Add(entry.Id, { Sprite = sprite; SpriteType = SpriteType.Decal dp; RenderLayer = dpFbs.RenderLayer })
 
         { SpriteProps = out.ToArray() }
 

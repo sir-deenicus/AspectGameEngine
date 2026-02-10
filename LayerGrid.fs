@@ -33,7 +33,8 @@ type SpriteType =
 [<Struct>]
 type SpriteProperties =
   { Sprite: SpriteRef
-    SpriteType: SpriteType }
+    SpriteType: SpriteType
+    RenderLayer: int }
  
 // Simple registries (IDs are ints assigned externally)
 module EntityRegistry =
@@ -42,6 +43,9 @@ module EntityRegistry =
 
     [<Literal>]
     let MaxRenderItemsPerTile = 10
+
+    [<Literal>]
+    let MaxDecalsPerTile = 5
 
     let SpriteProps = Dictionary<int,SpriteProperties>() 
 
@@ -85,13 +89,15 @@ type LayerCell =
     { mutable Items: ResizeArray<int> // item entity IDs
       mutable FixtureId: int option // fixture entity ID
       mutable ActorId: int option   // actor entity ID
-      mutable DecalId: int option } // decal entity ID
+      mutable Decals: int[] // bottom->top; may be null when empty
+      mutable DecalCount: int } // number of active decals
 
     static member Create() =
         { Items = ResizeArray()
           FixtureId = None
           ActorId = None
-          DecalId = None }
+          Decals = [||]
+          DecalCount = 0 }
 
 // Non-allocating view over the items to render (top N).
 [<Struct>]
@@ -147,6 +153,47 @@ module LayerQueries =
             | Some o -> o
             | None -> baseTileOpacity
 
+    [<Struct>]
+    type DecalView =
+        { Decals: int[]
+          Count: int }
+
+    let GetDecalView (cell: LayerCell) : DecalView =
+        if cell.DecalCount <= 0 || isNull cell.Decals || cell.Decals.Length = 0 then
+            { Decals = Array.empty
+              Count = 0 }
+        else
+            { Decals = cell.Decals
+              Count = cell.DecalCount }
+
+    let CopyDecalIds (cell: LayerCell, dst: int[], dstStart: int) : int =
+        let view = GetDecalView cell
+        let mutable i = 0
+        while i < view.Count do
+            dst.[dstStart + i] <- view.Decals.[i]
+            i <- i + 1
+        view.Count
+
+    let TryGetTopDecalId (cell: LayerCell) : int option =
+        if cell.DecalCount <= 0 || isNull cell.Decals || cell.Decals.Length = 0 then None
+        else Some cell.Decals.[cell.DecalCount - 1]
+
+    let ClearDecals (cell: LayerCell) : unit =
+        cell.DecalCount <- 0
+
+    let AddDecal (cell: LayerCell, decalId: int) : unit =
+        // Fixed-capacity stack: newest is topmost.
+        if isNull cell.Decals || cell.Decals.Length = 0 then
+            cell.Decals <- Array.zeroCreate EntityRegistry.MaxDecalsPerTile
+            cell.DecalCount <- 0
+
+        if cell.DecalCount < EntityRegistry.MaxDecalsPerTile then
+            cell.Decals.[cell.DecalCount] <- decalId
+            cell.DecalCount <- cell.DecalCount + 1
+        else
+            // When full, replace the current topmost decal.
+            cell.Decals.[EntityRegistry.MaxDecalsPerTile - 1] <- decalId
+
 //==============
 
 // Immutable editor-side layer cell: items as immutable F# list<int>
@@ -154,28 +201,34 @@ type EditorLayerCell =
     { Items: int list
       FixtureId: int option
       ActorId: int option
-      DecalId: int option }
+      Decals: int list }
 
     static member Empty =
         { Items = []
           FixtureId = None
           ActorId = None
-          DecalId = None }
+          Decals = [] }
 
     member this.UpdateFixtureId(newId: int option) =
         { this with FixtureId = newId }
     
     member this.UpdateActorId(newId: int option) =
         { this with ActorId = newId }
-
-    member this.UpdateDecalId(newId: int option) =
-        { this with DecalId = newId }
+    member this.AddDecalToTopUpdate(decalId: int) =
+        if List.length this.Decals >= EntityRegistry.MaxDecalsPerTile then
+            { this with Decals = decalId :: this.Decals.Tail }
+        else
+            { this with Decals = decalId :: this.Decals }
 
 // Editor-side queries (immutable), separate from runtime LayerQueries
 module EditorLayerQueries =
-    // Return up to top N items (treat list tail as "top")
+    // Return up to top N items (list head is topmost/newest)
     let GetRenderItems (cell: EditorLayerCell) : int list =
-        cell.Items |> List.truncate EntityRegistry.MaxRenderItemsPerTile |> List.rev
+        cell.Items |> List.truncate EntityRegistry.MaxRenderItemsPerTile
+
+    // Return up to top N decals (list head is topmost/newest)
+    let GetRenderDecals (cell: EditorLayerCell) : int list =
+        cell.Decals |> List.truncate EntityRegistry.MaxDecalsPerTile
 
     // Items never affect opacity; only actor/fixture vs base tile.
     let EffectiveTileOpacity (baseTileOpacity: TileOpacity, cell: EditorLayerCell) =
