@@ -160,19 +160,26 @@ type TileMap =
             this.GetLayerCell(x, y).FixtureId <- None
             this.GetLayerCell(x2, y2).FixtureId <- fid 
 
-    member this.SetDecal(x: int, y: int, decalId: int) =
+    member this.AddDecal(x: int, y: int, decalId: int) =
         if x >= 0 && x < this.Width && y >= 0 && y < this.Height then
             let cell = this.GetLayerCell(x, y)
-            cell.DecalId <- Some decalId
+            LayerQueries.AddDecal(cell, decalId)
 
-    member this.ClearDecal(x: int, y: int) =
+    member this.ClearDecals(x: int, y: int) =
         if x >= 0 && x < this.Width && y >= 0 && y < this.Height then
             let cell = this.GetLayerCell(x, y)
-            cell.DecalId <- None
+            LayerQueries.ClearDecals cell
 
     member this.GetDecal(x: int, y: int) =
         if x < 0 || x >= this.Width || y < 0 || y >= this.Height then None
-        else (this.GetLayerCell(x, y)).DecalId
+        else LayerQueries.TryGetTopDecalId(this.GetLayerCell(x, y))
+
+    member this.GetDecals(x: int, y: int) : LayerQueries.DecalView =
+        if x < 0 || x >= this.Width || y < 0 || y >= this.Height then
+            { Decals = Array.empty
+              Count = 0 }
+        else
+            LayerQueries.GetDecalView(this.GetLayerCell(x, y))
 
     member this.IsWalkable(x: int, y: int) : bool =
         if x < 0 || x >= this.Width || y < 0 || y >= this.Height then false

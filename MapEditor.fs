@@ -61,8 +61,49 @@ type EditorTileMap =
     member this.GetFixture(x, y) =
         this.GetLayerCell(x, y).FixtureId
 
-    member this.GetDecal(x, y) =
-        this.GetLayerCell(x, y).DecalId
+    member this.GetDecal(x, y) = 
+        List.tryHead (this.GetLayerCell(x, y).Decals)
+
+    member this.GetDecals(x, y) =
+        this.GetLayerCell(x, y).Decals
+    
+    member this.AddDecal(x, y, decalId) =
+        let index = this.GetFlatIndex(x, y)
+        let cell = this.LayerCells.[index]
+        let decals0 = cell.Decals
+        let decals1 =
+            if List.length decals0 < EntityRegistry.MaxDecalsPerTile then
+                decalId :: decals0
+            else
+                // When full, replace the topmost decal.
+                match decals0 with
+                | [] -> [ decalId ]
+                | _ :: rest -> decalId :: rest
+        { this with
+            LayerCells = this.LayerCells.Update(index, { cell with Decals = decals1 }) }
+
+    member this.ClearDecals(x, y) =
+        let index = this.GetFlatIndex(x, y)
+        let cell = this.LayerCells.[index]
+        { this with
+            LayerCells = this.LayerCells.Update(index, { cell with Decals = [] }) }
+
+    member this.RemoveDecalAtId(x, y, decalId: int) =
+        let index = this.GetFlatIndex(x, y)
+        let cell = this.LayerCells.[index]
+        // Single comprehension: build filtered list and then check if it changed.
+        let newDecals = [ for d in cell.Decals do if d <> decalId then yield d ]
+        if newDecals = cell.Decals then this
+        else { this with LayerCells = this.LayerCells.Update(index, { cell with Decals = newDecals }) }
+
+    member this.RemoveTopMostDecal(x, y) =
+        let index = this.GetFlatIndex(x, y)
+        let cell = this.LayerCells.[index]
+        match cell.Decals with
+        | [] -> this // No decals to remove, return unchanged map.
+        | _ :: rest ->
+            { this with
+                LayerCells = this.LayerCells.Update(index, { cell with Decals = rest }) }
 
     member this.SetActor(x, y, actorId) =
         let index = this.GetFlatIndex(x, y)
@@ -88,18 +129,6 @@ type EditorTileMap =
         { this with
             LayerCells = this.LayerCells.Update(index, { cell with FixtureId = None }) }
 
-    member this.SetDecal(x, y, decalId) =
-        let index = this.GetFlatIndex(x, y)
-        let cell = this.LayerCells.[index]
-        { this with
-            LayerCells = this.LayerCells.Update(index, { cell with DecalId = Some decalId }) }
-
-    member this.ClearDecal(x, y) =
-        let index = this.GetFlatIndex(x, y)
-        let cell = this.LayerCells.[index]
-        { this with
-            LayerCells = this.LayerCells.Update(index, { cell with DecalId = None }) }
-
     member this.RemoveTopMostItem(x: int, y: int) =
         let index = this.GetFlatIndex(x, y)
         let cell = this.LayerCells.[index]
@@ -118,7 +147,7 @@ type EditorTileMap =
             match sp.SpriteType with
             | SpriteType.Actor _ -> this.SetActor(x, y, entityId)
             | SpriteType.Fixture _ -> this.SetFixture(x, y, entityId)
-            | SpriteType.Decal _ -> this.SetDecal(x, y, entityId)
+            | SpriteType.Decal _ -> this.AddDecal(x, y, entityId)
             | SpriteType.Item _ -> this.AddItem(x, y, entityId)
 
     member this.MigrateEntitySpriteType(entityId: int, oldType: SpriteType, newType: SpriteType) =
@@ -156,14 +185,20 @@ type EditorTileMap =
 
                 let a0 = if isMe cell.ActorId then changed <- true; None else cell.ActorId
                 let f0 = if isMe cell.FixtureId then changed <- true; None else cell.FixtureId
-                let d0 = if isMe cell.DecalId then changed <- true; None else cell.DecalId
+                let hadDecal = cell.Decals |> List.exists (fun id -> id = entityId)
+                let d0 =
+                    if hadDecal then
+                        changed <- true
+                        cell.Decals |> List.filter (fun id -> id <> entityId)
+                    else
+                        cell.Decals
 
                 if crossesItemBoundary then
                     // “Destroy”: entityId is removed everywhere; no reinsert.
-                    { cell with Items = items2; ActorId = a0; FixtureId = f0; DecalId = d0 }, changed
+                    { cell with Items = items2; ActorId = a0; FixtureId = f0; Decals = d0 }, changed
                 else
                     // Non-item -> non-item: migrate into the new slot if it is empty (None); otherwise destroy.
-                    let wasPresentInSlot = isMe cell.ActorId || isMe cell.FixtureId || isMe cell.DecalId
+                    let wasPresentInSlot = isMe cell.ActorId || isMe cell.FixtureId || hadDecal
 
                     if not wasPresentInSlot then
                         { cell with Items = items2 }, changed
@@ -176,13 +211,13 @@ type EditorTileMap =
                             | 1 -> // Fixture
                                 if f0.IsNone then (a0, Some entityId, d0) else (a0, f0, d0)
                             | 2 -> // Decal
-                                if d0.IsNone then (a0, f0, Some entityId) else (a0, f0, d0)
+                                if List.length d0 < EntityRegistry.MaxDecalsPerTile then (a0, f0, entityId :: d0) else (a0, f0, d0)
                             | _ ->
                                 // Shouldn’t happen here (items excluded)
                                 (a0, f0, d0)
 
                         // If destination was blocked, we already cleared the old slot => “destroy”
-                        { cell with Items = items2; ActorId = a1; FixtureId = f1; DecalId = d1 }, true
+                        { cell with Items = items2; ActorId = a1; FixtureId = f1; Decals = d1 }, true
 
             // Apply across all cells
             let updates =
@@ -373,7 +408,13 @@ type EditorTileMap =
             |> Array.map (fun cell -> 
                 { Items = List.ofSeq cell.Items
                   FixtureId = cell.FixtureId
-                  DecalId = cell.DecalId
+                  Decals =
+                    let view = LayerQueries.GetDecalView cell
+                    if view.Count = 0 then
+                        []
+                    else
+                        // Runtime is bottom->top; editor stores top-first (newest at head)
+                        [ for i = view.Count - 1 downto 0 do yield view.Decals.[i] ]
                   ActorId = cell.ActorId })
             |> PersistentVector.ofSeq
         
@@ -394,10 +435,19 @@ type EditorTileMap =
             this.LayerCells 
             |> PersistentVector.toArray
             |> Array.map (fun cell ->
-                { LayerCell.Items = ResizeArray(cell.Items)
-                  FixtureId = cell.FixtureId
-                  DecalId = cell.DecalId
-                  ActorId = cell.ActorId })
+                let runtimeCell =
+                    { LayerCell.Items = ResizeArray(cell.Items)
+                      FixtureId = cell.FixtureId
+                      ActorId = cell.ActorId
+                      Decals = null
+                      DecalCount = 0 }
+
+                // Editor stores top-first; runtime stores bottom->top.
+                let decalsToAdd = cell.Decals |> List.rev
+                for did in decalsToAdd do
+                    LayerQueries.AddDecal(runtimeCell, did)
+
+                runtimeCell)
         
         TileMap(
             this.Width,
@@ -473,16 +523,28 @@ type EditorHistory =
         this.CurrentTileMap.SetEntityAuto(x, y, entityId)
         |> this.AddTileMap
 
+    member this.MigrateEntitySpriteType(entityId: int, oldType: SpriteType, newType: SpriteType) =
+        let current = this.CurrentTileMap.MigrateEntitySpriteType(entityId, oldType, newType)
+        this.AddTileMap current
+
     member this.ClearFixture(x:int, y:int) =
         let current = this.CurrentTileMap.ClearFixture(x, y)
         this.AddTileMap current
 
-    member this.SetDecal(x:int, y:int, decalId:int) =
-        let current = this.CurrentTileMap.SetDecal(x, y, decalId)
+    member this.AddDecal(x:int, y:int, decalId:int) =
+        let current = this.CurrentTileMap.AddDecal(x, y, decalId)
         this.AddTileMap current
 
-    member this.ClearDecal(x:int, y:int) =
-        let current = this.CurrentTileMap.ClearDecal(x, y)
+    member this.ClearDecals(x:int, y:int) =
+        let current = this.CurrentTileMap.ClearDecals(x, y)
+        this.AddTileMap current
+
+    member this.RemoveDecalAtId(x:int, y:int, decalId:int) =
+        let current = this.CurrentTileMap.RemoveDecalAtId(x, y, decalId)
+        this.AddTileMap current
+
+    member this.RemoveTopMostDecal(x:int, y:int) =
+        let current = this.CurrentTileMap.RemoveTopMostDecal(x, y)
         this.AddTileMap current
 
     member this.AddItem(x:int, y:int, itemId:int) =

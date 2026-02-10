@@ -150,7 +150,7 @@ let testTileMapLayerCellData () =
     originalMap.AddItem(2, 1, 3001) |> ignore
     originalMap.AddItem(2, 1, 3002) |> ignore
     // Add a decal to (2,1)
-    originalMap.SetDecal(2, 1, TestDecalId)
+    originalMap.AddDecal(2, 1, TestDecalId)
     
     let serializedBytes = TileMapSerializer.serialize originalMap
     let deserializedMap = TileMapSerializer.deserialize serializedBytes
@@ -167,6 +167,45 @@ let testTileMapLayerCellData () =
     assertEquals (Some TestDecalId) (deserializedMap.GetDecal(2,1)) "Decal at (2,1) preserved"
     
     printfn "--- TileMap LayerCell Data Integrity: PASSED ---"
+
+let testTileMapMultipleDecalsPerTile () =
+    printfn "\n--- Test: TileMap Multiple Decals Per Tile ---"
+
+    let originalMap = createTestTileMap()
+
+    // Stack multiple decals on the same tile (bottom->top)
+    let d1, d2, d3 = 4101, 4102, 4103
+    originalMap.AddDecal(2, 1, d1)
+    originalMap.AddDecal(2, 1, d2)
+    originalMap.AddDecal(2, 1, d3)
+
+    let bytes = TileMapSerializer.serialize originalMap
+    let deserializedMap = TileMapSerializer.deserialize bytes
+
+    // Topmost should be last added
+    assertEquals (Some d3) (deserializedMap.GetDecal(2,1)) "Topmost decal at (2,1) preserved"
+
+    // Full stack order should be bottom->top
+    let dv = deserializedMap.GetDecals(2, 1)
+    assertEquals 3 dv.Count "Decal count at (2,1) preserved"
+    assertEquals d1 dv.Decals.[0] "Bottom decal preserved"
+    assertEquals d2 dv.Decals.[1] "Middle decal preserved"
+    assertEquals d3 dv.Decals.[2] "Top decal preserved"
+
+    // Editor conversion should preserve topmost and full list
+    let editorMap = EditorTileMap.FromTileMap(deserializedMap)
+    assertEquals (Some d3) (editorMap.GetDecal(2,1)) "Editor topmost decal at (2,1) preserved"
+    assertEquals [d3; d2; d1] (editorMap.GetDecals(2,1)) "Editor decal list top->bottom preserved"
+
+    // Round-trip back to runtime should keep stack order
+    let roundTripMap = editorMap.ToTileMap()
+    let dv2 = roundTripMap.GetDecals(2, 1)
+    assertEquals 3 dv2.Count "Round-trip decal count preserved"
+    assertEquals d1 dv2.Decals.[0] "Round-trip bottom decal preserved"
+    assertEquals d2 dv2.Decals.[1] "Round-trip middle decal preserved"
+    assertEquals d3 dv2.Decals.[2] "Round-trip top decal preserved"
+
+    printfn "--- TileMap Multiple Decals Per Tile: PASSED ---"
 
 let testTileMapPropertiesIntegrity () =
     printfn "\n--- Test: TileMap Properties Integrity ---"
@@ -409,7 +448,7 @@ let testEditorTileMapConversion () =
     originalRuntimeMap.SetFixture(0, 1, 2001)
     originalRuntimeMap.AddItem(2, 1, 3001) |> ignore
     // Add a decal to (2,1)
-    originalRuntimeMap.SetDecal(2, 1, TestDecalId)
+    originalRuntimeMap.AddDecal(2, 1, TestDecalId)
     
     // Convert to editor map
     let editorMap = EditorTileMap.FromTileMap(originalRuntimeMap)
@@ -475,7 +514,7 @@ let testEditorTileMapEditAndConvert () =
     let editedMap2 = editedMap.SetActor(0, 0, 5001)
     let editedMap3 = editedMap2.AddItem(1, 2, 6001)
     // Add a decal in the editor and verify it persists through conversion
-    let editedMap4 = editedMap3.SetDecal(1, 2, TestDecalId)
+    let editedMap4 = editedMap3.AddDecal(1, 2, TestDecalId)
     
     // Convert back
     let convertedMap = editedMap4.ToTileMap()
@@ -494,12 +533,37 @@ let testEditorTileMapEditAndConvert () =
     
     printfn "--- Edit EditorTileMap and Convert Back: PASSED ---"
 
+let testEditorLayerQueriesHeadIsTopmost () =
+    printfn "\n--- Test: EditorLayerQueries Head Is Topmost ---"
+    
+    // Create an EditorLayerCell with items and decals in a known order (added sequentially)
+    // In EditorLayerCell, items/decals are stored as 'item :: items', so head is newest.
+    // EditorLayerQueries.GetRenderItems/Decals should return them in this same order (newest first).
+    
+    let cell = {
+        EditorLayerCell.Empty with
+            Items = [3; 2; 1]    // 3 added last, should be on top
+            Decals = [30; 20; 10] // 30 added last, should be on top
+    }
+    
+    let renderItems = EditorLayerQueries.GetRenderItems cell
+    let renderDecals = EditorLayerQueries.GetRenderDecals cell
+    
+    assertEquals 3 renderItems.Head "Item 3 (newest) should be topmost"
+    assertEquals 30 renderDecals.Head "Decal 30 (newest) should be topmost"
+    
+    assertEquals [3; 2; 1] renderItems "Full items list should preserve newest-first order"
+    assertEquals [30; 20; 10] (renderDecals |> List.truncate 3) "Full decals list should preserve newest-first order"
+    
+    printfn "--- EditorLayerQueries Head Is Topmost: PASSED ---"
+
 // Run all TileMap serialization tests
 let runTests() =
     printfn "\n========== TILEMAP SERIALIZATION TESTS =========="
     testTileMapBasicSerialization ()
     testTileMapTileData ()
     testTileMapLayerCellData ()
+    testTileMapMultipleDecalsPerTile ()
     testTileMapPropertiesIntegrity ()
     testTileMapEmptyMap ()
     testTileMapLargeMap ()
@@ -508,6 +572,7 @@ let runTests() =
     testTileMapRoundTripMultiple ()
     testEditorTileMapConversion ()
     testEditorTileMapEditAndConvert ()
+    testEditorLayerQueriesHeadIsTopmost ()
     printfn "\n========== ALL TILEMAP TESTS PASSED ==========" 
 
 runTests()

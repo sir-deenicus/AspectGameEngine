@@ -27,21 +27,25 @@ let populateTestRegistries() =
     EntityRegistry.SpriteProps.[1001] <- {
         Sprite = SpriteRef.SheetCell(SpriteSheetCell(0, 1, 1))
         SpriteType = SpriteType.Item { DescKey = "item_sword" }
+        RenderLayer = 1
     }
     
     EntityRegistry.SpriteProps.[1002] <- {
         Sprite = SpriteRef.TextureId(5000)
         SpriteType = SpriteType.Item { DescKey = "item_shield" }
+        RenderLayer = 1
     }
     
     EntityRegistry.SpriteProps.[1003] <- {
         Sprite = SpriteRef.SheetRegion({ SheetId = 2; X = 10; Y = 20; Width = 32; Height = 32 })
         SpriteType = SpriteType.Item { DescKey = "item_helmet" }
+        RenderLayer = 1
     }
     
     EntityRegistry.SpriteProps.[1004] <- {
         Sprite = SpriteRef.Scene("res://sprites/items/potion.tscn")
         SpriteType = SpriteType.Item { DescKey = "item_potion" }
+        RenderLayer = 1
     }
     
     // Add test fixtures
@@ -53,6 +57,7 @@ let populateTestRegistries() =
             DescKey = "fixture_stone_wall"
             TileOpacity = TileOpacity.Opaque
         }
+        RenderLayer = 10
     }
     
     EntityRegistry.SpriteProps.[2002] <- {
@@ -63,6 +68,7 @@ let populateTestRegistries() =
             DescKey = "fixture_lever"
             TileOpacity = TileOpacity.Transparent
         }
+        RenderLayer = 10
     }
     
     EntityRegistry.SpriteProps.[2003] <- {
@@ -73,6 +79,7 @@ let populateTestRegistries() =
             DescKey = "fixture_chest"
             TileOpacity = TileOpacity.Opaque
         }
+        RenderLayer = 10
     }
     
     // Add test actors
@@ -82,6 +89,7 @@ let populateTestRegistries() =
             TileOpacity = TileOpacity.Opaque
             DescKey = "actor_goblin"
         }
+        RenderLayer = 50
     }
     
     EntityRegistry.SpriteProps.[3002] <- {
@@ -90,6 +98,7 @@ let populateTestRegistries() =
             TileOpacity = TileOpacity.Air
             DescKey = "actor_ghost"
         }
+        RenderLayer = 50
     }
 
     EntityRegistry.SpriteProps.[3003] <- {
@@ -98,12 +107,13 @@ let populateTestRegistries() =
             TileOpacity = TileOpacity.Translucent
             DescKey = "actor_slime"
         }
+        RenderLayer = 50
     }
     
     // Add test decals
-    EntityRegistry.SpriteProps.[4001] <- { Sprite = SpriteRef.SheetCell(SpriteSheetCell(4, 2, 3)); SpriteType = SpriteType.Decal { Interactable = false; DescKey = "decal_stain" } }
-    EntityRegistry.SpriteProps.[4002] <- { Sprite = SpriteRef.TextureId(7000); SpriteType = SpriteType.Decal { Interactable = true; DescKey = "decal_mark" } }
-    EntityRegistry.SpriteProps.[4003] <- { Sprite = SpriteRef.Scene("res://decals/blood.tscn"); SpriteType = SpriteType.Decal { Interactable = false; DescKey = "decal_blood" } }
+    EntityRegistry.SpriteProps.[4001] <- { Sprite = SpriteRef.SheetCell(SpriteSheetCell(4, 2, 3)); SpriteType = SpriteType.Decal { Interactable = false; DescKey = "decal_stain" }; RenderLayer = 1000 }
+    EntityRegistry.SpriteProps.[4002] <- { Sprite = SpriteRef.TextureId(7000); SpriteType = SpriteType.Decal { Interactable = true; DescKey = "decal_mark" }; RenderLayer = 1000 }
+    EntityRegistry.SpriteProps.[4003] <- { Sprite = SpriteRef.Scene("res://decals/blood.tscn"); SpriteType = SpriteType.Decal { Interactable = false; DescKey = "decal_blood" }; RenderLayer = 1000 }
 
 let testBasicSerialization() =
     printfn "\n--- Test: Basic Registry Serialization ---"
@@ -130,6 +140,12 @@ let testBasicSerialization() =
     assertEquals 3 fixtures.Length "Fixture count"
     assertEquals 3 actors.Length "Actor count"
     assertEquals 3 decals.Length "Decal count"
+
+    // Spot-check RenderLayer round-trip
+    let sp1001 = data.SpriteProps |> Array.find (fun (id, _) -> id = 1001) |> snd
+    assertEquals 1 sp1001.RenderLayer "RenderLayer for item 1001 preserved"
+    let sp4001 = data.SpriteProps |> Array.find (fun (id, _) -> id = 4001) |> snd
+    assertEquals 1000 sp4001.RenderLayer "RenderLayer for decal 4001 preserved"
     
     printfn "--- Basic Registry Serialization: PASSED ---"
 
@@ -402,16 +418,19 @@ let testAllOpacityValues() =
     EntityRegistry.SpriteProps.[1] <- {
         Sprite = SpriteRef.TextureId(1)
         SpriteType = SpriteType.Fixture { BlocksMovement = true; Interactable = false; DescKey = ""; TileOpacity = TileOpacity.Opaque }
+        RenderLayer = 10
     }
     
     EntityRegistry.SpriteProps.[2] <- {
         Sprite = SpriteRef.TextureId(2)
         SpriteType = SpriteType.Fixture { BlocksMovement = true; Interactable = false; DescKey = ""; TileOpacity = TileOpacity.Transparent }
+        RenderLayer = 10
     }
     
     EntityRegistry.SpriteProps.[3] <- {
         Sprite = SpriteRef.TextureId(3)
         SpriteType = SpriteType.Fixture { BlocksMovement = true; Interactable = false; DescKey = ""; TileOpacity = TileOpacity.Air }
+        RenderLayer = 10
     }
     
     let bytes = EntityRegistrySerializer.serializeCurrent()
@@ -437,6 +456,7 @@ let testLargeRegistry() =
         EntityRegistry.SpriteProps.[i] <- {
             Sprite = SpriteRef.SheetCell(SpriteSheetCell(i % 10, i % 100, i % 100))
             SpriteType = SpriteType.Item { DescKey = "" }
+            RenderLayer = 1
         }
     
     for i in 1001..2000 do
@@ -448,6 +468,7 @@ let testLargeRegistry() =
                 DescKey = sprintf "fixture_%d" i
                 TileOpacity = if i % 2 = 0 then TileOpacity.Opaque else TileOpacity.Transparent
             }
+            RenderLayer = 10
         }
     
     let sw = Stopwatch.StartNew()
@@ -480,31 +501,37 @@ let testAllSpriteRefVariants() =
     EntityRegistry.SpriteProps.[1] <- {
         Sprite = SpriteRef.SheetCell(SpriteSheetCell(1, 2, 3))
         SpriteType = SpriteType.Item { DescKey = "" }
+        RenderLayer = 1
     }
     
     EntityRegistry.SpriteProps.[2] <- {
         Sprite = SpriteRef.SheetRegion({ SheetId = 5; X = 100; Y = 200; Width = 64; Height = 64 })
         SpriteType = SpriteType.Item { DescKey = "" }
+        RenderLayer = 1
     }
     
     EntityRegistry.SpriteProps.[3] <- {
         Sprite = SpriteRef.TextureId(9999)
         SpriteType = SpriteType.Item { DescKey = "" }
+        RenderLayer = 1
     }
     
     EntityRegistry.SpriteProps.[4] <- {
         Sprite = SpriteRef.Scene("res://test/sprite.tscn")
         SpriteType = SpriteType.Item { DescKey = "" }
+        RenderLayer = 1
     }
 
     EntityRegistry.SpriteProps.[5] <- {
         Sprite = SpriteRef.SheetSpan({ TopLeft = SpriteSheetCell(1, 0, 0); WidthCells = 2; HeightCells = 2 })
         SpriteType = SpriteType.Item { DescKey = "" }
+        RenderLayer = 1
     }
 
     EntityRegistry.SpriteProps.[6] <- {
         Sprite = SpriteRef.SheetCells([| SpriteSheetCell(1, 0, 0); SpriteSheetCell(1, 0, 1) |])
         SpriteType = SpriteType.Item { DescKey = "" }
+        RenderLayer = 1
     }
     
     let bytes = EntityRegistrySerializer.serializeCurrent()
@@ -547,6 +574,7 @@ let testSerializeFromCustomDictionary() =
     customProps.[100] <- {
         Sprite = SpriteRef.TextureId(1234)
         SpriteType = SpriteType.Item { DescKey = "" }
+        RenderLayer = 1
     }
     
     let bytes = EntityRegistrySerializer.serializeFrom customProps

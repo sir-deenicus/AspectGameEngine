@@ -56,7 +56,7 @@ let testResizeWidthOnly () =
     // NEW: Add an item to (1,1)
     let mapWithItem = mapWithActor.AddItem(1, 1, TestItemId)
     // NEW: Add a decal to (1,1)
-    let mapWithDecal = mapWithItem.SetDecal(1, 1, TestDecalId)
+    let mapWithDecal = mapWithItem.AddDecal(1, 1, TestDecalId)
 
     let resizedMap = mapWithDecal.Resize(3, 2)
     let expectedEmptyTileInResized = makeExpectedEmptyTile resizedMap
@@ -98,7 +98,7 @@ let testResizeHeightOnly () =
     // NEW: Add an item to (0,0)
     let mapWithItem = mapWithActor.AddItem(0, 0, TestItemId)
     // NEW: Add a decal to (0,0)
-    let mapWithDecal = mapWithItem.SetDecal(0, 0, TestDecalId)
+    let mapWithDecal = mapWithItem.AddDecal(0, 0, TestDecalId)
 
     let resizedMap = mapWithDecal.Resize(2, 3)
     let expectedEmptyTileInResized = makeExpectedEmptyTile resizedMap
@@ -136,7 +136,7 @@ let testResizeWidthAndHeight () =
     // NEW: Add an actor to (0,1) - this will be truncated
     let mapWithActor = mapWithFixture.SetActor(0, 1, TestActorId)
     // NEW: Add a decal to (1,0)
-    let mapWithDecal = mapWithActor.SetDecal(1, 0, TestDecalId)
+    let mapWithDecal = mapWithActor.AddDecal(1, 0, TestDecalId)
 
     let resizedMap = mapWithDecal.Resize(3, 1)
     let expectedEmptyTileInResized = makeExpectedEmptyTile resizedMap
@@ -187,7 +187,7 @@ let testResizeWidthAndHeight2 () =
     // NEW: Add an item to (1,0)
     let mapWithItem = mapWithActor.AddItem(1, 0, TestItemId)
     // NEW: Add a decal to (1,0)
-    let mapWithDecal = mapWithItem.SetDecal(1, 0, TestDecalId)
+    let mapWithDecal = mapWithItem.AddDecal(1, 0, TestDecalId)
 
     let resizedMap = mapWithDecal.Resize(3, 4)
     let expectedEmptyTileInResized = makeExpectedEmptyTile resizedMap
@@ -218,12 +218,7 @@ let testResizeWidthAndHeight2 () =
     with _ ->
         printfn "PASSED: Out-of-bounds layer cell access failed as expected."
 
-    printfn "--- TestResizeWidthAndHeight2: PASSED ---"
-
-testResizeWidthOnly ()
-testResizeHeightOnly ()
-testResizeWidthAndHeight ()
-testResizeWidthAndHeight2 ()
+    printfn "--- TestResizeWidthAndHeight2: PASSED ---" 
 
 //====================== 
 
@@ -260,9 +255,7 @@ let run() =
     printfn "Direct mutation syntax: %dms" sw1.ElapsedMilliseconds
     printfn "Copy-replace:           %dms" sw2.ElapsedMilliseconds
     printfn "Span:                   %dms" sw3.ElapsedMilliseconds
-
-run()    
-
+     
 //================= 
  
 let createTestTileProperties () =
@@ -321,8 +314,6 @@ let testTilePropertiesSerialization () =
 
     printfn "--- TestTilePropertiesSerialization: PASSED ---"  
     deserializedTileProps
-
-testTilePropertiesSerialization ()
 
 //======================
 
@@ -406,11 +397,6 @@ let testUpdateMany () =
     // let _ = PersistentVector.updateManyWith badMap changes pv // <- type error
 
     printfn "--- Test: PersistentVector update APIs: PASSED ---"
-
-// Run the new tests
-testPersistentVectorBoundaries ()
-testUpdateMany ()
- 
 
 //====================== Localization Tests ======================
 
@@ -633,10 +619,9 @@ let runLocalizationParserTests () =
     testMissingOtherVariant ()
 
     printfn "\n=== All Localization Tests Passed ==="
-   
-runLocalizationParserTests ()
-
+ 
 //========
+
 module ZigZag =
     let inline encode (value: int) =
         int ((uint32 value <<< 1) ^^^ (uint32 (value >>> 31)))
@@ -792,9 +777,7 @@ let runLocalizationPackerTests () =
     testBinaryPackRoundTrip ()
     testZigZagEncoding ()
     testEmptyPack ()
-    printfn "\n=== All Localization Packer Tests Passed ==="
-
-runLocalizationPackerTests () 
+    printfn "\n=== All Localization Packer Tests Passed ===" 
 
 //==========================
 
@@ -988,8 +971,6 @@ let runLocalizerTests () =
     testLocalizerBinaryRoundTrip ()
     printfn "\n=== All Localizer Tests Passed ==="
 
-runLocalizerTests ()
-
 //==============
 
 let testMigrateEntitySpriteType () =
@@ -1051,8 +1032,7 @@ let testMigrateEntitySpriteType () =
 
     printfn "--- TestMigrateEntitySpriteType: PASSED ---"
 
-// Call the new test
-testMigrateEntitySpriteType ()
+//---------
  
 let testMigrateLargeVolume () =
     printfn "\n--- Test: Large Volume Migration Stress (1000 tiles) ---"
@@ -1087,9 +1067,6 @@ let testMigrateLargeVolume () =
             
     assertEquals 0 foundCount "Entity should be completely removed from all 1000 tiles due to destroy rule"
     printfn "--- TestMigrateLargeVolume: PASSED ---"
-
-// Call the new stress test
-testMigrateLargeVolume ()  
 
 let testMigrateLargeVolumeSuccess () =
     printfn "\n--- Test: Large Volume Migration Success (1000 tiles, No Destruction) ---"
@@ -1130,5 +1107,66 @@ let testMigrateLargeVolumeSuccess () =
     assertEquals 0 failureCount "No entities should have been destroyed"
     printfn "--- TestMigrateLargeVolumeSuccess: PASSED ---"
   
-// Call the new stress test
-testMigrateLargeVolumeSuccess ()
+
+
+//testResizeWidthOnly ()
+//testResizeHeightOnly ()
+//testResizeWidthAndHeight ()
+//testResizeWidthAndHeight2 ()
+////----
+//testTilePropertiesSerialization ()
+////----
+//testPersistentVectorBoundaries ()
+//testUpdateMany ()
+////---
+//runLocalizationParserTests ()
+//runLocalizationPackerTests ()  
+//runLocalizerTests ()
+////---
+//testMigrateEntitySpriteType ()
+//testMigrateLargeVolume ()  
+//testMigrateLargeVolumeSuccess ()
+
+
+let runAllTests() =  
+    printfn "\n=== Running All Tests ==="
+    run()    
+    testResizeWidthOnly ()
+    testResizeHeightOnly ()
+    testResizeWidthAndHeight ()
+    testResizeWidthAndHeight2 ()
+    testTilePropertiesSerialization () |> ignore
+    testPersistentVectorBoundaries ()
+    testUpdateMany ()
+    runLocalizationParserTests ()
+    runLocalizationPackerTests () 
+    runLocalizerTests ()
+    testMigrateEntitySpriteType ()
+    testMigrateLargeVolume ()  
+    testMigrateLargeVolumeSuccess ()
+    printfn "\n=== All Tests Completed ==="
+
+let runJustLoclizerTests() =   
+    runLocalizationParserTests ()
+    runLocalizationPackerTests () 
+    runLocalizerTests ()
+
+let runAllButLocalizerTests() =
+    testResizeWidthOnly ()
+    testResizeHeightOnly ()
+    testResizeWidthAndHeight ()
+    testResizeWidthAndHeight2 ()
+    testTilePropertiesSerialization () |> ignore
+    testPersistentVectorBoundaries ()
+    testUpdateMany ()
+    testMigrateEntitySpriteType ()
+    testMigrateLargeVolume ()  
+    testMigrateLargeVolumeSuccess ()
+
+//runJustLoclizerTests() 
+//runAllButLocalizerTests()
+
+runAllTests()
+    
+
+    
