@@ -1144,7 +1144,7 @@ let runAllTests() =
     testMigrateEntitySpriteType ()
     testMigrateLargeVolume ()  
     testMigrateLargeVolumeSuccess ()
-    printfn "\n=== All Tests Completed ==="
+    printfn "\n=== All Tests Completed (Passed) ==="
 
 let runJustLoclizerTests() =   
     runLocalizationParserTests ()

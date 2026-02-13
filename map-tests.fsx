@@ -259,6 +259,38 @@ let testTileMapPropertiesIntegrity () =
     
     printfn "--- TileMap Properties Integrity: PASSED ---"
 
+let testTileMapSpawnPointsRoundTrip () =
+    printfn "\n--- Test: TileMap SpawnPoints Round-Trip ---"
+
+    let originalMap = createTestTileMap()
+
+    // Set a few spawn points; remaining should stay as the default (-1,-1)
+    originalMap.SpawnPoints.[0] <- (1, 1)
+    originalMap.SpawnPoints.[1] <- (2, 1)
+    originalMap.SpawnPoints.[9] <- (0, 2)
+
+    let bytes = TileMapSerializer.serialize originalMap
+    let deserializedMap = TileMapSerializer.deserialize bytes
+
+    assertEquals 10 deserializedMap.SpawnPoints.Length "SpawnPoints length is 10"
+    assertEquals (1, 1) deserializedMap.SpawnPoints.[0] "SpawnPoints[0] preserved"
+    assertEquals (2, 1) deserializedMap.SpawnPoints.[1] "SpawnPoints[1] preserved"
+    assertEquals (0, 2) deserializedMap.SpawnPoints.[9] "SpawnPoints[9] preserved"
+    assertEquals (-1, -1) deserializedMap.SpawnPoints.[2] "Unset SpawnPoints default preserved"
+
+    // Editor conversion should copy spawn points without aliasing
+    let editorMap = EditorTileMap.FromTileMap(deserializedMap)
+    assertEquals (List.ofArray deserializedMap.SpawnPoints) editorMap.SpawnPoints "Editor spawn points match runtime"
+
+    // Mutate editor list and ensure runtime isn't affected (copy semantics)
+    let editorMapMutated = { editorMap with SpawnPoints = (9, 9) :: (List.tail editorMap.SpawnPoints) }
+    assertEquals (1, 1) deserializedMap.SpawnPoints.[0] "Editor spawn mutation does not affect runtime"
+
+    let runtime2 = editorMapMutated.ToTileMap()
+    assertEquals (9, 9) runtime2.SpawnPoints.[0] "Editor -> runtime spawn point persisted"
+
+    printfn "--- TileMap SpawnPoints Round-Trip: PASSED ---"
+
 let testTileMapEmptyMap () =
     printfn "\n--- Test: TileMap Empty/Minimal Map ---"
     
@@ -565,6 +597,7 @@ let runTests() =
     testTileMapLayerCellData ()
     testTileMapMultipleDecalsPerTile ()
     testTileMapPropertiesIntegrity ()
+    testTileMapSpawnPointsRoundTrip ()
     testTileMapEmptyMap ()
     testTileMapLargeMap ()
     testTileMapAllMapTypes ()

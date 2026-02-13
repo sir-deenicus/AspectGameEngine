@@ -62,6 +62,7 @@ type TileMap =
     val mutable MapType: MapType
     val mutable TileSetName: string
     val mutable LayerCells: LayerCell[]
+    val mutable SpawnPoints: (int * int)[]
 
     new(width, height, tiles, layercells, voidSpriteLoc, tileSetName, mapname, mapType) =
         { Width = width
@@ -71,7 +72,8 @@ type TileMap =
           MapType = mapType
           TileSetName = tileSetName
           VoidSpriteLoc = voidSpriteLoc
-          LayerCells = layercells }
+          LayerCells = layercells
+          SpawnPoints = Array.create 10 (-1, -1) }
 
     new(width, height, voidSpriteLoc, tileSetName, mapname, mapType) =
         let tiles = Array.init (width * height) (fun _ -> { SpriteLoc = SpriteLoc(0, 0, 0); Health = 0; IsOccupied = false })
@@ -83,7 +85,8 @@ type TileMap =
           MapType = mapType
           TileSetName = tileSetName
           VoidSpriteLoc = voidSpriteLoc
-          LayerCells = layercells }
+          LayerCells = layercells
+          SpawnPoints = Array.create 10 (-1, -1) }
 
     member inline private this.GetIndex(x: int, y: int) = y * this.Width + x
     member inline this.GetLayerCell(x: int, y: int) = this.LayerCells.[this.GetIndex(x, y)]

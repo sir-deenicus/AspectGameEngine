@@ -11,7 +11,8 @@ type EditorTileMap =
       MapName: string
       MapType: MapType
       TilesetName: string
-      LayerCells: PersistentVector<EditorLayerCell> }
+      LayerCells: PersistentVector<EditorLayerCell>
+      SpawnPoints: (int * int) list }
 
     // Helper to calculate 1D index from 2D coordinates.
     // Internal, assumes x, y, currentWidth are valid for the context.
@@ -46,7 +47,18 @@ type EditorTileMap =
           MapName = defaultArg mapName ""
           MapType = defaultArg mapType MapType.Room
           TilesetName = tileSet
-          LayerCells = PersistentVector.init size (fun _ -> EditorLayerCell.Empty) }
+          LayerCells = PersistentVector.init size (fun _ -> EditorLayerCell.Empty) 
+          SpawnPoints = [] }
+
+    member this.AddSpawnPoint(x,y) = 
+        let exists = List.exists (fun (sx, sy) -> sx = x && sy = y) this.SpawnPoints
+        if List.length this.SpawnPoints < 10 && not exists then
+            { this with SpawnPoints = (x, y) :: this.SpawnPoints }
+        else
+            this
+
+    member this.RemoveSpawnPoint(x,y) =
+        { this with SpawnPoints = List.filter (fun (sx, sy) -> not (sx = x && sy = y)) this.SpawnPoints }
 
     member this.GetTile(x, y) =
         let index = this.GetFlatIndex(x, y)
@@ -425,7 +437,8 @@ type EditorTileMap =
           MapName = tileMap.MapName
           MapType = tileMap.MapType
           TilesetName = tileMap.TileSetName
-          LayerCells = layersVector }
+          LayerCells = layersVector
+          SpawnPoints = List.ofArray tileMap.SpawnPoints }
 
     // Convert from editor EditorTileMap to runtime TileMap
     member this.ToTileMap() =         
@@ -449,16 +462,20 @@ type EditorTileMap =
 
                 runtimeCell)
         
-        TileMap(
-            this.Width,
-            this.Height,
-            tilesArray,
-            layersArray,
-            this.VoidSpriteLoc,
-            this.TilesetName,
-            this.MapName,
-            this.MapType
-        ) 
+        let tileMap =
+            TileMap(
+                this.Width,
+                this.Height,
+                tilesArray,
+                layersArray,
+                this.VoidSpriteLoc,
+                this.TilesetName,
+                this.MapName,
+                this.MapType
+            )
+
+        tileMap.SpawnPoints <- List.toArray this.SpawnPoints
+        tileMap
 
 type EditorHistory =
     { History: List<EditorTileMap>
@@ -506,6 +523,14 @@ type EditorHistory =
                 CurrentIndex = this.CurrentIndex + 1 }
         else
             this
+
+    member this.AddSpawnPoint(x: int, y: int) =
+        let current = this.CurrentTileMap.AddSpawnPoint(x, y)
+        this.AddTileMap current
+
+    member this.RemoveSpawnPoint(x: int, y: int) =
+        let current = this.CurrentTileMap.RemoveSpawnPoint(x, y)
+        this.AddTileMap current
 
     member this.SetActor(x:int, y:int, actorId:int) =
         let current = this.CurrentTileMap.SetActor(x, y, actorId)

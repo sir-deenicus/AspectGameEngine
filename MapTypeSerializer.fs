@@ -4,6 +4,9 @@ open AspectGameEngine.FBS
 open Google.FlatBuffers
 
 module TileMapSerializer =
+    [<Literal>]
+    let private SpawnPointsCapacity = 10
+
     let private toMapTypeFBS (mapType: MapType) : MapTypeFBS =
         match mapType with
         | MapType.Room -> MapTypeFBS.Room
@@ -31,6 +34,9 @@ module TileMapSerializer =
     let private createTileFBS (builder: FlatBufferBuilder) (tile: Tile) =
         let spriteLocOffset = createSpriteLocFBS builder tile.SpriteLoc
         TileFBS.CreateTileFBS(builder, spriteLocOffset, tile.Health, tile.IsOccupied)
+
+    let private createSpawnPointFBS (builder: FlatBufferBuilder) ((x, y): int * int) =
+        SpawnPointFBS.CreateSpawnPointFBS(builder, x, y)
 
     let private createLayerCellFBS (builder: FlatBufferBuilder) (cell: LayerCell) =
         let itemsArray = cell.Items.ToArray()
@@ -74,6 +80,16 @@ module TileMapSerializer =
         let mapNameOffset = builder.CreateString(tileMap.MapName)
         let tilesetNameOffset = builder.CreateString(tileMap.TileSetName)
 
+        // Spawn points (always write exactly 10 entries)
+        let spawnPoints10 =
+            if isNull tileMap.SpawnPoints then Array.create SpawnPointsCapacity (-1, -1)
+            elif tileMap.SpawnPoints.Length = SpawnPointsCapacity then tileMap.SpawnPoints
+            elif tileMap.SpawnPoints.Length > SpawnPointsCapacity then tileMap.SpawnPoints |> Array.take SpawnPointsCapacity
+            else Array.append tileMap.SpawnPoints (Array.create (SpawnPointsCapacity - tileMap.SpawnPoints.Length) (-1, -1))
+
+        let spawnPointOffsets = spawnPoints10 |> Array.map (createSpawnPointFBS builder)
+        let spawnPointsVector = TileMapFBS.CreateSpawnPointsVector(builder, spawnPointOffsets)
+
         TileMapFBS.StartTileMapFBS(builder)
         TileMapFBS.AddWidth(builder, tileMap.Width)
         TileMapFBS.AddHeight(builder, tileMap.Height)
@@ -83,6 +99,7 @@ module TileMapSerializer =
         TileMapFBS.AddMapName(builder, mapNameOffset)
         TileMapFBS.AddMapType(builder, toMapTypeFBS tileMap.MapType)
         TileMapFBS.AddTilesetName(builder, tilesetNameOffset)
+        TileMapFBS.AddSpawnPoints(builder, spawnPointsVector)
         let rootOffset = TileMapFBS.EndTileMapFBS(builder)
 
         builder.Finish(rootOffset.Value)
@@ -130,13 +147,31 @@ module TileMapSerializer =
         let voidSpriteLoc = createSpriteLoc tileMapFBS.VoidSpriteLoc.Value
         let tilesetName = tileMapFBS.TilesetName
 
-        TileMap(
-            tileMapFBS.Width,
-            tileMapFBS.Height,
-            tiles,
-            layerCells,
-            voidSpriteLoc,
-            tilesetName,
-            tileMapFBS.MapName,
-            fromMapTypeFBS tileMapFBS.MapType
-        )
+        let tileMap =
+            TileMap(
+                tileMapFBS.Width,
+                tileMapFBS.Height,
+                tiles,
+                layerCells,
+                voidSpriteLoc,
+                tilesetName,
+                tileMapFBS.MapName,
+                fromMapTypeFBS tileMapFBS.MapType
+            )
+
+        // Spawn points: tolerate missing/older data
+        let spCount = tileMapFBS.SpawnPointsLength
+        let spawnPoints =
+            if spCount <= 0 then
+                Array.create SpawnPointsCapacity (-1, -1)
+            else
+                let arr = Array.create SpawnPointsCapacity (-1, -1)
+                let takeN = min SpawnPointsCapacity spCount
+                for i = 0 to takeN - 1 do
+                    match Option.ofNullable (tileMapFBS.SpawnPoints(i)) with
+                    | Some sp -> arr.[i] <- (sp.X, sp.Y)
+                    | None -> ()
+                arr
+
+        tileMap.SpawnPoints <- spawnPoints
+        tileMap

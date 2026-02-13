@@ -25,6 +25,11 @@ table LayerCellFBS {
     decals:[int];        // Decal IDs, bottom->top (newest last)
 }
 
+table SpawnPointFBS {
+    x:int;
+    y:int;
+}
+
 table TileMapFBS {
     width:int;
     height:int;
@@ -34,6 +39,7 @@ table TileMapFBS {
     map_name:string (required);
     map_type:MapTypeFBS;
     tileset_name:string (required);      // reference to external tileset asset
+    spawn_points:[SpawnPointFBS];
 }
 
 root_type TileMapFBS;

@@ -42,6 +42,8 @@ public struct TileMapFBS : IFlatbufferObject
   public ArraySegment<byte>? GetTilesetNameBytes() { return __p.__vector_as_arraysegment(18); }
 #endif
   public byte[] GetTilesetNameArray() { return __p.__vector_as_array<byte>(18); }
+  public AspectGameEngine.FBS.SpawnPointFBS? SpawnPoints(int j) { int o = __p.__offset(20); return o != 0 ? (AspectGameEngine.FBS.SpawnPointFBS?)(new AspectGameEngine.FBS.SpawnPointFBS()).__assign(__p.__indirect(__p.__vector(o) + j * 4), __p.bb) : null; }
+  public int SpawnPointsLength { get { int o = __p.__offset(20); return o != 0 ? __p.__vector_len(o) : 0; } }
 
   public static Offset<AspectGameEngine.FBS.TileMapFBS> CreateTileMapFBS(FlatBufferBuilder builder,
       int width = 0,
@@ -51,8 +53,10 @@ public struct TileMapFBS : IFlatbufferObject
       Offset<AspectGameEngine.FBS.SpriteLocFBS> void_sprite_locOffset = default(Offset<AspectGameEngine.FBS.SpriteLocFBS>),
       StringOffset map_nameOffset = default(StringOffset),
       AspectGameEngine.FBS.MapTypeFBS map_type = AspectGameEngine.FBS.MapTypeFBS.Room,
-      StringOffset tileset_nameOffset = default(StringOffset)) {
-    builder.StartTable(8);
+      StringOffset tileset_nameOffset = default(StringOffset),
+      VectorOffset spawn_pointsOffset = default(VectorOffset)) {
+    builder.StartTable(9);
+    TileMapFBS.AddSpawnPoints(builder, spawn_pointsOffset);
     TileMapFBS.AddTilesetName(builder, tileset_nameOffset);
     TileMapFBS.AddMapName(builder, map_nameOffset);
     TileMapFBS.AddVoidSpriteLoc(builder, void_sprite_locOffset);
@@ -64,7 +68,7 @@ public struct TileMapFBS : IFlatbufferObject
     return TileMapFBS.EndTileMapFBS(builder);
   }
 
-  public static void StartTileMapFBS(FlatBufferBuilder builder) { builder.StartTable(8); }
+  public static void StartTileMapFBS(FlatBufferBuilder builder) { builder.StartTable(9); }
   public static void AddWidth(FlatBufferBuilder builder, int width) { builder.AddInt(0, width, 0); }
   public static void AddHeight(FlatBufferBuilder builder, int height) { builder.AddInt(1, height, 0); }
   public static void AddTiles(FlatBufferBuilder builder, VectorOffset tilesOffset) { builder.AddOffset(2, tilesOffset.Value, 0); }
@@ -83,6 +87,12 @@ public struct TileMapFBS : IFlatbufferObject
   public static void AddMapName(FlatBufferBuilder builder, StringOffset mapNameOffset) { builder.AddOffset(5, mapNameOffset.Value, 0); }
   public static void AddMapType(FlatBufferBuilder builder, AspectGameEngine.FBS.MapTypeFBS mapType) { builder.AddSbyte(6, (sbyte)mapType, 0); }
   public static void AddTilesetName(FlatBufferBuilder builder, StringOffset tilesetNameOffset) { builder.AddOffset(7, tilesetNameOffset.Value, 0); }
+  public static void AddSpawnPoints(FlatBufferBuilder builder, VectorOffset spawnPointsOffset) { builder.AddOffset(8, spawnPointsOffset.Value, 0); }
+  public static VectorOffset CreateSpawnPointsVector(FlatBufferBuilder builder, Offset<AspectGameEngine.FBS.SpawnPointFBS>[] data) { builder.StartVector(4, data.Length, 4); for (int i = data.Length - 1; i >= 0; i--) builder.AddOffset(data[i].Value); return builder.EndVector(); }
+  public static VectorOffset CreateSpawnPointsVectorBlock(FlatBufferBuilder builder, Offset<AspectGameEngine.FBS.SpawnPointFBS>[] data) { builder.StartVector(4, data.Length, 4); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateSpawnPointsVectorBlock(FlatBufferBuilder builder, ArraySegment<Offset<AspectGameEngine.FBS.SpawnPointFBS>> data) { builder.StartVector(4, data.Count, 4); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateSpawnPointsVectorBlock(FlatBufferBuilder builder, IntPtr dataPtr, int sizeInBytes) { builder.StartVector(1, sizeInBytes, 1); builder.Add<Offset<AspectGameEngine.FBS.SpawnPointFBS>>(dataPtr, sizeInBytes); return builder.EndVector(); }
+  public static void StartSpawnPointsVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(4, numElems, 4); }
   public static Offset<AspectGameEngine.FBS.TileMapFBS> EndTileMapFBS(FlatBufferBuilder builder) {
     int o = builder.EndTable();
     builder.Required(o, 8);  // tiles
@@ -110,6 +120,7 @@ static public class TileMapFBSVerify
       && verifier.VerifyString(tablePos, 14 /*MapName*/, true)
       && verifier.VerifyField(tablePos, 16 /*MapType*/, 1 /*AspectGameEngine.FBS.MapTypeFBS*/, 1, false)
       && verifier.VerifyString(tablePos, 18 /*TilesetName*/, true)
+      && verifier.VerifyVectorOfTables(tablePos, 20 /*SpawnPoints*/, AspectGameEngine.FBS.SpawnPointFBSVerify.Verify, false)
       && verifier.VerifyTableEnd(tablePos);
   }
 }
