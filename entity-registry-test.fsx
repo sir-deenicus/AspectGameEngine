@@ -54,6 +54,7 @@ let populateTestRegistries() =
         SpriteType = SpriteType.Fixture {
             BlocksMovement = true
             Interactable = false
+            Moveable = 0
             DescKey = "fixture_stone_wall"
             TileOpacity = TileOpacity.Opaque
         }
@@ -65,6 +66,7 @@ let populateTestRegistries() =
         SpriteType = SpriteType.Fixture {
             BlocksMovement = false
             Interactable = true
+            Moveable = 1
             DescKey = "fixture_lever"
             TileOpacity = TileOpacity.Transparent
         }
@@ -76,6 +78,7 @@ let populateTestRegistries() =
         SpriteType = SpriteType.Fixture {
             BlocksMovement = true
             Interactable = true
+            Moveable = 0
             DescKey = "fixture_chest"
             TileOpacity = TileOpacity.Opaque
         }
@@ -417,19 +420,19 @@ let testAllOpacityValues() =
     
     EntityRegistry.SpriteProps.[1] <- {
         Sprite = SpriteRef.TextureId(1)
-        SpriteType = SpriteType.Fixture { BlocksMovement = true; Interactable = false; DescKey = ""; TileOpacity = TileOpacity.Opaque }
+        SpriteType = SpriteType.Fixture { BlocksMovement = true; Interactable = false; Moveable = 0; DescKey = ""; TileOpacity = TileOpacity.Opaque }
         RenderLayer = 10
     }
     
     EntityRegistry.SpriteProps.[2] <- {
         Sprite = SpriteRef.TextureId(2)
-        SpriteType = SpriteType.Fixture { BlocksMovement = true; Interactable = false; DescKey = ""; TileOpacity = TileOpacity.Transparent }
+        SpriteType = SpriteType.Fixture { BlocksMovement = true; Interactable = false; Moveable = 0; DescKey = ""; TileOpacity = TileOpacity.Transparent }
         RenderLayer = 10
     }
     
     EntityRegistry.SpriteProps.[3] <- {
         Sprite = SpriteRef.TextureId(3)
-        SpriteType = SpriteType.Fixture { BlocksMovement = true; Interactable = false; DescKey = ""; TileOpacity = TileOpacity.Air }
+        SpriteType = SpriteType.Fixture { BlocksMovement = true; Interactable = false; Moveable = 0; DescKey = ""; TileOpacity = TileOpacity.Air }
         RenderLayer = 10
     }
     
@@ -465,6 +468,7 @@ let testLargeRegistry() =
             SpriteType = SpriteType.Fixture {
                 BlocksMovement = i % 2 = 0
                 Interactable = i % 3 = 0
+                Moveable = 0
                 DescKey = sprintf "fixture_%d" i
                 TileOpacity = if i % 2 = 0 then TileOpacity.Opaque else TileOpacity.Transparent
             }

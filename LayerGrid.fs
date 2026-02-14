@@ -1,11 +1,12 @@
 namespace AspectGameEngine
 
-open System.Collections.Generic
-  
+open System.Collections.Generic 
+
 [<Struct>]
 type FixtureProperties =
   { BlocksMovement: bool
     Interactable: bool
+    Moveable: int
     DescKey: string
     TileOpacity: TileOpacity }
 

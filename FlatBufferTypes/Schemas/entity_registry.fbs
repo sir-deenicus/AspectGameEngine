@@ -53,6 +53,7 @@ table FixturePropertiesFBS {
     render_layer:int;
     blocks_movement:bool;
     interactable:bool;
+    moveable:int;
     tile_opacity:TileOpacityFBS;
     desc_key:string;
 }

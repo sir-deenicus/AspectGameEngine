@@ -286,6 +286,7 @@ module EntityRegistrySerializer =
                        FixturePropertiesFBS.AddRenderLayer(builder, sp.RenderLayer)
                        FixturePropertiesFBS.AddBlocksMovement(builder, fp.BlocksMovement)
                        FixturePropertiesFBS.AddInteractable(builder, fp.Interactable)
+                       FixturePropertiesFBS.AddMoveable(builder, fp.Moveable)
                        FixturePropertiesFBS.AddDescKey(builder, descOff)
                        FixturePropertiesFBS.AddTileOpacity(builder, toTileOpacityFBS fp.TileOpacity)
                        FixturePropertiesFBS.AddSpriteType(builder, sType)
@@ -401,6 +402,7 @@ module EntityRegistrySerializer =
                         let fp =
                             { BlocksMovement = fpFbs.BlocksMovement
                               Interactable = fpFbs.Interactable
+                              Moveable = fpFbs.Moveable
                               DescKey = fpFbs.DescKey
                               TileOpacity = fromTileOpacityFBS fpFbs.TileOpacity }
                         out.Add(entry.Id, { Sprite = sprite; SpriteType = SpriteType.Fixture fp; RenderLayer = fpFbs.RenderLayer })
