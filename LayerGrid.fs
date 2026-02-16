@@ -11,9 +11,11 @@ type FixtureProperties =
     TileOpacity: TileOpacity }
 
 [<Struct>]
-type ActorProperties =
-  { TileOpacity: TileOpacity 
-    DescKey: string }
+type ActorProperties = {
+    TileOpacity: TileOpacity 
+    DescKey: string
+    NpcFrames: NpcFrames option 
+}
 
 [<Struct>]  
 type DecalProperties =

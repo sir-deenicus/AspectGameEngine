@@ -40,6 +40,14 @@ union SpriteRefFBS {
     SpriteSheetCellsFBS
 }
 
+// Minimal NPC sheet support: 2 facings x 2 states.
+table NpcFramesFBS {
+    normal_left:SpriteRefFBS;
+    normal_right:SpriteRefFBS;
+    attack_left:SpriteRefFBS;
+    attack_right:SpriteRefFBS;
+}
+
 // Properties mapped by registries
 table ItemPropertiesFBS {
     // Items never block light; should use Transparent or Air in engine.
@@ -63,6 +71,7 @@ table ActorPropertiesFBS {
     render_layer:int;
     tile_opacity:TileOpacityFBS;
     desc_key:string;
+    npc_frames:NpcFramesFBS;
 }
 
 // Registry entry rows (int id -> props)

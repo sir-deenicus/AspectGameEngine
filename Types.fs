@@ -40,6 +40,23 @@ type SpriteRef =
     | TextureId of int                 // maps to a loaded Texture2D managed externally
     | Scene of string                  // PackedScene path (e.g., "res://.../foo.tscn")
 
+// Minimal NPC sheet support: 2 facings x 2 states.
+[<Struct>]
+type NpcFrames = { 
+    NormalLeft: SpriteRef
+    NormalRight: SpriteRef
+    AttackLeft: SpriteRef
+    AttackRight: SpriteRef 
+}
+ 
+type NPCFacing =
+    | Left = 0
+    | Right = 1
+
+type NpcPose =
+    | Normal = 0
+    | Attack = 1
+
 type Biome =
     | None = 0
     | Forest = 1
@@ -64,6 +81,7 @@ type TileType =
     | CityOrTown = 10
     | Fixture = 11
     | Container = 12
+    | Sign = 13 
 
 type TileOpacity =
     | Opaque = 0
@@ -96,6 +114,12 @@ type ComplexState =
         | ClosedDoor state -> state.Locked        
 
 [<Struct>]
+type TileVisualEntry = {
+    Key: string
+    SpriteLoc: SpriteLoc 
+}
+
+[<Struct>]
 type TileProperties =
     { Walkable: bool 
       Interactable: bool
@@ -104,6 +128,7 @@ type TileProperties =
       DescriptionKey: string
       Biome: Biome
       TileOpacity: TileOpacity
+      Visuals: TileVisualEntry[]
       DestroyedSpriteLoc: SpriteLoc option 
       NextStateSpriteLoc: SpriteLoc option
       ComplexState: ComplexState option }
@@ -115,6 +140,7 @@ type TileProperties =
           Health = -1
           DescriptionKey = ""
           Biome = Biome.None
+          Visuals = [||]
           DestroyedSpriteLoc = None
           NextStateSpriteLoc = None
           TileOpacity = TileOpacity.Opaque

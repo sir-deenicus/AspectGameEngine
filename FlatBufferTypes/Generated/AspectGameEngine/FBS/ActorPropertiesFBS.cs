@@ -36,14 +36,17 @@ public struct ActorPropertiesFBS : IFlatbufferObject
   public ArraySegment<byte>? GetDescKeyBytes() { return __p.__vector_as_arraysegment(12); }
 #endif
   public byte[] GetDescKeyArray() { return __p.__vector_as_array<byte>(12); }
+  public AspectGameEngine.FBS.NpcFramesFBS? NpcFrames { get { int o = __p.__offset(14); return o != 0 ? (AspectGameEngine.FBS.NpcFramesFBS?)(new AspectGameEngine.FBS.NpcFramesFBS()).__assign(__p.__indirect(o + __p.bb_pos), __p.bb) : null; } }
 
   public static Offset<AspectGameEngine.FBS.ActorPropertiesFBS> CreateActorPropertiesFBS(FlatBufferBuilder builder,
       AspectGameEngine.FBS.SpriteRefFBS sprite_type = AspectGameEngine.FBS.SpriteRefFBS.NONE,
       int spriteOffset = 0,
       int render_layer = 0,
       AspectGameEngine.FBS.TileOpacityFBS tile_opacity = AspectGameEngine.FBS.TileOpacityFBS.Opaque,
-      StringOffset desc_keyOffset = default(StringOffset)) {
-    builder.StartTable(5);
+      StringOffset desc_keyOffset = default(StringOffset),
+      Offset<AspectGameEngine.FBS.NpcFramesFBS> npc_framesOffset = default(Offset<AspectGameEngine.FBS.NpcFramesFBS>)) {
+    builder.StartTable(6);
+    ActorPropertiesFBS.AddNpcFrames(builder, npc_framesOffset);
     ActorPropertiesFBS.AddDescKey(builder, desc_keyOffset);
     ActorPropertiesFBS.AddRenderLayer(builder, render_layer);
     ActorPropertiesFBS.AddSprite(builder, spriteOffset);
@@ -52,12 +55,13 @@ public struct ActorPropertiesFBS : IFlatbufferObject
     return ActorPropertiesFBS.EndActorPropertiesFBS(builder);
   }
 
-  public static void StartActorPropertiesFBS(FlatBufferBuilder builder) { builder.StartTable(5); }
+  public static void StartActorPropertiesFBS(FlatBufferBuilder builder) { builder.StartTable(6); }
   public static void AddSpriteType(FlatBufferBuilder builder, AspectGameEngine.FBS.SpriteRefFBS spriteType) { builder.AddByte(0, (byte)spriteType, 0); }
   public static void AddSprite(FlatBufferBuilder builder, int spriteOffset) { builder.AddOffset(1, spriteOffset, 0); }
   public static void AddRenderLayer(FlatBufferBuilder builder, int renderLayer) { builder.AddInt(2, renderLayer, 0); }
   public static void AddTileOpacity(FlatBufferBuilder builder, AspectGameEngine.FBS.TileOpacityFBS tileOpacity) { builder.AddSbyte(3, (sbyte)tileOpacity, 0); }
   public static void AddDescKey(FlatBufferBuilder builder, StringOffset descKeyOffset) { builder.AddOffset(4, descKeyOffset.Value, 0); }
+  public static void AddNpcFrames(FlatBufferBuilder builder, Offset<AspectGameEngine.FBS.NpcFramesFBS> npcFramesOffset) { builder.AddOffset(5, npcFramesOffset.Value, 0); }
   public static Offset<AspectGameEngine.FBS.ActorPropertiesFBS> EndActorPropertiesFBS(FlatBufferBuilder builder) {
     int o = builder.EndTable();
     return new Offset<AspectGameEngine.FBS.ActorPropertiesFBS>(o);
@@ -75,6 +79,7 @@ static public class ActorPropertiesFBSVerify
       && verifier.VerifyField(tablePos, 8 /*RenderLayer*/, 4 /*int*/, 4, false)
       && verifier.VerifyField(tablePos, 10 /*TileOpacity*/, 1 /*AspectGameEngine.FBS.TileOpacityFBS*/, 1, false)
       && verifier.VerifyString(tablePos, 12 /*DescKey*/, false)
+      && verifier.VerifyTable(tablePos, 14 /*NpcFrames*/, AspectGameEngine.FBS.NpcFramesFBSVerify.Verify, false)
       && verifier.VerifyTableEnd(tablePos);
   }
 }

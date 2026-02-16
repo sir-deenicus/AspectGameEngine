@@ -4,6 +4,12 @@ open AspectGameEngine.FBS
 open Google.FlatBuffers
 
 module TilePropertiesSerializer =
+    [<Literal>]
+    let private DestroyedVisualKey = "destroyed"
+
+    [<Literal>]
+    let private NextStateVisualKey = "next_state"
+
     // Convert F# enums to FlatBuffers enums
     let private toBiomeFBS (biome: Biome) : BiomeFBS =
         match biome with
@@ -44,6 +50,7 @@ module TilePropertiesSerializer =
         | TileType.CityOrTown -> TileTypeFBS.CityOrTown
         | TileType.Fixture -> TileTypeFBS.Fixture
         | TileType.Container -> TileTypeFBS.Container
+        | TileType.Sign -> TileTypeFBS.Sign
         | _ -> TileTypeFBS.NullTile
 
     let internal fromTileTypeFBS (tileTypeFBS: TileTypeFBS) : TileType =
@@ -61,6 +68,7 @@ module TilePropertiesSerializer =
         | TileTypeFBS.CityOrTown -> TileType.CityOrTown
         | TileTypeFBS.Fixture -> TileType.Fixture
         | TileTypeFBS.Container -> TileType.Container
+        | TileTypeFBS.Sign -> TileType.Sign
         | _ -> TileType.NullTile
 
     let private toTileOpacityFBS (opacity: TileOpacity) : TileOpacityFBS =
@@ -85,6 +93,28 @@ module TilePropertiesSerializer =
     let private createSpriteLoc (spriteLocFBS: SpriteLocFBS) : SpriteLoc =
         SpriteLoc(spriteLocFBS.AtlasIndex, spriteLocFBS.Row, spriteLocFBS.Column)
 
+    let private tryFindVisual (key: string) (visuals: TileVisualEntry[]) : SpriteLoc option =
+        visuals
+        |> Array.tryFind (fun v -> v.Key = key)
+        |> Option.map (fun v -> v.SpriteLoc)
+
+    let private mergeLegacyVisuals (visuals: TileVisualEntry[]) (destroyedSpriteLoc: SpriteLoc option) (nextStateSpriteLoc: SpriteLoc option) =
+        let mutable out = visuals
+
+        let hasKey k = out |> Array.exists (fun v -> v.Key = k)
+
+        match destroyedSpriteLoc with
+        | Some loc when not (hasKey DestroyedVisualKey) ->
+            out <- Array.append out [| { Key = DestroyedVisualKey; SpriteLoc = loc } |]
+        | _ -> ()
+
+        match nextStateSpriteLoc with
+        | Some loc when not (hasKey NextStateVisualKey) ->
+            out <- Array.append out [| { Key = NextStateVisualKey; SpriteLoc = loc } |]
+        | _ -> ()
+
+        out
+
     let serialize (tileProps: TilePropertiesReference) : byte[] =
         let entryCount = tileProps.GetAllProperties() |> Seq.length
         let estimatedSize = if entryCount = 0 then 256 else max 1024 (entryCount * 200 + 512)
@@ -97,6 +127,20 @@ module TilePropertiesSerializer =
                    let descKeyOffset = builder.CreateString(properties.DescriptionKey)
                    let destroyedSpriteLocOffset = Option.map (createSpriteLocFBS builder) properties.DestroyedSpriteLoc
                    let nextStateSpriteLocOffset = Option.map (createSpriteLocFBS builder) properties.NextStateSpriteLoc
+
+                   let visualsMerged = mergeLegacyVisuals properties.Visuals properties.DestroyedSpriteLoc properties.NextStateSpriteLoc
+                   let visualOffsets =
+                       [| for v in visualsMerged do
+                              let keyOff = builder.CreateString(v.Key)
+                              let locOff = createSpriteLocFBS builder v.SpriteLoc
+                              TileVisualEntryFBS.StartTileVisualEntryFBS(builder)
+                              TileVisualEntryFBS.AddKey(builder, keyOff)
+                              TileVisualEntryFBS.AddSpriteLoc(builder, locOff)
+                              yield TileVisualEntryFBS.EndTileVisualEntryFBS(builder) |]
+
+                   let visualsVector =
+                       if visualOffsets.Length = 0 then System.Nullable()
+                       else System.Nullable(TilePropertiesFBS.CreateVisualsVector(builder, visualOffsets))
 
                    // Serialize ComplexState union if present
                    let complexStateType, complexStateOffset =
@@ -114,6 +158,9 @@ module TilePropertiesSerializer =
                    TilePropertiesFBS.AddDescriptionKey(builder, descKeyOffset)
                    TilePropertiesFBS.AddBiome(builder, toBiomeFBS properties.Biome)
                    TilePropertiesFBS.AddTileOpacity(builder, toTileOpacityFBS properties.TileOpacity)
+
+                   if visualsVector.HasValue then
+                       TilePropertiesFBS.AddVisuals(builder, visualsVector.Value)
 
                    if destroyedSpriteLocOffset.IsSome then
                        TilePropertiesFBS.AddDestroyedSpriteLoc(builder, destroyedSpriteLocOffset.Value)
@@ -152,10 +199,22 @@ module TilePropertiesSerializer =
             | None -> ()
             | Some entry ->
                 match Option.ofNullable entry.Key, Option.ofNullable entry.Value with
-                | Some keyFBS, Some valueFBS ->
+                | Some keyFBS, Some (valueFBS: TilePropertiesFBS) ->
                     let spriteLoc = createSpriteLoc keyFBS
                     let destroyedSpriteLoc = Option.ofNullable valueFBS.DestroyedSpriteLoc |> Option.map createSpriteLoc
                     let nextStateSpriteLoc = Option.ofNullable valueFBS.NextStateSpriteLoc |> Option.map createSpriteLoc
+
+                    let visualsFromFbs =
+                        if valueFBS.VisualsLength <= 0 then [||]
+                        else
+                            [| for vi = 0 to valueFBS.VisualsLength - 1 do
+                                   match Option.ofNullable (valueFBS.Visuals(vi)) with
+                                   | None -> ()
+                                   | Some (v: TileVisualEntryFBS) ->
+                                       let key = v.Key
+                                       match Option.ofNullable v.SpriteLoc with
+                                       | None -> ()
+                                       | Some loc -> yield { Key = key; SpriteLoc = createSpriteLoc loc } |]
 
                     // Deserialize ComplexState union
                     let complexState =
@@ -167,6 +226,11 @@ module TilePropertiesSerializer =
                         | _ -> None
 
                     let tileProperties =
+                        let mergedVisuals = mergeLegacyVisuals visualsFromFbs destroyedSpriteLoc nextStateSpriteLoc
+
+                        let destroyedSpriteLoc2 = tryFindVisual DestroyedVisualKey mergedVisuals |> Option.orElse destroyedSpriteLoc
+                        let nextStateSpriteLoc2 = tryFindVisual NextStateVisualKey mergedVisuals |> Option.orElse nextStateSpriteLoc
+
                         { Walkable = valueFBS.Walkable
                           Interactable = valueFBS.Interactable
                           TileType = fromTileTypeFBS valueFBS.TileType
@@ -174,8 +238,9 @@ module TilePropertiesSerializer =
                           DescriptionKey = valueFBS.DescriptionKey
                           Biome = fromBiomeFBS valueFBS.Biome
                           TileOpacity = fromTileOpacityFBS valueFBS.TileOpacity
-                          DestroyedSpriteLoc = destroyedSpriteLoc
-                          NextStateSpriteLoc = nextStateSpriteLoc
+                          Visuals = mergedVisuals
+                          DestroyedSpriteLoc = destroyedSpriteLoc2
+                          NextStateSpriteLoc = nextStateSpriteLoc2
                           ComplexState = complexState }
 
                     result.[spriteLoc] <- tileProperties

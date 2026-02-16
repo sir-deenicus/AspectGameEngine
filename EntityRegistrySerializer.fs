@@ -197,6 +197,194 @@ module EntityRegistrySerializer =
                 Some (SpriteRef.SheetCells cells)
         | _ -> None
 
+    let private tryReadSpriteRefFromNpcNormalLeft (nf: NpcFramesFBS) : SpriteRef option =
+        match nf.NormalLeftType with
+        | SpriteRefFBS.SpriteSheetRegionFBS ->
+            match Option.ofNullable (nf.NormalLeft<SpriteSheetRegionFBS>()) with
+            | Some s -> Some (SpriteRef.SheetRegion { SheetId = s.SheetId; X = s.X; Y = s.Y; Width = s.Width; Height = s.Height })
+            | None -> None
+        | SpriteRefFBS.SpriteSheetCellFBS ->
+            match Option.ofNullable (nf.NormalLeft<SpriteSheetCellFBS>()) with
+            | Some s -> Some (SpriteRef.SheetCell(SpriteSheetCell(s.SheetId, s.Row, s.Column)))
+            | None -> None
+        | SpriteRefFBS.TextureIdFBS ->
+            match Option.ofNullable (nf.NormalLeft<TextureIdFBS>()) with
+            | Some s -> Some (SpriteRef.TextureId s.Id)
+            | None -> None
+        | SpriteRefFBS.SceneRefFBS ->
+            match Option.ofNullable (nf.NormalLeft<SceneRefFBS>()) with
+            | Some s -> Some (SpriteRef.Scene s.Path)
+            | None -> None
+        | SpriteRefFBS.SpriteSheetSpanFBS ->
+            match Option.ofNullable (nf.NormalLeft<SpriteSheetSpanFBS>()) with
+            | None -> None
+            | Some s ->
+                match Option.ofNullable s.TopLeft with
+                | None -> None
+                | Some tl ->
+                    Some(
+                        SpriteRef.SheetSpan
+                            { TopLeft = SpriteSheetCell(tl.SheetId, tl.Row, tl.Column)
+                              WidthCells = s.WidthCells
+                              HeightCells = s.HeightCells }
+                    )
+        | SpriteRefFBS.SpriteSheetCellsFBS ->
+            match Option.ofNullable (nf.NormalLeft<SpriteSheetCellsFBS>()) with
+            | None -> None
+            | Some s ->
+                let cells =
+                    [| for i = 0 to s.CellsLength - 1 do
+                           match Option.ofNullable (s.Cells(i)) with
+                           | Some c -> yield SpriteSheetCell(c.SheetId, c.Row, c.Column)
+                           | None -> () |]
+                Some (SpriteRef.SheetCells cells)
+        | _ -> None
+
+    let private tryReadSpriteRefFromNpcNormalRight (nf: NpcFramesFBS) : SpriteRef option =
+        match nf.NormalRightType with
+        | SpriteRefFBS.SpriteSheetRegionFBS ->
+            match Option.ofNullable (nf.NormalRight<SpriteSheetRegionFBS>()) with
+            | Some s -> Some (SpriteRef.SheetRegion { SheetId = s.SheetId; X = s.X; Y = s.Y; Width = s.Width; Height = s.Height })
+            | None -> None
+        | SpriteRefFBS.SpriteSheetCellFBS ->
+            match Option.ofNullable (nf.NormalRight<SpriteSheetCellFBS>()) with
+            | Some s -> Some (SpriteRef.SheetCell(SpriteSheetCell(s.SheetId, s.Row, s.Column)))
+            | None -> None
+        | SpriteRefFBS.TextureIdFBS ->
+            match Option.ofNullable (nf.NormalRight<TextureIdFBS>()) with
+            | Some s -> Some (SpriteRef.TextureId s.Id)
+            | None -> None
+        | SpriteRefFBS.SceneRefFBS ->
+            match Option.ofNullable (nf.NormalRight<SceneRefFBS>()) with
+            | Some s -> Some (SpriteRef.Scene s.Path)
+            | None -> None
+        | SpriteRefFBS.SpriteSheetSpanFBS ->
+            match Option.ofNullable (nf.NormalRight<SpriteSheetSpanFBS>()) with
+            | None -> None
+            | Some s ->
+                match Option.ofNullable s.TopLeft with
+                | None -> None
+                | Some tl ->
+                    Some(
+                        SpriteRef.SheetSpan
+                            { TopLeft = SpriteSheetCell(tl.SheetId, tl.Row, tl.Column)
+                              WidthCells = s.WidthCells
+                              HeightCells = s.HeightCells }
+                    )
+        | SpriteRefFBS.SpriteSheetCellsFBS ->
+            match Option.ofNullable (nf.NormalRight<SpriteSheetCellsFBS>()) with
+            | None -> None
+            | Some s ->
+                let cells =
+                    [| for i = 0 to s.CellsLength - 1 do
+                           match Option.ofNullable (s.Cells(i)) with
+                           | Some c -> yield SpriteSheetCell(c.SheetId, c.Row, c.Column)
+                           | None -> () |]
+                Some (SpriteRef.SheetCells cells)
+        | _ -> None
+
+    let private tryReadSpriteRefFromNpcAttackLeft (nf: NpcFramesFBS) : SpriteRef option =
+        match nf.AttackLeftType with
+        | SpriteRefFBS.SpriteSheetRegionFBS ->
+            match Option.ofNullable (nf.AttackLeft<SpriteSheetRegionFBS>()) with
+            | Some s -> Some (SpriteRef.SheetRegion { SheetId = s.SheetId; X = s.X; Y = s.Y; Width = s.Width; Height = s.Height })
+            | None -> None
+        | SpriteRefFBS.SpriteSheetCellFBS ->
+            match Option.ofNullable (nf.AttackLeft<SpriteSheetCellFBS>()) with
+            | Some s -> Some (SpriteRef.SheetCell(SpriteSheetCell(s.SheetId, s.Row, s.Column)))
+            | None -> None
+        | SpriteRefFBS.TextureIdFBS ->
+            match Option.ofNullable (nf.AttackLeft<TextureIdFBS>()) with
+            | Some s -> Some (SpriteRef.TextureId s.Id)
+            | None -> None
+        | SpriteRefFBS.SceneRefFBS ->
+            match Option.ofNullable (nf.AttackLeft<SceneRefFBS>()) with
+            | Some s -> Some (SpriteRef.Scene s.Path)
+            | None -> None
+        | SpriteRefFBS.SpriteSheetSpanFBS ->
+            match Option.ofNullable (nf.AttackLeft<SpriteSheetSpanFBS>()) with
+            | None -> None
+            | Some s ->
+                match Option.ofNullable s.TopLeft with
+                | None -> None
+                | Some tl ->
+                    Some(
+                        SpriteRef.SheetSpan
+                            { TopLeft = SpriteSheetCell(tl.SheetId, tl.Row, tl.Column)
+                              WidthCells = s.WidthCells
+                              HeightCells = s.HeightCells }
+                    )
+        | SpriteRefFBS.SpriteSheetCellsFBS ->
+            match Option.ofNullable (nf.AttackLeft<SpriteSheetCellsFBS>()) with
+            | None -> None
+            | Some s ->
+                let cells =
+                    [| for i = 0 to s.CellsLength - 1 do
+                           match Option.ofNullable (s.Cells(i)) with
+                           | Some c -> yield SpriteSheetCell(c.SheetId, c.Row, c.Column)
+                           | None -> () |]
+                Some (SpriteRef.SheetCells cells)
+        | _ -> None
+
+    let private tryReadSpriteRefFromNpcAttackRight (nf: NpcFramesFBS) : SpriteRef option =
+        match nf.AttackRightType with
+        | SpriteRefFBS.SpriteSheetRegionFBS ->
+            match Option.ofNullable (nf.AttackRight<SpriteSheetRegionFBS>()) with
+            | Some s -> Some (SpriteRef.SheetRegion { SheetId = s.SheetId; X = s.X; Y = s.Y; Width = s.Width; Height = s.Height })
+            | None -> None
+        | SpriteRefFBS.SpriteSheetCellFBS ->
+            match Option.ofNullable (nf.AttackRight<SpriteSheetCellFBS>()) with
+            | Some s -> Some (SpriteRef.SheetCell(SpriteSheetCell(s.SheetId, s.Row, s.Column)))
+            | None -> None
+        | SpriteRefFBS.TextureIdFBS ->
+            match Option.ofNullable (nf.AttackRight<TextureIdFBS>()) with
+            | Some s -> Some (SpriteRef.TextureId s.Id)
+            | None -> None
+        | SpriteRefFBS.SceneRefFBS ->
+            match Option.ofNullable (nf.AttackRight<SceneRefFBS>()) with
+            | Some s -> Some (SpriteRef.Scene s.Path)
+            | None -> None
+        | SpriteRefFBS.SpriteSheetSpanFBS ->
+            match Option.ofNullable (nf.AttackRight<SpriteSheetSpanFBS>()) with
+            | None -> None
+            | Some s ->
+                match Option.ofNullable s.TopLeft with
+                | None -> None
+                | Some tl ->
+                    Some(
+                        SpriteRef.SheetSpan
+                            { TopLeft = SpriteSheetCell(tl.SheetId, tl.Row, tl.Column)
+                              WidthCells = s.WidthCells
+                              HeightCells = s.HeightCells }
+                    )
+        | SpriteRefFBS.SpriteSheetCellsFBS ->
+            match Option.ofNullable (nf.AttackRight<SpriteSheetCellsFBS>()) with
+            | None -> None
+            | Some s ->
+                let cells =
+                    [| for i = 0 to s.CellsLength - 1 do
+                           match Option.ofNullable (s.Cells(i)) with
+                           | Some c -> yield SpriteSheetCell(c.SheetId, c.Row, c.Column)
+                           | None -> () |]
+                Some (SpriteRef.SheetCells cells)
+        | _ -> None
+
+    let private tryReadNpcFramesFromActor (ap: ActorPropertiesFBS) : NpcFrames option =
+        match Option.ofNullable ap.NpcFrames with
+        | None -> None
+        | Some nf ->
+            match tryReadSpriteRefFromNpcNormalLeft nf,
+                  tryReadSpriteRefFromNpcNormalRight nf,
+                  tryReadSpriteRefFromNpcAttackLeft nf,
+                  tryReadSpriteRefFromNpcAttackRight nf with
+            | Some nl, Some nr, Some al, Some ar ->
+                Some
+                    { NormalLeft = nl
+                      NormalRight = nr
+                      AttackLeft = al
+                      AttackRight = ar }
+            | _ -> None
+
     let private tryReadSpriteRefFromDecalProperties (dp: DecalPropertiesFBS) : SpriteRef option =
         match dp.SpriteType with
         | SpriteRefFBS.SpriteSheetRegionFBS ->
@@ -309,12 +497,36 @@ module EntityRegistrySerializer =
                    | SpriteType.Actor ap ->
                        let sType, sOff = buildSpriteRef builder sp.Sprite
                        let descOff = builder.CreateString(ap.DescKey)
+
+                       let npcFramesOff =
+                           match ap.NpcFrames with
+                           | None -> Nullable()
+                           | Some nf ->
+                               let nlT, nlO = buildSpriteRef builder nf.NormalLeft
+                               let nrT, nrO = buildSpriteRef builder nf.NormalRight
+                               let alT, alO = buildSpriteRef builder nf.AttackLeft
+                               let arT, arO = buildSpriteRef builder nf.AttackRight
+
+                               NpcFramesFBS.StartNpcFramesFBS(builder)
+                               NpcFramesFBS.AddNormalLeftType(builder, nlT)
+                               NpcFramesFBS.AddNormalLeft(builder, nlO)
+                               NpcFramesFBS.AddNormalRightType(builder, nrT)
+                               NpcFramesFBS.AddNormalRight(builder, nrO)
+                               NpcFramesFBS.AddAttackLeftType(builder, alT)
+                               NpcFramesFBS.AddAttackLeft(builder, alO)
+                               NpcFramesFBS.AddAttackRightType(builder, arT)
+                               NpcFramesFBS.AddAttackRight(builder, arO)
+                               Nullable(NpcFramesFBS.EndNpcFramesFBS(builder))
+
                        ActorPropertiesFBS.StartActorPropertiesFBS(builder)
                        ActorPropertiesFBS.AddRenderLayer(builder, sp.RenderLayer)
                        ActorPropertiesFBS.AddTileOpacity(builder, toTileOpacityFBS ap.TileOpacity)
                        ActorPropertiesFBS.AddDescKey(builder, descOff)
                        ActorPropertiesFBS.AddSpriteType(builder, sType)
                        ActorPropertiesFBS.AddSprite(builder, sOff)
+
+                       if npcFramesOff.HasValue then
+                           ActorPropertiesFBS.AddNpcFrames(builder, npcFramesOff.Value)
                        let propsOff = ActorPropertiesFBS.EndActorPropertiesFBS(builder)
 
                        ActorPropsEntryFBS.StartActorPropsEntryFBS(builder)
@@ -418,7 +630,10 @@ module EntityRegistrySerializer =
                     match tryReadSpriteRefFromActor apFbs with
                     | None -> ()
                     | Some sprite ->
-                        let ap = { TileOpacity = fromTileOpacityFBS apFbs.TileOpacity; DescKey = apFbs.DescKey }
+                        let ap =
+                            { TileOpacity = fromTileOpacityFBS apFbs.TileOpacity
+                              DescKey = apFbs.DescKey
+                              NpcFrames = tryReadNpcFramesFromActor apFbs }
                         out.Add(entry.Id, { Sprite = sprite; SpriteType = SpriteType.Actor ap; RenderLayer = apFbs.RenderLayer })
 
         // Decals

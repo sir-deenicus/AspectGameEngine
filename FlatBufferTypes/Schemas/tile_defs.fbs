@@ -28,7 +28,8 @@ enum TileTypeFBS : byte {
     Lava = 9,
     CityOrTown = 10,
     Fixture = 11,
-    Container = 12
+    Container = 12,
+    Sign = 13
 }
 
 enum TileOpacityFBS : byte {
@@ -53,6 +54,12 @@ union ComplexStateFBS {
     ClosedDoorStateFBS
 }
 
+// Free-form visual state mapping for tileset entries.
+table TileVisualEntryFBS {
+    key:string;
+    sprite_loc:SpriteLocFBS;
+}
+
 // TileProperties (per tileset entry)
 table TilePropertiesFBS {
     walkable:bool;
@@ -62,6 +69,7 @@ table TilePropertiesFBS {
     description_key:string;            // Reference to a localization key
     biome:BiomeFBS;                    // Using the FBS enum
     tile_opacity:TileOpacityFBS;       // Using the FBS enum    
+    visuals:[TileVisualEntryFBS];      // Optional mapping (may be empty)
     destroyed_sprite_loc:SpriteLocFBS; // Optional SpriteLocs (may be null if not set)
     next_state_sprite_loc:SpriteLocFBS;
     complex_state:ComplexStateFBS;     // Optional union; absent => NONE

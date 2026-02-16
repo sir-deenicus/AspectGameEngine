@@ -270,8 +270,11 @@ let createTestTileProperties () =
         DescriptionKey = "floor_description"
         Biome = Biome.Forest
         TileOpacity = TileOpacity.Transparent
+        Visuals =
+            [| { Key = "base"; SpriteLoc = SpriteLoc(9, 9, 9) }
+               { Key = "custom_state"; SpriteLoc = SpriteLoc(9, 9, 10) } |]
         DestroyedSpriteLoc =  Some (SpriteLoc(1, 2, 3))
-        NextStateSpriteLoc = None
+        NextStateSpriteLoc = Some (SpriteLoc(1, 2, 4))
         ComplexState = Some (ComplexState.ClosedDoor { Locked = true }) 
     }
        
@@ -311,6 +314,19 @@ let testTilePropertiesSerialization () =
     assertEquals originalPropsForLoc.DestroyedSpriteLoc retrievedProps.DestroyedSpriteLoc "DestroyedSpriteLoc preserved"
     assertEquals originalPropsForLoc.NextStateSpriteLoc retrievedProps.NextStateSpriteLoc "NextStateSpriteLoc preserved"
     assertEquals originalPropsForLoc.ComplexState retrievedProps.ComplexState "ComplexState preserved"
+
+    let tryFindVisual key =
+        retrievedProps.Visuals
+        |> Array.tryFind (fun v -> v.Key = key)
+        |> Option.map (fun v -> v.SpriteLoc)
+
+    // Visuals are key->SpriteLoc and should survive round-trip.
+    assertEquals (Some (SpriteLoc(9, 9, 9))) (tryFindVisual "base") "Visuals[base] preserved"
+    assertEquals (Some (SpriteLoc(9, 9, 10))) (tryFindVisual "custom_state") "Visuals[custom_state] preserved"
+
+    // Back-compat bridge: legacy fields are also mirrored into reserved keys.
+    assertEquals originalPropsForLoc.DestroyedSpriteLoc (tryFindVisual "destroyed") "Visuals[destroyed] mirrors legacy DestroyedSpriteLoc"
+    assertEquals originalPropsForLoc.NextStateSpriteLoc (tryFindVisual "next_state") "Visuals[next_state] mirrors legacy NextStateSpriteLoc"
 
     printfn "--- TestTilePropertiesSerialization: PASSED ---"  
     deserializedTileProps
@@ -980,8 +996,8 @@ let testMigrateEntitySpriteType () =
     
     let entityId = 500
     // Define types for migration
-    let actorType = SpriteType.Actor { TileOpacity = TileOpacity.Opaque; DescKey = "" }
-    let fixtureType = SpriteType.Fixture { BlocksMovement = true; Interactable = false; DescKey = ""; TileOpacity = TileOpacity.Opaque }
+    let actorType = SpriteType.Actor { TileOpacity = TileOpacity.Opaque; DescKey = ""; NpcFrames = None }
+    let fixtureType = SpriteType.Fixture { BlocksMovement = true; Interactable = false; DescKey = ""; TileOpacity = TileOpacity.Opaque; Moveable = 0 }
     let decalType = SpriteType.Decal { Interactable = false; DescKey = "" }
     let itemType = SpriteType.Item { DescKey = "" }
 
@@ -1040,7 +1056,7 @@ let testMigrateLargeVolume () =
     let map = EditorTileMap.New(width, height, DefaultVoidSprite, "deftileset")
     let entityId = 888
     let itemType = SpriteType.Item { DescKey = "" }
-    let fixtureType = SpriteType.Fixture { BlocksMovement = true; Interactable = false; DescKey = ""; TileOpacity = TileOpacity.Opaque }
+    let fixtureType = SpriteType.Fixture { BlocksMovement = true; Interactable = false; DescKey = ""; TileOpacity = TileOpacity.Opaque; Moveable = 0 }
 
     // Place the entity in 1000 locations (first 10 rows)
     let swPop = Stopwatch.StartNew()
@@ -1073,8 +1089,8 @@ let testMigrateLargeVolumeSuccess () =
     let width, height = 100, 100
     let map = EditorTileMap.New(width, height, DefaultVoidSprite, "deftileset")
     let entityId = 777
-    let fixtureType = SpriteType.Fixture { BlocksMovement = true; Interactable = false; DescKey = ""; TileOpacity = TileOpacity.Opaque }
-    let actorType = SpriteType.Actor { TileOpacity = TileOpacity.Opaque; DescKey = "" }
+    let fixtureType = SpriteType.Fixture { BlocksMovement = true; Interactable = false; DescKey = ""; TileOpacity = TileOpacity.Opaque; Moveable = 0 }
+    let actorType = SpriteType.Actor { TileOpacity = TileOpacity.Opaque; DescKey = ""; NpcFrames = None }
 
     // Place the entity in 1000 Fixture slots
     let swPop = Stopwatch.StartNew()
@@ -1144,7 +1160,7 @@ let runAllTests() =
     testMigrateEntitySpriteType ()
     testMigrateLargeVolume ()  
     testMigrateLargeVolumeSuccess ()
-    printfn "\n=== All Tests Completed (Passed) ==="
+    printfn "\n=== All Tests Completed and Passed! ==="
 
 let runJustLoclizerTests() =   
     runLocalizationParserTests ()

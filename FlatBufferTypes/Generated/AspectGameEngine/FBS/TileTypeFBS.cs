@@ -20,6 +20,7 @@ public enum TileTypeFBS : sbyte
   CityOrTown = 10,
   Fixture = 11,
   Container = 12,
+  Sign = 13,
 };
 
 

@@ -91,6 +91,12 @@ let populateTestRegistries() =
         SpriteType = SpriteType.Actor {
             TileOpacity = TileOpacity.Opaque
             DescKey = "actor_goblin"
+            NpcFrames =
+                Some
+                    { NormalLeft = SpriteRef.SheetCell(SpriteSheetCell(42, 1, 1))
+                      NormalRight = SpriteRef.SheetRegion({ SheetId = 43; X = 2; Y = 3; Width = 16; Height = 16 })
+                      AttackLeft = SpriteRef.TextureId(9001)
+                      AttackRight = SpriteRef.Scene("res://sprites/actors/goblin_attack_right.tscn") }
         }
         RenderLayer = 50
     }
@@ -100,6 +106,7 @@ let populateTestRegistries() =
         SpriteType = SpriteType.Actor {
             TileOpacity = TileOpacity.Air
             DescKey = "actor_ghost"
+            NpcFrames = None
         }
         RenderLayer = 50
     }
@@ -109,6 +116,7 @@ let populateTestRegistries() =
         SpriteType = SpriteType.Actor {
             TileOpacity = TileOpacity.Translucent
             DescKey = "actor_slime"
+            NpcFrames = None
         }
         RenderLayer = 50
     }
@@ -278,6 +286,33 @@ let testActorPropertiesIntegrity() =
     
     assertEquals TileOpacity.Opaque a1.TileOpacity "Actor 3001 opacity"
     assertEquals "actor_goblin" a1.DescKey "Actor 3001 DescKey"
+
+    match a1.NpcFrames with
+    | None -> failwith "Actor 3001 should have NpcFrames"
+    | Some nf ->
+        match nf.NormalLeft with
+        | SpriteRef.SheetCell cell ->
+            assertEquals 42 cell.SheetId "Actor 3001 NpcFrames.NormalLeft SheetId"
+            assertEquals 1 cell.Row "Actor 3001 NpcFrames.NormalLeft Row"
+            assertEquals 1 cell.Column "Actor 3001 NpcFrames.NormalLeft Column"
+        | _ -> failwith "Actor 3001 NpcFrames.NormalLeft should be SheetCell"
+
+        match nf.NormalRight with
+        | SpriteRef.SheetRegion r ->
+            assertEquals 43 r.SheetId "Actor 3001 NpcFrames.NormalRight SheetId"
+            assertEquals 2 r.X "Actor 3001 NpcFrames.NormalRight X"
+            assertEquals 3 r.Y "Actor 3001 NpcFrames.NormalRight Y"
+            assertEquals 16 r.Width "Actor 3001 NpcFrames.NormalRight Width"
+            assertEquals 16 r.Height "Actor 3001 NpcFrames.NormalRight Height"
+        | _ -> failwith "Actor 3001 NpcFrames.NormalRight should be SheetRegion"
+
+        match nf.AttackLeft with
+        | SpriteRef.TextureId id -> assertEquals 9001 id "Actor 3001 NpcFrames.AttackLeft TextureId"
+        | _ -> failwith "Actor 3001 NpcFrames.AttackLeft should be TextureId"
+
+        match nf.AttackRight with
+        | SpriteRef.Scene path -> assertEquals "res://sprites/actors/goblin_attack_right.tscn" path "Actor 3001 NpcFrames.AttackRight Scene"
+        | _ -> failwith "Actor 3001 NpcFrames.AttackRight should be Scene"
     
     // Verify actor 3002
     match s2 with
@@ -291,6 +326,7 @@ let testActorPropertiesIntegrity() =
     
     assertEquals TileOpacity.Air a2.TileOpacity "Actor 3002 opacity"
     assertEquals "actor_ghost" a2.DescKey "Actor 3002 DescKey"
+    assertEquals None a2.NpcFrames "Actor 3002 NpcFrames (expected None)"
 
     // Verify actor 3003
     match s3 with
@@ -298,6 +334,7 @@ let testActorPropertiesIntegrity() =
     | _ -> failwith "Actor 3003 should be TextureId"
     assertEquals TileOpacity.Translucent a3.TileOpacity "Actor 3003 opacity"
     assertEquals "actor_slime" a3.DescKey "Actor 3003 DescKey"
+    assertEquals None a3.NpcFrames "Actor 3003 NpcFrames (expected None)"
     
     printfn "--- Actor Properties Integrity: PASSED ---"
 

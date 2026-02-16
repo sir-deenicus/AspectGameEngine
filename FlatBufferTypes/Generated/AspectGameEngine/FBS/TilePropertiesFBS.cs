@@ -32,10 +32,12 @@ public struct TilePropertiesFBS : IFlatbufferObject
   public byte[] GetDescriptionKeyArray() { return __p.__vector_as_array<byte>(12); }
   public AspectGameEngine.FBS.BiomeFBS Biome { get { int o = __p.__offset(14); return o != 0 ? (AspectGameEngine.FBS.BiomeFBS)__p.bb.GetSbyte(o + __p.bb_pos) : AspectGameEngine.FBS.BiomeFBS.None; } }
   public AspectGameEngine.FBS.TileOpacityFBS TileOpacity { get { int o = __p.__offset(16); return o != 0 ? (AspectGameEngine.FBS.TileOpacityFBS)__p.bb.GetSbyte(o + __p.bb_pos) : AspectGameEngine.FBS.TileOpacityFBS.Opaque; } }
-  public AspectGameEngine.FBS.SpriteLocFBS? DestroyedSpriteLoc { get { int o = __p.__offset(18); return o != 0 ? (AspectGameEngine.FBS.SpriteLocFBS?)(new AspectGameEngine.FBS.SpriteLocFBS()).__assign(__p.__indirect(o + __p.bb_pos), __p.bb) : null; } }
-  public AspectGameEngine.FBS.SpriteLocFBS? NextStateSpriteLoc { get { int o = __p.__offset(20); return o != 0 ? (AspectGameEngine.FBS.SpriteLocFBS?)(new AspectGameEngine.FBS.SpriteLocFBS()).__assign(__p.__indirect(o + __p.bb_pos), __p.bb) : null; } }
-  public AspectGameEngine.FBS.ComplexStateFBS ComplexStateType { get { int o = __p.__offset(22); return o != 0 ? (AspectGameEngine.FBS.ComplexStateFBS)__p.bb.Get(o + __p.bb_pos) : AspectGameEngine.FBS.ComplexStateFBS.NONE; } }
-  public TTable? ComplexState<TTable>() where TTable : struct, IFlatbufferObject { int o = __p.__offset(24); return o != 0 ? (TTable?)__p.__union<TTable>(o + __p.bb_pos) : null; }
+  public AspectGameEngine.FBS.TileVisualEntryFBS? Visuals(int j) { int o = __p.__offset(18); return o != 0 ? (AspectGameEngine.FBS.TileVisualEntryFBS?)(new AspectGameEngine.FBS.TileVisualEntryFBS()).__assign(__p.__indirect(__p.__vector(o) + j * 4), __p.bb) : null; }
+  public int VisualsLength { get { int o = __p.__offset(18); return o != 0 ? __p.__vector_len(o) : 0; } }
+  public AspectGameEngine.FBS.SpriteLocFBS? DestroyedSpriteLoc { get { int o = __p.__offset(20); return o != 0 ? (AspectGameEngine.FBS.SpriteLocFBS?)(new AspectGameEngine.FBS.SpriteLocFBS()).__assign(__p.__indirect(o + __p.bb_pos), __p.bb) : null; } }
+  public AspectGameEngine.FBS.SpriteLocFBS? NextStateSpriteLoc { get { int o = __p.__offset(22); return o != 0 ? (AspectGameEngine.FBS.SpriteLocFBS?)(new AspectGameEngine.FBS.SpriteLocFBS()).__assign(__p.__indirect(o + __p.bb_pos), __p.bb) : null; } }
+  public AspectGameEngine.FBS.ComplexStateFBS ComplexStateType { get { int o = __p.__offset(24); return o != 0 ? (AspectGameEngine.FBS.ComplexStateFBS)__p.bb.Get(o + __p.bb_pos) : AspectGameEngine.FBS.ComplexStateFBS.NONE; } }
+  public TTable? ComplexState<TTable>() where TTable : struct, IFlatbufferObject { int o = __p.__offset(26); return o != 0 ? (TTable?)__p.__union<TTable>(o + __p.bb_pos) : null; }
   public AspectGameEngine.FBS.ClosedDoorStateFBS ComplexStateAsClosedDoorStateFBS() { return ComplexState<AspectGameEngine.FBS.ClosedDoorStateFBS>().Value; }
 
   public static Offset<AspectGameEngine.FBS.TilePropertiesFBS> CreateTilePropertiesFBS(FlatBufferBuilder builder,
@@ -46,14 +48,16 @@ public struct TilePropertiesFBS : IFlatbufferObject
       StringOffset description_keyOffset = default(StringOffset),
       AspectGameEngine.FBS.BiomeFBS biome = AspectGameEngine.FBS.BiomeFBS.None,
       AspectGameEngine.FBS.TileOpacityFBS tile_opacity = AspectGameEngine.FBS.TileOpacityFBS.Opaque,
+      VectorOffset visualsOffset = default(VectorOffset),
       Offset<AspectGameEngine.FBS.SpriteLocFBS> destroyed_sprite_locOffset = default(Offset<AspectGameEngine.FBS.SpriteLocFBS>),
       Offset<AspectGameEngine.FBS.SpriteLocFBS> next_state_sprite_locOffset = default(Offset<AspectGameEngine.FBS.SpriteLocFBS>),
       AspectGameEngine.FBS.ComplexStateFBS complex_state_type = AspectGameEngine.FBS.ComplexStateFBS.NONE,
       int complex_stateOffset = 0) {
-    builder.StartTable(11);
+    builder.StartTable(12);
     TilePropertiesFBS.AddComplexState(builder, complex_stateOffset);
     TilePropertiesFBS.AddNextStateSpriteLoc(builder, next_state_sprite_locOffset);
     TilePropertiesFBS.AddDestroyedSpriteLoc(builder, destroyed_sprite_locOffset);
+    TilePropertiesFBS.AddVisuals(builder, visualsOffset);
     TilePropertiesFBS.AddDescriptionKey(builder, description_keyOffset);
     TilePropertiesFBS.AddHealth(builder, health);
     TilePropertiesFBS.AddComplexStateType(builder, complex_state_type);
@@ -65,7 +69,7 @@ public struct TilePropertiesFBS : IFlatbufferObject
     return TilePropertiesFBS.EndTilePropertiesFBS(builder);
   }
 
-  public static void StartTilePropertiesFBS(FlatBufferBuilder builder) { builder.StartTable(11); }
+  public static void StartTilePropertiesFBS(FlatBufferBuilder builder) { builder.StartTable(12); }
   public static void AddWalkable(FlatBufferBuilder builder, bool walkable) { builder.AddBool(0, walkable, false); }
   public static void AddInteractable(FlatBufferBuilder builder, bool interactable) { builder.AddBool(1, interactable, false); }
   public static void AddTileType(FlatBufferBuilder builder, AspectGameEngine.FBS.TileTypeFBS tileType) { builder.AddSbyte(2, (sbyte)tileType, 0); }
@@ -73,10 +77,16 @@ public struct TilePropertiesFBS : IFlatbufferObject
   public static void AddDescriptionKey(FlatBufferBuilder builder, StringOffset descriptionKeyOffset) { builder.AddOffset(4, descriptionKeyOffset.Value, 0); }
   public static void AddBiome(FlatBufferBuilder builder, AspectGameEngine.FBS.BiomeFBS biome) { builder.AddSbyte(5, (sbyte)biome, 0); }
   public static void AddTileOpacity(FlatBufferBuilder builder, AspectGameEngine.FBS.TileOpacityFBS tileOpacity) { builder.AddSbyte(6, (sbyte)tileOpacity, 0); }
-  public static void AddDestroyedSpriteLoc(FlatBufferBuilder builder, Offset<AspectGameEngine.FBS.SpriteLocFBS> destroyedSpriteLocOffset) { builder.AddOffset(7, destroyedSpriteLocOffset.Value, 0); }
-  public static void AddNextStateSpriteLoc(FlatBufferBuilder builder, Offset<AspectGameEngine.FBS.SpriteLocFBS> nextStateSpriteLocOffset) { builder.AddOffset(8, nextStateSpriteLocOffset.Value, 0); }
-  public static void AddComplexStateType(FlatBufferBuilder builder, AspectGameEngine.FBS.ComplexStateFBS complexStateType) { builder.AddByte(9, (byte)complexStateType, 0); }
-  public static void AddComplexState(FlatBufferBuilder builder, int complexStateOffset) { builder.AddOffset(10, complexStateOffset, 0); }
+  public static void AddVisuals(FlatBufferBuilder builder, VectorOffset visualsOffset) { builder.AddOffset(7, visualsOffset.Value, 0); }
+  public static VectorOffset CreateVisualsVector(FlatBufferBuilder builder, Offset<AspectGameEngine.FBS.TileVisualEntryFBS>[] data) { builder.StartVector(4, data.Length, 4); for (int i = data.Length - 1; i >= 0; i--) builder.AddOffset(data[i].Value); return builder.EndVector(); }
+  public static VectorOffset CreateVisualsVectorBlock(FlatBufferBuilder builder, Offset<AspectGameEngine.FBS.TileVisualEntryFBS>[] data) { builder.StartVector(4, data.Length, 4); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateVisualsVectorBlock(FlatBufferBuilder builder, ArraySegment<Offset<AspectGameEngine.FBS.TileVisualEntryFBS>> data) { builder.StartVector(4, data.Count, 4); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateVisualsVectorBlock(FlatBufferBuilder builder, IntPtr dataPtr, int sizeInBytes) { builder.StartVector(1, sizeInBytes, 1); builder.Add<Offset<AspectGameEngine.FBS.TileVisualEntryFBS>>(dataPtr, sizeInBytes); return builder.EndVector(); }
+  public static void StartVisualsVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(4, numElems, 4); }
+  public static void AddDestroyedSpriteLoc(FlatBufferBuilder builder, Offset<AspectGameEngine.FBS.SpriteLocFBS> destroyedSpriteLocOffset) { builder.AddOffset(8, destroyedSpriteLocOffset.Value, 0); }
+  public static void AddNextStateSpriteLoc(FlatBufferBuilder builder, Offset<AspectGameEngine.FBS.SpriteLocFBS> nextStateSpriteLocOffset) { builder.AddOffset(9, nextStateSpriteLocOffset.Value, 0); }
+  public static void AddComplexStateType(FlatBufferBuilder builder, AspectGameEngine.FBS.ComplexStateFBS complexStateType) { builder.AddByte(10, (byte)complexStateType, 0); }
+  public static void AddComplexState(FlatBufferBuilder builder, int complexStateOffset) { builder.AddOffset(11, complexStateOffset, 0); }
   public static Offset<AspectGameEngine.FBS.TilePropertiesFBS> EndTilePropertiesFBS(FlatBufferBuilder builder) {
     int o = builder.EndTable();
     return new Offset<AspectGameEngine.FBS.TilePropertiesFBS>(o);
@@ -96,10 +106,11 @@ static public class TilePropertiesFBSVerify
       && verifier.VerifyString(tablePos, 12 /*DescriptionKey*/, false)
       && verifier.VerifyField(tablePos, 14 /*Biome*/, 1 /*AspectGameEngine.FBS.BiomeFBS*/, 1, false)
       && verifier.VerifyField(tablePos, 16 /*TileOpacity*/, 1 /*AspectGameEngine.FBS.TileOpacityFBS*/, 1, false)
-      && verifier.VerifyTable(tablePos, 18 /*DestroyedSpriteLoc*/, AspectGameEngine.FBS.SpriteLocFBSVerify.Verify, false)
-      && verifier.VerifyTable(tablePos, 20 /*NextStateSpriteLoc*/, AspectGameEngine.FBS.SpriteLocFBSVerify.Verify, false)
-      && verifier.VerifyField(tablePos, 22 /*ComplexStateType*/, 1 /*AspectGameEngine.FBS.ComplexStateFBS*/, 1, false)
-      && verifier.VerifyUnion(tablePos, 22, 24 /*ComplexState*/, AspectGameEngine.FBS.ComplexStateFBSVerify.Verify, false)
+      && verifier.VerifyVectorOfTables(tablePos, 18 /*Visuals*/, AspectGameEngine.FBS.TileVisualEntryFBSVerify.Verify, false)
+      && verifier.VerifyTable(tablePos, 20 /*DestroyedSpriteLoc*/, AspectGameEngine.FBS.SpriteLocFBSVerify.Verify, false)
+      && verifier.VerifyTable(tablePos, 22 /*NextStateSpriteLoc*/, AspectGameEngine.FBS.SpriteLocFBSVerify.Verify, false)
+      && verifier.VerifyField(tablePos, 24 /*ComplexStateType*/, 1 /*AspectGameEngine.FBS.ComplexStateFBS*/, 1, false)
+      && verifier.VerifyUnion(tablePos, 24, 26 /*ComplexState*/, AspectGameEngine.FBS.ComplexStateFBSVerify.Verify, false)
       && verifier.VerifyTableEnd(tablePos);
   }
 }
