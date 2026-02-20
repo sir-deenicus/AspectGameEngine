@@ -26,6 +26,8 @@ type TilePropertiesReference(?tileSetName) =
             properties.[spriteLoc] <- tileProperties
         else
             properties.Add(spriteLoc, tileProperties)
+    
+    member _.ContainsKey(spriteLoc) = properties.ContainsKey spriteLoc
 
     // Expose properties for serialization
     member _.GetAllProperties() = properties :> seq<KeyValuePair<SpriteLoc, TileProperties>>
@@ -107,6 +109,13 @@ type TileMap =
         let tile = this.Tiles.[this.GetIndex(x, y)] 
         TilesetRegistry.get(this.TileSetName)[tile.SpriteLoc]
 
+    member this.TryGetTileDescriptionKey(x: int, y: int) : string option =
+        if x < 0 || x >= this.Width || y < 0 || y >= this.Height then None
+        else
+            let props = this.GetTileProperties(x, y)
+            if System.String.IsNullOrEmpty(props.DescriptionKey) then None
+            else Some props.DescriptionKey
+
     member this.AddItem(x: int, y: int, itemId: int) =
         if x < 0 || x >= this.Width || y < 0 || y >= this.Height then false
         else
@@ -142,6 +151,26 @@ type TileMap =
         if x >= 0 && x < this.Width && y >= 0 && y < this.Height then
             let cell = this.GetLayerCell(x, y)
             cell.ActorId <- None
+
+    member this.TryMoveActor(x: int, y: int, x2: int, y2: int) : bool =
+        if x < 0 || x >= this.Width || y < 0 || y >= this.Height ||
+           x2 < 0 || x2 >= this.Width || y2 < 0 || y2 >= this.Height then
+            false
+        else
+            let src = this.GetLayerCell(x, y)
+            match src.ActorId with
+            | None -> false
+            | Some aid ->
+                if not (this.IsWalkable(x2, y2)) then false
+                elif this.IsOccupied(x2, y2) then false
+                else
+                    let dst = this.GetLayerCell(x2, y2)
+                    src.ActorId <- None
+                    dst.ActorId <- Some aid
+                    true
+
+    member this.MoveActor(x: int, y: int, x2: int, y2: int) =
+        this.TryMoveActor(x, y, x2, y2) |> ignore
 
     member this.TryGetActor(x: int, y: int) =
         if x < 0 || x >= this.Width || y < 0 || y >= this.Height then None
@@ -220,19 +249,19 @@ type TileMap =
             | TileOpacity.Opaque -> true
             | _ -> false
 
-        /// Move the fixture at (x,y) to (x2,y2). Clears fixture at (x,y), sets at (x2,y2).
-        /// Returns true if a fixture was moved, false if none was present.
-        member this.TryMoveFixture(x: int, y: int, x2: int, y2: int) : bool =
-            if x < 0 || x >= this.Width || y < 0 || y >= this.Height ||
-               x2 < 0 || x2 >= this.Width || y2 < 0 || y2 >= this.Height then
-                false
-            else
-                match this.TryGetFixture(x, y) with
-                | Some fid ->
-                    this.ClearFixture(x, y)
-                    this.SetFixture(x2, y2, fid)
-                    true
-                | None -> false 
+    /// Move the fixture at (x,y) to (x2,y2). Clears fixture at (x,y), sets at (x2,y2).
+    /// Returns true if a fixture was moved, false if none was present.
+    member this.TryMoveFixture(x: int, y: int, x2: int, y2: int) : bool =
+        if x < 0 || x >= this.Width || y < 0 || y >= this.Height ||
+            x2 < 0 || x2 >= this.Width || y2 < 0 || y2 >= this.Height then
+            false
+        else
+            match this.TryGetFixture(x, y) with
+            | Some fid ->
+                this.ClearFixture(x, y)
+                this.SetFixture(x2, y2, fid)
+                true
+            | None -> false 
 
 [<Struct>]
 type TileUpdate = { X: int; Y: int; Tile: Tile }

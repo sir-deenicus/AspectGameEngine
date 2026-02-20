@@ -10,6 +10,12 @@ type SpriteLoc =
           Row = row
           Column = column }
 
+[<Struct>]
+type GridPos =
+    val X: int
+    val Y: int
+    new(x, y) = { X = x; Y = y }
+
 // Free-sprite region on a globally-registered sprite sheet/atlas
 [<Struct>]
 type SpriteSheetCell =
