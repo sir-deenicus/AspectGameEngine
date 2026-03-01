@@ -40,6 +40,7 @@ table TileMapFBS {
     map_type:MapTypeFBS;
     tileset_name:string (required);      // reference to external tileset asset
     spawn_points:[SpawnPointFBS];
+    explored:[ubyte];                    // flattened per-tile explored flags (0/1), length should be width*height
 }
 
 root_type TileMapFBS;

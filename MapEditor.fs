@@ -438,7 +438,7 @@ type EditorTileMap =
           MapType = tileMap.MapType
           TilesetName = tileMap.TileSetName
           LayerCells = layersVector
-          SpawnPoints = List.ofArray tileMap.SpawnPoints }
+          SpawnPoints = List.ofArray (tileMap.SpawnPoints |> Array.filter (fun (x, y) -> x >= 0 && y >= 0)) }
 
     // Convert from editor EditorTileMap to runtime TileMap
     member this.ToTileMap() =         

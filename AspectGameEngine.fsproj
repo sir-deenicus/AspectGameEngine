@@ -18,7 +18,9 @@
     <Compile Include="Localization.fs" />
     <Compile Include="LayerGrid.fs" />
     <Compile Include="Maps.fs" />
+    <Compile Include="FOV.fs" />
     <Compile Include="GameState.fs" />
+    <Compile Include="Player.fs" />
     <Compile Include="MapEditor.fs" />
     <Compile Include="TilePropertiesSerializer.fs" />
     <Compile Include="MapTypeSerializer.fs" />

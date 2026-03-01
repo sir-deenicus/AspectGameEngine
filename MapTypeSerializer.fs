@@ -90,6 +90,8 @@ module TileMapSerializer =
         let spawnPointOffsets = spawnPoints10 |> Array.map (createSpawnPointFBS builder)
         let spawnPointsVector = TileMapFBS.CreateSpawnPointsVector(builder, spawnPointOffsets)
 
+        let exploredVector = TileMapFBS.CreateExploredVector(builder, tileMap.Explored)
+
         TileMapFBS.StartTileMapFBS(builder)
         TileMapFBS.AddWidth(builder, tileMap.Width)
         TileMapFBS.AddHeight(builder, tileMap.Height)
@@ -100,6 +102,7 @@ module TileMapSerializer =
         TileMapFBS.AddMapType(builder, toMapTypeFBS tileMap.MapType)
         TileMapFBS.AddTilesetName(builder, tilesetNameOffset)
         TileMapFBS.AddSpawnPoints(builder, spawnPointsVector)
+        TileMapFBS.AddExplored(builder, exploredVector)
         let rootOffset = TileMapFBS.EndTileMapFBS(builder)
 
         builder.Finish(rootOffset.Value)
@@ -174,4 +177,12 @@ module TileMapSerializer =
                 arr
 
         tileMap.SpawnPoints <- spawnPoints
+
+        // Explored visibility flags: tolerate missing/older data.
+        let exploredCount = tileMapFBS.ExploredLength
+        if exploredCount > 0 then
+            let copyLen = min tileMap.Explored.Length exploredCount
+            for i = 0 to copyLen - 1 do
+                tileMap.Explored.[i] <- tileMapFBS.Explored(i)
+
         tileMap

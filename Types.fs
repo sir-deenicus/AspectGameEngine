@@ -53,15 +53,32 @@ type NpcFrames = {
     NormalRight: SpriteRef
     AttackLeft: SpriteRef
     AttackRight: SpriteRef 
-}
- 
-type NPCFacing =
+} with static member Default = { 
+        NormalLeft = SheetCell(SpriteSheetCell(0,0,0))
+        NormalRight = SheetCell(SpriteSheetCell(0,0,0))
+        AttackLeft = SheetCell(SpriteSheetCell(0,0,0))
+        AttackRight = SheetCell(SpriteSheetCell(0,0,0)) }
+            
+type ActorFacing =
     | Left = 0
     | Right = 1
 
-type NpcPose =
+type ActorPose =
     | Normal = 0
-    | Attack = 1
+    | Attack = 1 
+
+type ActorState =
+    | Idle = 0
+    | Walking = 1
+    | Attacking = 2
+    | Spellcasting = 3
+    | Normal = 4
+
+[<Struct>]
+type PlayerVisualState = {
+    mutable Facing: ActorFacing
+    mutable State: ActorPose
+}
 
 type Biome =
     | None = 0
@@ -90,10 +107,10 @@ type TileType =
     | Sign = 13 
 
 type TileOpacity =
-    | Opaque = 0
-    | Transparent = 1
-    | Air = 2
-    | Translucent = 3
+    | Opaque = 0uy
+    | Transparent = 1uy
+    | Air = 2uy
+    | Translucent = 3uy
 
 module TileOpacity = 
     let inline isOpaque(opacity: TileOpacity) =
@@ -138,7 +155,7 @@ type TileProperties =
       DestroyedSpriteLoc: SpriteLoc option 
       NextStateSpriteLoc: SpriteLoc option
       ComplexState: ComplexState option }
-
+      
     static member NullTile =
         { Walkable = false 
           Interactable = false

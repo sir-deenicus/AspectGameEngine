@@ -1,0 +1,272 @@
+namespace AspectGameEngine
+
+open System
+open System.Runtime.CompilerServices
+
+type VisibilityState(width: int, height: int) =
+    let visibleStamp = Array.zeroCreate<int> (width * height)
+    let translucencyCost = Array.create<byte> (width * height) 255uy
+    let postPassStamp = Array.zeroCreate<int> (width * height)
+    let postPassCost = Array.create<byte> (width * height) 255uy
+    let mutable tick = 1
+    let mutable postPassTick = 1
+
+    member _.Width = width
+    member _.Height = height
+
+    member _.BeginStep() =
+        if tick = System.Int32.MaxValue then
+            System.Array.Clear(visibleStamp, 0, visibleStamp.Length)
+            tick <- 1
+        else
+            tick <- tick + 1 
+
+    member _.IsVisible(index: int) =
+        visibleStamp.[index] = tick
+
+    member _.GetTranslucencyCost(index: int) =
+        if visibleStamp.[index] = tick then int translucencyCost.[index]
+        else -1
+
+    member _.BeginPostPass() =
+        if postPassTick = System.Int32.MaxValue then
+            System.Array.Clear(postPassStamp, 0, postPassStamp.Length)
+            postPassTick <- 1
+        else
+            postPassTick <- postPassTick + 1 
+
+    member internal _.VisibleStampArray = visibleStamp
+    member internal _.TranslucencyCostArray = translucencyCost
+    member internal _.PostPassStampArray = postPassStamp
+    member internal _.PostPassCostArray = postPassCost
+    member internal _.CurrentTick = tick
+    member internal _.CurrentPostPassTick = postPassTick
+
+module RectFov =
+    let private enablePostPass = true
+
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    let inline private index (width: int) (x: int) (y: int) = y * width + x
+
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    let inline private blocksSight (opacity: TileOpacity) =
+        match opacity with
+        | TileOpacity.Opaque -> true
+        | TileOpacity.Translucent -> false
+        | TileOpacity.Transparent -> false
+        | TileOpacity.Air -> false
+        | _ -> true
+
+    let private castRay
+        (map: TileMap)
+        (mapWidth: int)
+        (minX: int)
+        (maxX: int)
+        (minY: int)
+        (maxY: int)
+        (budget: int)
+        (originX: int)
+        (originY: int)
+        (targetX: int)
+        (targetY: int)
+        (currentTick: int)
+        (visibleStamp: Span<int>)
+        (translucencyCost: Span<byte>)
+        =
+        let mutable x = originX
+        let mutable y = originY
+        let mutable idx = index mapWidth originX originY
+
+        let dx = abs (targetX - originX)
+        let dy = abs (targetY - originY)
+        let sx = if originX < targetX then 1 elif originX > targetX then -1 else 0
+        let sy = if originY < targetY then 1 elif originY > targetY then -1 else 0
+        let syw = sy * mapWidth
+        let mutable err = dx - dy
+
+        let mutable translucentCount = 0
+        let mutable doneRay = false
+
+        while not doneRay do
+            if x < minX || x > maxX || y < minY || y > maxY then
+                doneRay <- true
+            else
+                let opacity = map.GetOpacity(x, y)
+
+                // IMPORTANT SEMANTICS:
+                // - The translucency depth is the number of translucent tiles we've already passed through.
+                // - A translucent tile itself is visible at the *current* depth; the depth increases only
+                //   after we pass through it (affecting tiles behind it).
+                let tileCost = translucentCount
+
+                let visibleAt = visibleStamp.[idx]
+                let translucentByte = byte tileCost
+
+                if visibleAt <> currentTick then
+                    visibleStamp.[idx] <- currentTick
+                    translucencyCost.[idx] <- translucentByte
+                elif translucentByte < translucencyCost.[idx] then
+                    translucencyCost.[idx] <- translucentByte
+
+                if translucentByte = 0uy then
+                    map.MarkExplored(x, y)
+
+                match opacity with
+                | TileOpacity.Opaque ->
+                    doneRay <- true
+                | TileOpacity.Translucent ->
+                    if not (x = originX && y = originY) then
+                        let nextCost = translucentCount + 1
+                        if nextCost > budget then
+                            doneRay <- true
+                        else
+                            translucentCount <- nextCost
+                | _ -> ()
+
+            if not doneRay then
+                if x = targetX && y = targetY then
+                    doneRay <- true
+                else
+                    let e2 = 2 * err
+                    let mutable deltaIdx = 0
+
+                    if e2 > -dy then
+                        err <- err - dy
+                        x <- x + sx
+                        deltaIdx <- deltaIdx + sx
+
+                    if e2 < dx then
+                        err <- err + dx
+                        y <- y + sy
+                        deltaIdx <- deltaIdx + syw
+
+                    idx <- idx + deltaIdx
+
+    let inline halfTilesForViewport (viewportPixels: int) (tilePixels: int) (overscanTiles: int) =
+        let tiles =
+            if viewportPixels <= 0 || tilePixels <= 0 then 0
+            else (viewportPixels + tilePixels - 1) / tilePixels
+
+        let overscan = if overscanTiles < 0 then 0 else overscanTiles
+        (tiles / 2) + overscan
+
+    let compute
+        (map: TileMap)
+        (state: VisibilityState)
+        (origin: GridPos)
+        (halfWidth: int)
+        (halfHeight: int)
+        (translucencyBudget: int)
+        =
+        if map.Width <> state.Width || map.Height <> state.Height then
+            invalidArg "state" "VisibilityState size must match map dimensions."
+
+        let mapWidth = map.Width
+        let mapHeight = map.Height
+
+        let halfW = if halfWidth < 0 then 0 else halfWidth
+        let halfH = if halfHeight < 0 then 0 else halfHeight
+        let budget =
+            if translucencyBudget < 0 then 0
+            elif translucencyBudget > 255 then 255
+            else translucencyBudget
+
+        state.BeginStep()
+
+        let currentTick = state.CurrentTick
+        let visibleStamp = Span<int>(state.VisibleStampArray)
+        let translucencyCost = Span<byte>(state.TranslucencyCostArray)
+
+        if origin.X >= 0 && origin.X < mapWidth && origin.Y >= 0 && origin.Y < mapHeight then
+            let originIndex = index mapWidth origin.X origin.Y
+            if visibleStamp.[originIndex] <> currentTick then
+                visibleStamp.[originIndex] <- currentTick
+                translucencyCost.[originIndex] <- 0uy
+            elif 0uy < translucencyCost.[originIndex] then
+                translucencyCost.[originIndex] <- 0uy
+            map.MarkExplored(origin.X, origin.Y)
+
+        let ox = origin.X
+        let oy = origin.Y
+
+        let minX = max 0 (ox - halfW)
+        let maxX = min (mapWidth - 1) (ox + halfW)
+        let minY = max 0 (oy - halfH)
+        let maxY = min (mapHeight - 1) (oy + halfH)
+
+        for x in minX .. maxX do
+            castRay map mapWidth minX maxX minY maxY budget ox oy x minY currentTick visibleStamp translucencyCost
+            castRay map mapWidth minX maxX minY maxY budget ox oy x maxY currentTick visibleStamp translucencyCost
+
+        if maxY - minY > 1 then
+            for y in minY + 1 .. maxY - 1 do
+                castRay map mapWidth minX maxX minY maxY budget ox oy minX y currentTick visibleStamp translucencyCost
+                castRay map mapWidth minX maxX minY maxY budget ox oy maxX y currentTick visibleStamp translucencyCost
+
+        if enablePostPass then
+            state.BeginPostPass()
+
+            let currentPostPassTick = state.CurrentPostPassTick
+            let postPassStamp = Span<int>(state.PostPassStampArray)
+            let postPassCost = Span<byte>(state.PostPassCostArray)
+
+            for y in minY .. maxY do
+                for x in minX .. maxX do
+                    let idx = index mapWidth x y
+
+                    if visibleStamp.[idx] <> currentTick then
+                        let opacity = map.GetOpacity(x, y)
+
+                        if opacity = TileOpacity.Opaque then
+                            let mutable candidateCost = System.Int32.MaxValue
+
+                            if x > minX && x < maxX then
+                                let lidx = idx - 1
+                                let ridx = idx + 1
+                                if visibleStamp.[lidx] = currentTick && visibleStamp.[ridx] = currentTick then
+                                    // Crack-fill only when BOTH sides are fully clear.
+                                    if translucencyCost.[lidx] = 0uy && translucencyCost.[ridx] = 0uy then
+                                        candidateCost <- 0
+
+                            if y > minY && y < maxY then
+                                let uidx = idx - mapWidth
+                                let didx = idx + mapWidth
+                                if visibleStamp.[uidx] = currentTick && visibleStamp.[didx] = currentTick then
+                                    // Crack-fill only when BOTH sides are fully clear.
+                                    if translucencyCost.[uidx] = 0uy && translucencyCost.[didx] = 0uy then
+                                        if 0 < candidateCost then candidateCost <- 0
+
+                            if candidateCost <> System.Int32.MaxValue && candidateCost <= budget then
+                                let candidateByte = byte candidateCost
+                                if postPassStamp.[idx] <> currentPostPassTick then
+                                    postPassStamp.[idx] <- currentPostPassTick
+                                    postPassCost.[idx] <- candidateByte
+                                elif candidateByte < postPassCost.[idx] then
+                                    postPassCost.[idx] <- candidateByte
+
+            for y in minY .. maxY do
+                for x in minX .. maxX do
+                    let idx = index mapWidth x y
+
+                    if postPassStamp.[idx] = currentPostPassTick then
+                        let candidateByte = postPassCost.[idx]
+                        if visibleStamp.[idx] <> currentTick then
+                            visibleStamp.[idx] <- currentTick
+                            translucencyCost.[idx] <- candidateByte
+                        elif candidateByte < translucencyCost.[idx] then
+                            translucencyCost.[idx] <- candidateByte
+
+                        if candidateByte = 0uy then 
+                            map.MarkExplored(x, y)
+
+    let inline isVisible (state: VisibilityState) (map: TileMap) (x: int) (y: int) =
+        if x < 0 || x >= map.Width || y < 0 || y >= map.Height then false
+        else state.IsVisible(index map.Width x y)
+
+    let inline translucencyDepth (state: VisibilityState) (map: TileMap) (x: int) (y: int) =
+        if x < 0 || x >= map.Width || y < 0 || y >= map.Height then -1
+        else state.GetTranslucencyCost(index map.Width x y)
+
+    let inline isExplored (state: VisibilityState) (map: TileMap) (x: int) (y: int) =
+        let _ = state
+        map.IsExplored(x, y)

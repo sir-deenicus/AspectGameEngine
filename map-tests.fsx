@@ -138,6 +138,24 @@ let testTileMapBasicSerialization () =
     
     printfn "--- TileMap Basic Serialization: PASSED ---"
 
+let testTileMapExploredRoundTrip () =
+    printfn "\n--- Test: TileMap Explored Round Trip ---"
+
+    let originalMap = createTestTileMap()
+    originalMap.MarkExplored(0, 0)
+    originalMap.MarkExplored(1, 1)
+    originalMap.MarkExplored(2, 2)
+
+    let serializedBytes = TileMapSerializer.serialize originalMap
+    let deserializedMap = TileMapSerializer.deserialize serializedBytes
+
+    assertTrue (deserializedMap.IsExplored(0, 0)) "Explored at (0,0) preserved"
+    assertTrue (deserializedMap.IsExplored(1, 1)) "Explored at (1,1) preserved"
+    assertTrue (deserializedMap.IsExplored(2, 2)) "Explored at (2,2) preserved"
+    assertTrue (not (deserializedMap.IsExplored(0, 2))) "Unexplored tile remains unexplored"
+
+    printfn "--- TileMap Explored Round Trip: PASSED ---"
+
 let testTileMapTileData () =
     printfn "\n--- Test: TileMap Tile Data Integrity ---"
     
@@ -432,9 +450,15 @@ let testTileMapSpawnPointsRoundTrip () =
     assertEquals (0, 2) deserializedMap.SpawnPoints.[9] "SpawnPoints[9] preserved"
     assertEquals (-1, -1) deserializedMap.SpawnPoints.[2] "Unset SpawnPoints default preserved"
 
-    // Editor conversion should copy spawn points without aliasing
+    // Editor keeps only valid spawn points (it builds list incrementally from empty).
+    let expectedEditorSpawnPoints =
+        deserializedMap.SpawnPoints
+        |> Array.toList
+        |> List.filter (fun (x, y) -> x >= 0 && y >= 0)
+
+    // Editor conversion should copy valid spawn points without aliasing
     let editorMap = EditorTileMap.FromTileMap(deserializedMap)
-    assertEquals (List.ofArray deserializedMap.SpawnPoints) editorMap.SpawnPoints "Editor spawn points match runtime"
+    assertEquals expectedEditorSpawnPoints editorMap.SpawnPoints "Editor spawn points match runtime valid subset"
 
     // Mutate editor list and ensure runtime isn't affected (copy semantics)
     let editorMapMutated = { editorMap with SpawnPoints = (9, 9) :: (List.tail editorMap.SpawnPoints) }
@@ -749,6 +773,7 @@ let testEditorLayerQueriesHeadIsTopmost () =
 let runTests() =
     printfn "\n========== TILEMAP SERIALIZATION TESTS =========="
     testTileMapBasicSerialization ()
+    testTileMapExploredRoundTrip ()
     testTileMapTileData ()
     testTileMapLayerCellData ()
     testTileMapMultipleDecalsPerTile ()

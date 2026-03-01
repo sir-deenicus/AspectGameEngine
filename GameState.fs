@@ -42,10 +42,21 @@ type InteractionType =
     | NullAction
     | DoorInteraction of action: DoorAction
  
-type GameModel = {   
-    Map: TileMap
+type PlayerModel = { 
     mutable PlayerPos: GridPos
     PlayerActorId: int option
+    mutable PlayerVisual: PlayerVisualState
+    mutable PlayerFrames: NpcFrames
+    mutable PlayerState: ActorState
+}
+
+type GameModel = {   
+    Map: TileMap
+    PlayerModel: PlayerModel
+    VisibilityState: VisibilityState
+    mutable VisibilityHalfWidth: int
+    mutable VisibilityHalfHeight: int
+    mutable VisibilityTranslucencyBudget: int
 
     // Per-tile *instance* state keyed by tileIndex (plain int).
     TileComplexStateInstance: Dictionary<int, ComplexState> 
@@ -122,54 +133,90 @@ module Doors =
                         InteractResult.Msg visualsInfo.Key // the key will be the name of the state we want to switch to
                 | _ -> Nothing
 
-module Player = 
-    let tryMove(model: GameModel) (dx: int) (dy: int) : bool =
-        let map = model.Map
-        let oldPos = model.PlayerPos
-
-        if dx = 0 && dy = 0 then false
-        else
-            let nx = oldPos.X + dx
-            let ny = oldPos.Y + dy
-
-            // Direct path: for player-actor movement, delegate to TileMap.TryMoveActor.
-            // For position-only movement (no actor id), mirror the same walkable/occupied checks.
-            let moved =
-                match model.PlayerActorId with
-                | Some _ -> map.TryMoveActor(oldPos.X, oldPos.Y, nx, ny)
-                | None ->
-                    if nx < 0 || nx >= map.Width || ny < 0 || ny >= map.Height then false
-                    elif not (map.IsWalkable(nx, ny)) then false
-                    elif map.IsOccupied(nx, ny) then false
-                    else true
-
-            if moved then
-                model.PlayerPos <- GridPos(nx, ny)
-
-            moved
-
 module GameUpdate = 
-    let private createWith spawnPointIndex (initialMap: TileMap) (playerActorId: int option) : GameModel =
-        let tileSet = TilesetRegistry.get initialMap.TileSetName 
-        let (x,y) = initialMap.SpawnPoints.[spawnPointIndex] 
-        match playerActorId with
-        | None -> ()
-        | Some aid -> initialMap.SetActor(x, y, aid)
+    let recomputeVisibility (model: GameModel) : unit =
+        RectFov.compute
+            model.Map
+            model.VisibilityState
+            model.PlayerModel.PlayerPos
+            model.VisibilityHalfWidth
+            model.VisibilityHalfHeight
+            model.VisibilityTranslucencyBudget
 
-        { Map = initialMap
-          PlayerPos = GridPos(x,y)
-          PlayerActorId = playerActorId
-          TileComplexStateInstance = Dictionary<int, ComplexState>()   
+    let private resolvePlayerSprite (frames: NpcFrames) (visual: PlayerVisualState) : SpriteRef =
+        match visual.State, visual.Facing with
+        | ActorPose.Attack, ActorFacing.Right -> frames.AttackRight
+        | ActorPose.Attack, _ -> frames.AttackLeft
+        | _, ActorFacing.Right -> frames.NormalRight
+        | _ -> frames.NormalLeft
+
+    let private ensurePlayerActorRegistered (playerActorId: int) (frames: NpcFrames) (visual: PlayerVisualState) : unit =
+        let spriteRef = resolvePlayerSprite frames visual
+        let actorProps =
+            { TileOpacity = TileOpacity.Transparent
+              DescKey = "player"
+              NpcFrames = Some frames }
+        EntityRegistry.SpriteProps.[playerActorId] <-
+            { Sprite = spriteRef
+              SpriteType = SpriteType.Actor actorProps
+              RenderLayer = 100 }
+
+    let private createWith spawnPointIndex (initialMap: TileMap) (playerFrames: NpcFrames) (playerActorId: int option) : GameModel =
+        let (x,y) = initialMap.SpawnPoints.[spawnPointIndex] 
+
+        let playerVisual = { Facing = ActorFacing.Left; State = ActorPose.Normal }
+
+        match playerActorId with
+        | Some aid ->
+            ensurePlayerActorRegistered aid playerFrames playerVisual
+            initialMap.SetActor(x, y, aid)
+        | None -> ()
+
+        let playerModel = { 
+            PlayerPos = GridPos(x,y)
+            PlayerActorId = playerActorId
+            PlayerVisual = playerVisual
+            PlayerFrames = playerFrames
+            PlayerState = ActorState.Idle
         }
 
+        let visibilityHalfWidth = max 0 ((initialMap.Width + 1) / 2)
+        let visibilityHalfHeight = max 0 ((initialMap.Height + 1) / 2)
+
+        let model = {
+            Map = initialMap
+            PlayerModel = playerModel
+            VisibilityState = VisibilityState(initialMap.Width, initialMap.Height)
+            VisibilityHalfWidth = visibilityHalfWidth
+            VisibilityHalfHeight = visibilityHalfHeight
+            VisibilityTranslucencyBudget = 0
+            TileComplexStateInstance = Dictionary<int, ComplexState>() 
+        }
+
+        recomputeVisibility model
+        model
+
+
     let create (initialMap: TileMap) : GameModel =
-        createWith 0 initialMap None 
+        createWith 0 initialMap NpcFrames.Default None
 
     let createAt spawnPointIndex (initialMap: TileMap) : GameModel =
-        createWith spawnPointIndex initialMap None
+        createWith spawnPointIndex initialMap NpcFrames.Default None
 
-    let createWithPlayer (initialMap: TileMap) (playerActorId: int) : GameModel =
-        createWith 0 initialMap (Some playerActorId) 
+    let createEmpty (initialMap: TileMap) : GameModel =
+        create initialMap
+ 
+    let createWithPlayer (initialMap: TileMap) (playerFrames: NpcFrames) (playerActorId: int) : GameModel =
+        createWith 0 initialMap playerFrames (Some playerActorId) 
+
+    let setVisibilityWindow (model: GameModel) (halfWidth: int) (halfHeight: int) : unit =
+        model.VisibilityHalfWidth <- max 0 halfWidth
+        model.VisibilityHalfHeight <- max 0 halfHeight
+        recomputeVisibility model
+
+    let setVisibilityTranslucencyBudget (model: GameModel) (budget: int) : unit =
+        model.VisibilityTranslucencyBudget <- max 0 budget
+        recomputeVisibility model
         
     let lookAt (model: GameModel) (pos: GridPos) : LookAtInfo =
         let map = model.Map
