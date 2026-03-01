@@ -30,11 +30,16 @@ module Player =
             // Direct path: for player-actor movement, delegate to TileMap.TryMoveActor. 
             let moved =
                 match model.PlayerModel.PlayerActorId with
-                | Some _ -> map.TryMoveActor(oldPos.X, oldPos.Y, nx, ny)
                 | None -> false
+                | Some _ ->
+                    // Single attempt; doors are not path-blocking so opening should run on movement.
+                    map.TryMoveActor(oldPos.X, oldPos.Y, nx, ny)
 
             if moved then
                 model.PlayerModel.PlayerPos <- GridPos(nx, ny)
+
+                // Attempt to auto-open a door at the destination (optimized, no-op for non-doors)
+                Doors.tryAutoOpenDoor model (GridPos(nx, ny)) |> ignore
                 
                 // Update facing based on movement direction
                 let newFacing =

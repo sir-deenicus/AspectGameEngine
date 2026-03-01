@@ -60,7 +60,31 @@ type GameModel = {
 
     // Per-tile *instance* state keyed by tileIndex (plain int).
     TileComplexStateInstance: Dictionary<int, ComplexState> 
-} 
+}
+
+type GameMsgs() =
+    let _msgs = ResizeArray<string>()
+
+    member _.Add(msg: string) =
+        if not (System.String.IsNullOrEmpty(msg)) then
+            _msgs.Add(msg)
+
+    member _.GetAll() = 
+        _msgs.ToArray()
+
+    member _.GetMostRecent() =
+        if _msgs.Count = 0 then None
+        else Some _msgs.[_msgs.Count - 1]
+
+    member _.GetRecent(n: int) =
+        let count = _msgs.Count
+        if count = 0 || n <= 0 then [||]
+        else
+            let take = min n count
+            let result = Array.zeroCreate take
+            for i in 0 .. take - 1 do
+                result.[i] <- _msgs.[count - take + i]
+            result
 
 module Utils =
     let inline inBounds (map: TileMap) (pos: GridPos) =
@@ -89,6 +113,22 @@ module Utils =
         match SpritePropsQueries.tryGet id with
         | None -> 0
         | Some sp -> sp.RenderLayer
+    
+    
+    /// Search a visuals array for an entry with the given key and return its SpriteLoc.
+    /// Returns None if the array is null/empty or no matching key is found.
+    let private findVisualSpriteLoc (visuals: TileVisualEntry[]) (key: string) : SpriteLoc option =
+        if isNull visuals || visuals.Length = 0 then None
+        else
+            let mutable i = 0
+            let mutable result = Unchecked.defaultof<SpriteLoc>
+            let mutable found = false
+            while i < visuals.Length && not found do
+                if visuals.[i].Key = key then
+                    result <- visuals.[i].SpriteLoc
+                    found <- true
+                i <- i + 1
+            if found then Some result else None
    
     
 module Doors = 
@@ -99,6 +139,9 @@ module Doors =
     [<Literal>]
     let private DoorOpenedKey = "door-opened" 
     
+    [<Literal>]
+    let private DoorOpenDescKey = "tile.door.open"
+    
     let  tryGetTileLocked (model: GameModel) (tileIndex: int) : bool =
         match model.TileComplexStateInstance.TryGetValue(tileIndex) with
         | true, s -> s.IsDoorLocked()
@@ -108,7 +151,39 @@ module Doors =
         if locked then
             model.TileComplexStateInstance.[tileIndex] <- ComplexState.ClosedDoor { Locked = true }
         else
-            model.TileComplexStateInstance.Remove(tileIndex) |> ignore 
+            model.TileComplexStateInstance.Remove(tileIndex) |> ignore  
+
+    let inline private tryGetDoorOpenSpriteLoc (props: TileProperties) : SpriteLoc option =
+        // Doors always list the "next" (open) visual first, so we can ignore keys entirely.
+        if isNull props.Visuals || props.Visuals.Length = 0 then None
+        else Some props.Visuals.[0].SpriteLoc
+
+    /// Auto-opens a *closed* door tile at (x,y). Returns true if the tile was changed.
+    /// Optimized for being called on every move attempt:
+    /// - early-outs for non-doors and already-open doors (by description key)
+    /// - only checks lock state when we know we hit a door
+    let tryAutoOpenDoorAt (model: GameModel) (x: int) (y: int) : bool =
+        let map = model.Map
+        if x < 0 || x >= map.Width || y < 0 || y >= map.Height then false
+        else
+            let props = map.GetTileProperties(x, y)
+            if props.TileType <> TileType.Door then false
+            elif props.DescriptionKey = DoorOpenDescKey then false // already open (description-driven)
+            else
+                let tileIndex = y * map.Width + x
+                if tryGetTileLocked model tileIndex then false
+                else
+                    match tryGetDoorOpenSpriteLoc props with
+                    | None -> false
+                    | Some targetSpriteLoc ->
+                        let tile = map.GetTile(x, y)
+                        if tile.SpriteLoc = targetSpriteLoc then false
+                        else
+                            map.Update(x, y, { tile with SpriteLoc = targetSpriteLoc })
+                            true
+
+    let tryAutoOpenDoor (model: GameModel) (pos: GridPos) : bool =
+        tryAutoOpenDoorAt model pos.X pos.Y
     
     let tryInteractDoor (model: GameModel) (pos: GridPos) (interaction: DoorAction) : InteractResult =
         let map = model.Map
@@ -337,4 +412,61 @@ module GameUpdate =
         match interaction with
         | InteractionType.NullAction -> Nothing
         | InteractionType.DoorInteraction doorAction -> Doors.tryInteractDoor model pos doorAction
- 
+
+    /// Infer a sensible interaction for the tile at `pos` and dispatch to `interactAt`.
+    /// This preserves the ability to call `interactAt` directly with an explicit
+    /// `InteractionType` while providing a convenience path for player-initiated
+    /// interactions that should pick an appropriate action based on tile type.
+    /// Auto-resolving interaction helper that accepts pre-fetched tile properties.
+    /// Accepting `props` lets callers avoid a second property lookup.
+    let interactAutoAt (model: GameModel) (playerPos: GridPos) (pos: GridPos) (props: TileProperties) : InteractResult =
+        let map = model.Map
+        if not (Utils.inBounds map pos) then Nothing
+        else
+            match props.TileType with
+            | TileType.Door ->
+                // Ignore doors if player is standing on the same tile
+                if pos = playerPos then Nothing
+                else Doors.tryInteractDoor model pos DoorAction.OpenOrCloseDoor
+            | _ -> Nothing
+
+    /// Attempt to interact on behalf of the player.  Returns
+    /// (visualUpdateNeeded, result).  Spatial tie-breaker order is:
+    /// facing tile ▶ current tile ▶ north ▶ south ▶ behind.
+    let tryForInteractions (model: GameModel) : bool * InteractResult =
+        let p = model.PlayerModel
+        let pos = p.PlayerPos
+        let dx = if p.PlayerVisual.Facing = ActorFacing.Right then 1 else -1
+
+        let candidates = [|
+            GridPos(pos.X + dx, pos.Y)      // facing
+            pos                               // underfoot
+            GridPos(pos.X, pos.Y - 1)        // north
+            GridPos(pos.X, pos.Y + 1)        // south
+            GridPos(pos.X - dx, pos.Y)       // behind
+        |]
+
+        let mutable result = Nothing
+        let mutable found = false
+        let mutable i = 0
+        while i < candidates.Length && not found do
+            let cand = candidates.[i]
+            if Utils.inBounds model.Map cand then
+                let props = model.Map.GetTileProperties(cand.X, cand.Y)
+                if props.Interactable then
+                    // Use the auto-resolving helper which will dispatch to the
+                    // appropriate interaction handler (doors, etc.). 
+                    let res = interactAutoAt model pos cand props
+                    match res with
+                    | Nothing -> ()
+                    | Msg _ ->
+                        result <- res
+                        found <- true
+            i <- i + 1
+
+        if found then
+            recomputeVisibility model
+            true, result
+        else
+            false, Nothing
+
