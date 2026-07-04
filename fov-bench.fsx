@@ -55,20 +55,19 @@ fillMap map floorLoc wallLoc glassLoc
 let state = VisibilityState(mapW, mapH)
 let origin = GridPos(mapW / 2, mapH / 2)
 
-printfn "FOV type: v0.2d Opus approach with local fill and shallow slope pinhole correction, get opacity optimization"
+let runAllBenches (map: TileMap) (state: VisibilityState) (origin: GridPos) (useSuper: bool) =
+    let superstr = if useSuper then "(and supercover raycasting)" else ""
+    printfn "FOV type: v0.2d Opus approach with local fill and shallow slope pinhole correction, get opacity optimization %s" superstr
 
-// Viewport-ish cases for 56x72 tiles on common resolutions:
-// 1920x1080 => ~35x15 tiles => half ~17x7 (add a bit overscan)
-bench "1080p-ish" map state origin 20 10 2 2000
+    bench "1080p-ish" map state origin 20 10 2 2000
+    bench "1440p-ish" map state origin 26 13 2 2000
+    bench "4k-ish"    map state origin 40 20 2 1500
+    bench "stress"    map state origin 60 40 2 500
+    printfn ""
 
-// 2560x1440 => ~46x20 tiles => half ~23x10
-bench "1440p-ish" map state origin 26 13 2 2000
-
-// 3840x2160 (4K) => ~69x30 tiles => half ~34x15 (add overscan)
-bench "4k-ish" map state origin 40 20 2 1500
-
-// Stress case: large view radius
-bench "stress" map state origin 60 40 2 500
+// run the suite with both modes
+runAllBenches map state origin false
+runAllBenches map state origin true
 
 (*
 Results:
@@ -179,4 +178,10 @@ FOV type: v0.2d Opus approach with local fill and shallow slope pinhole correcti
 1440p-ish: 0.4147 ms/compute (iters=2000, half=26x13, budget=2)
 4k-ish: 0.9052 ms/compute (iters=1500, half=40x20, budget=2)
 stress: 2.5921 ms/compute (iters=500, half=60x40, budget=2)
+
+FOV type: v0.2d Opus approach with local fill and shallow slope pinhole correction, get opacity optimization
+1080p-ish: 0.3182 ms/compute (iters=2000, half=20x10, budget=2)
+1440p-ish: 0.5194 ms/compute (iters=2000, half=26x13, budget=2)
+4k-ish: 0.8226 ms/compute (iters=1500, half=40x20, budget=2)
+stress: 2.2526 ms/compute (iters=500, half=60x40, budget=2)
 *)

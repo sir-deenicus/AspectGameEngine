@@ -18,6 +18,7 @@
     <Compile Include="Localization.fs" />
     <Compile Include="LayerGrid.fs" />
     <Compile Include="Maps.fs" />
+    <Compile Include="Objects.fs" />
     <Compile Include="FOV.fs" />
     <Compile Include="GameState.fs" />
     <Compile Include="Player.fs" />

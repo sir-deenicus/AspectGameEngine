@@ -16,6 +16,12 @@ type GridPos =
     val Y: int
     new(x, y) = { X = x; Y = y }
 
+[<Struct>]
+type GridDelta = 
+    val DX: int
+    val DY: int
+    new(dx, dy) = { DX = dx; DY = dy }
+
 // Free-sprite region on a globally-registered sprite sheet/atlas
 [<Struct>]
 type SpriteSheetCell =
