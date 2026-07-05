@@ -4,7 +4,7 @@ Portable doc for any repo in the collective. The full tier framework (tiers 1–
 pitfalls vocabulary, discriminator evidence) lives in `model-tier_notes.md`; this file is
 self-contained so it can be dropped into a repo that doesn't carry the framework. If you have never
 seen the framework: tiers are reliability **floors**, assigned by worst-case acceptable output —
-tier 1 = brilliant and self-orienting, tier 2 = intelligent but needs named blind spots, tiers 3–5 =
+tier 1 = highly intelligent and self-orienting, tier 2 = intelligent but needs named blind spots, tiers 3–5 =
 execute under increasingly strict scaffolding.
 
 ## What tier 0 is
@@ -15,10 +15,10 @@ self-orientation on a *given* task; tier 0's is one level up — it decides what
 writes the brief a tier-1 executes without relitigating, and catches the failure class ordinary
 verification will often miss: **silent** failures, where the executor's own tests pass and the output still
 lies (corrupted provenance, invariants that only bite two operations later, a test oracle that itself
-demands the wrong thing). Of course, a tier 0 model is not infallible, so any mistakes brought up by testing should be immediately brought to attention.
+demands the wrong thing). Of course, a tier 0 model is not infallible, so any mistakes brought up by testing should immediately be brought to attention.
 
-Assignment rule: tiers 1–5 are assigned by task difficulty; tier 0 is assigned by **decision
-with subtle hard to notice complexities**. Summon it where a wrong early call is expensive and quiet. Rarely assign execution.
+Assignment rule: tiers 1–5 are assigned by task difficulty; tier 0 is assigned by **decisions
+with subtle difficult to identify complexities**. Summon it where a wrong early call is expensive and quiet. Rarely assign execution.
 
 ## Summon economics
 

@@ -56,7 +56,7 @@ let state = VisibilityState(mapW, mapH)
 let origin = GridPos(mapW / 2, mapH / 2)
 
 let runAllBenches (map: TileMap) (state: VisibilityState) (origin: GridPos) =
-    printfn "FOV type: interval visibility engine with cost-carrying angular spans"
+    printfn "FOV type: interval visibility engine with surface disclosure"
 
     bench "1080p-ish" map state origin 20 10 2 2000
     bench "1440p-ish" map state origin 26 13 2 2000

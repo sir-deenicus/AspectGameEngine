@@ -1,3 +1,10 @@
+// Frontend rendering note:
+// RectFov.isVisible is intentionally volume-only for the geometry/oracle layer.
+// Render lit tiles from the presented queries instead: presented visibility is
+// volume visibility OR wall/corner surface presentation. Presented depth is 0
+// for surface-presented tiles, otherwise the volume translucency cost; dim cost
+// >= 1 so tiles seen only through glass do not look crystal clear.
+
 namespace AspectGameEngine
 
 open System
@@ -33,6 +40,7 @@ module private Slope =
 
 type VisibilityState(width: int, height: int) =
     let visibleStamp = Array.zeroCreate<int> (width * height)
+    let disclosedStamp = Array.zeroCreate<int> (width * height)
     let translucencyCost = Array.create<byte> (width * height) 255uy
     let intervalCapacity = max 8 ((width * height) + 8)
     let intervalBufferA = Array.zeroCreate<FovInterval> intervalCapacity
@@ -45,6 +53,7 @@ type VisibilityState(width: int, height: int) =
     member _.BeginStep() =
         if tick = Int32.MaxValue then
             Array.Clear(visibleStamp, 0, visibleStamp.Length)
+            Array.Clear(disclosedStamp, 0, disclosedStamp.Length)
             tick <- 1
         else
             tick <- tick + 1
@@ -52,11 +61,21 @@ type VisibilityState(width: int, height: int) =
     member _.IsVisible(index: int) =
         visibleStamp.[index] = tick
 
+    member _.IsSurfacePresented(index: int) =
+        disclosedStamp.[index] = tick
+
+    member this.IsDisclosed(index: int) =
+        this.IsSurfacePresented(index) && visibleStamp.[index] <> tick
+
+    member this.IsPresentedVisible(index: int) =
+        visibleStamp.[index] = tick || this.IsSurfacePresented(index)
+
     member _.GetTranslucencyCost(index: int) =
         if visibleStamp.[index] = tick then int translucencyCost.[index]
         else -1
 
     member internal _.VisibleStampArray = visibleStamp
+    member internal _.DisclosedStampArray = disclosedStamp
     member internal _.TranslucencyCostArray = translucencyCost
     member internal _.IntervalBufferA = intervalBufferA
     member internal _.IntervalBufferB = intervalBufferB
@@ -65,6 +84,31 @@ type VisibilityState(width: int, height: int) =
 module RectFov =
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     let inline private index (width: int) (x: int) (y: int) = y * width + x
+
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    let inline private signToward (originCoord: int) (tileCoord: int) =
+        if originCoord > tileCoord then 1
+        elif originCoord < tileCoord then -1
+        else 0
+
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    let inline private isTransparentOrAir opacity =
+        match opacity with
+        | TileOpacity.Transparent
+        | TileOpacity.Air -> true
+        | _ -> false
+
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    let inline private isTransparentOrAirAt (map: TileMap) mapWidth x y =
+        x >= 0
+        && x < map.Width
+        && y >= 0
+        && y < map.Height
+        && isTransparentOrAir (map.GetOpacityByIndex(index mapWidth x y))
+
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    let inline private cmpFractions leftNum leftDen rightNum rightDen =
+        compare (int64 leftNum * int64 rightDen) (int64 rightNum * int64 leftDen)
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     let inline private tileSpan (depth: int) (minor: int) =
@@ -104,6 +148,135 @@ module RectFov =
         if cost = 0uy then
             map.Explored.[idx] <- 1uy
 
+    let private supportRayClear
+        (map: TileMap)
+        (mapWidth: int)
+        (originX: int)
+        (originY: int)
+        (targetTileX: int)
+        (targetTileY: int)
+        (supportX4: int)
+        (supportY4: int)
+        =
+        let dx4 = supportX4 - (originX * 4)
+        let dy4 = supportY4 - (originY * 4)
+
+        if dx4 = 0 && dy4 = 0 then
+            true
+        else
+            let sx = Math.Sign(dx4)
+            let sy = Math.Sign(dy4)
+            let absDx = abs dx4
+            let absDy = abs dy4
+            let mutable x = originX
+            let mutable y = originY
+            let mutable nextXNum = 2
+            let mutable nextYNum = 2
+            let mutable steps = 0
+            let maxSteps = map.Width + map.Height + 4
+            let mutable clear = true
+
+            let inline enterTile nx ny =
+                x <- nx
+                y <- ny
+
+                if not (isTransparentOrAirAt map mapWidth x y) then
+                    clear <- false
+
+            while clear && (x <> targetTileX || y <> targetTileY) && steps <= maxSteps do
+                steps <- steps + 1
+
+                if sx = 0 then
+                    enterTile x (y + sy)
+                    nextYNum <- nextYNum + 4
+                elif sy = 0 then
+                    enterTile (x + sx) y
+                    nextXNum <- nextXNum + 4
+                else
+                    let cmp = cmpFractions nextXNum absDx nextYNum absDy
+
+                    if cmp < 0 then
+                        enterTile (x + sx) y
+                        nextXNum <- nextXNum + 4
+                    elif cmp > 0 then
+                        enterTile x (y + sy)
+                        nextYNum <- nextYNum + 4
+                    else
+                        let pinchAOpen = isTransparentOrAirAt map mapWidth (x + sx) y
+                        let pinchBOpen = isTransparentOrAirAt map mapWidth x (y + sy)
+
+                        if not (pinchAOpen || pinchBOpen) then
+                            clear <- false
+                        else
+                            enterTile (x + sx) (y + sy)
+                            nextXNum <- nextXNum + 4
+                            nextYNum <- nextYNum + 4
+
+            clear && steps <= maxSteps && x = targetTileX && y = targetTileY
+
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    let inline private supportPoint4 candidateX candidateY neighborX neighborY =
+        let dx = neighborX - candidateX
+        let dy = neighborY - candidateY
+        struct ((candidateX * 4) + (dx * 3), (candidateY * 4) + (dy * 3))
+
+    let private discloseSurfaces
+        (map: TileMap)
+        (mapWidth: int)
+        (originX: int)
+        (originY: int)
+        (minX: int)
+        (maxX: int)
+        (minY: int)
+        (maxY: int)
+        (currentTick: int)
+        (visibleStamp: int[])
+        (disclosedStamp: int[])
+        (translucencyCost: byte[])
+        =
+        let originIdx = index mapWidth originX originY
+
+        let inline isCostZeroDiscloser x y =
+            let idx = index mapWidth x y
+            visibleStamp.[idx] = currentTick
+            && translucencyCost.[idx] = 0uy
+            && (idx = originIdx || isTransparentOrAir (map.GetOpacityByIndex(idx)))
+
+        let inline tryDiscloser candidateX candidateY x y =
+            if x = candidateX && y = candidateY then
+                false
+            elif x < 0 || x >= map.Width || y < 0 || y >= map.Height then
+                false
+            elif not (isCostZeroDiscloser x y) then
+                false
+            elif x = originX && y = originY then
+                true
+            else
+                let struct (supportX4, supportY4) = supportPoint4 candidateX candidateY x y
+                supportRayClear map mapWidth originX originY x y supportX4 supportY4
+
+        for y in minY .. maxY do
+            for x in minX .. maxX do
+                let idx = index mapWidth x y
+
+                let isVolumeVisible = visibleStamp.[idx] = currentTick
+                let opacity = map.GetOpacityByIndex(idx)
+
+                if not (isTransparentOrAir opacity) then
+                    let shouldEvaluateSurface =
+                        (not isVolumeVisible)
+                        || translucencyCost.[idx] > 0uy
+
+                    if shouldEvaluateSurface then
+                        let sx = signToward originX x
+                        let sy = signToward originY y
+
+                        if tryDiscloser x y (x + sx) y
+                           || tryDiscloser x y x (y + sy)
+                           || tryDiscloser x y (x + sx) (y + sy) then
+                            disclosedStamp.[idx] <- currentTick
+                            map.Explored.[idx] <- 1uy
+
     let private minOverlappingCostFrom
         (intervals: FovInterval[])
         (intervalCount: int)
@@ -129,7 +302,10 @@ module RectFov =
                 if cost < best then
                     best <- cost
 
-                i <- i + 1
+                if best = 0 then
+                    i <- intervalCount
+                else
+                    i <- i + 1
 
         struct (best, nextStartIndex)
 
@@ -219,6 +395,7 @@ module RectFov =
 
         let currentTick = state.CurrentTick
         let visibleStamp = state.VisibleStampArray
+        let disclosedStamp = state.DisclosedStampArray
         let translucencyCost = state.TranslucencyCostArray
 
         if origin.X >= 0 && origin.X < mapWidth && origin.Y >= 0 && origin.Y < mapHeight then
@@ -311,23 +488,49 @@ module RectFov =
 
                         depth <- depth + 1
 
+                discloseSurfaces
+                    map
+                    mapWidth
+                    ox
+                    oy
+                    minX
+                    maxX
+                    minY
+                    maxY
+                    currentTick
+                    visibleStamp
+                    disclosedStamp
+                    translucencyCost
+
     let inline isVisible (state: VisibilityState) (map: TileMap) (x: int) (y: int) =
         if x < 0 || x >= map.Width || y < 0 || y >= map.Height then false
         else state.IsVisible(index map.Width x y)
+
+    let inline isDisclosed (state: VisibilityState) (map: TileMap) (x: int) (y: int) =
+        if x < 0 || x >= map.Width || y < 0 || y >= map.Height then false
+        else state.IsDisclosed(index map.Width x y)
+
+    let inline isPresentedVisible (state: VisibilityState) (map: TileMap) (x: int) (y: int) =
+        if x < 0 || x >= map.Width || y < 0 || y >= map.Height then false
+        else state.IsPresentedVisible(index map.Width x y)
 
     let inline translucencyDepth (state: VisibilityState) (map: TileMap) (x: int) (y: int) =
         if x < 0 || x >= map.Width || y < 0 || y >= map.Height then -1
         else
             let idx = index map.Width x y
             if state.IsVisible(idx) then
-                let cost = state.GetTranslucencyCost(idx)
-                if map.IsExplored(x, y) then
-                    match map.GetOpacity(x, y) with
-                    | TileOpacity.Opaque
-                    | TileOpacity.Translucent -> 0
-                    | _ -> cost
-                else
-                    cost
+                state.GetTranslucencyCost(idx)
+            else
+                -1
+
+    let inline presentedDepth (state: VisibilityState) (map: TileMap) (x: int) (y: int) =
+        if x < 0 || x >= map.Width || y < 0 || y >= map.Height then -1
+        else
+            let idx = index map.Width x y
+            if state.IsSurfacePresented(idx) then
+                0
+            elif state.IsVisible(idx) then
+                state.GetTranslucencyCost(idx)
             else
                 -1
 

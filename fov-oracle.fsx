@@ -441,26 +441,39 @@ for seed in 0 .. 19 do
             let idx = index width x y
             let inWindow = x >= minX && x <= maxX && y >= minY && y <= maxY
             let clipVisible = clipState.IsVisible(idx)
+            let clipDisclosed = clipState.IsDisclosed(idx)
             clipComparisons <- clipComparisons + 1
 
             if not inWindow then
                 if clipVisible then
                     clipMismatches <- clipMismatches + 1
                     printfn "CLIP FAIL seed=%d: tile (%d,%d) outside window is stamped" seed x y
+                if clipDisclosed then
+                    clipMismatches <- clipMismatches + 1
+                    printfn "CLIP FAIL seed=%d: tile (%d,%d) outside window is disclosed" seed x y
             else
-                if clipVisible <> fullState.IsVisible(idx) then
+                let fullVisible = fullState.IsVisible(idx)
+                let fullDisclosed = fullState.IsDisclosed(idx)
+
+                if clipVisible <> fullVisible then
                     clipMismatches <- clipMismatches + 1
                     printfn
                         "CLIP FAIL seed=%d: tile (%d,%d) visibility clip=%b full=%b (budget=%d origin=%d,%d half=%dx%d)"
-                        seed x y clipVisible (fullState.IsVisible(idx)) budget ox oy halfW halfH
+                        seed x y clipVisible fullVisible budget ox oy halfW halfH
                 elif clipVisible && clipState.GetTranslucencyCost(idx) <> fullState.GetTranslucencyCost(idx) then
                     clipMismatches <- clipMismatches + 1
                     printfn
                         "CLIP FAIL seed=%d: tile (%d,%d) cost clip=%d full=%d"
                         seed x y (clipState.GetTranslucencyCost(idx)) (fullState.GetTranslucencyCost(idx))
 
+                if clipDisclosed <> fullDisclosed then
+                    clipMismatches <- clipMismatches + 1
+                    printfn
+                        "CLIP FAIL seed=%d: tile (%d,%d) disclosure clip=%b full=%b (budget=%d origin=%d,%d half=%dx%d)"
+                        seed x y clipDisclosed fullDisclosed budget ox oy halfW halfH
+
 if clipMismatches > 0 then
     fail (sprintf "window-clip differential check had %d mismatches." clipMismatches)
 
-printfn "\nPASSED: window-clip differential check (%d tile comparisons across 20 seeded maps)." clipComparisons
+printfn "\nPASSED: window-clip differential check, including disclosure stamps (%d tile comparisons across 20 seeded maps)." clipComparisons
 printfn "\n========== FOV ORACLE WINDOW-CLIP CHECK PASSED =========="
