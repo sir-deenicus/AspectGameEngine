@@ -55,9 +55,8 @@ fillMap map floorLoc wallLoc glassLoc
 let state = VisibilityState(mapW, mapH)
 let origin = GridPos(mapW / 2, mapH / 2)
 
-let runAllBenches (map: TileMap) (state: VisibilityState) (origin: GridPos) (useSuper: bool) =
-    let superstr = if useSuper then "(and supercover raycasting)" else ""
-    printfn "FOV type: v0.2d Opus approach with local fill and shallow slope pinhole correction, get opacity optimization %s" superstr
+let runAllBenches (map: TileMap) (state: VisibilityState) (origin: GridPos) =
+    printfn "FOV type: interval visibility engine with cost-carrying angular spans"
 
     bench "1080p-ish" map state origin 20 10 2 2000
     bench "1440p-ish" map state origin 26 13 2 2000
@@ -65,9 +64,7 @@ let runAllBenches (map: TileMap) (state: VisibilityState) (origin: GridPos) (use
     bench "stress"    map state origin 60 40 2 500
     printfn ""
 
-// run the suite with both modes
-runAllBenches map state origin false
-runAllBenches map state origin true
+runAllBenches map state origin
 
 (*
 Results:

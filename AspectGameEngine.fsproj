@@ -11,6 +11,8 @@
   </PropertyGroup>
   <ItemGroup>
     <None Include="entity-registry-test.fsx" />
+    <None Include="fov-oracle.fsx" />
+    <None Include="fov-tests.fsx" />
     <None Include="map-tests.fsx" />
     <None Include="tests.fsx" />
     <Compile Include="PersistentVector.fs" />
