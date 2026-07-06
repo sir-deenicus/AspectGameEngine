@@ -78,6 +78,12 @@ view covers y >= viewY0 and y < viewY1
 
 That matches the overlap test in the implementation.
 
+## Focused Tests
+
+Focused coverage lives in `occluder-tests.fsx`. The script characterizes the current rectangle-only contract rather than trying to drive renderer behavior.
+
+The covered cases are empty managers, single cells and removal, horizontal and vertical run merging, rectangular block merging, separated blocks, chunk-boundary splitting, dedicated closed-door rectangles, door open/closed toggling, `SetFromTileAndLayer` effective opacity from base tiles, fixtures, and actors, `ClearAll`, and `ForEachRectInView` far-edge-exclusive filtering.
+
 ## How It Fits The Map
 
 The occluder manager is not the authoritative map. `TileMap` owns tiles, layer cells, and the effective opacity cache. The occluder manager owns a derived occluder grid and derived occluder geometry.
@@ -114,7 +120,7 @@ The manager assumes positive fixed dimensions. It is not a resizable structure. 
 
 ## Staged Plan
 
-Stage 1 is to lock down the rectangle-only contract with focused tests. The important cases are empty maps, single cells, merged runs, rectangular blocks, separated blocks, doors as the current named dynamic case, door toggles, ordinary mutable opacity changes, chunk boundaries, `ClearAll`, and `ForEachRectInView`.
+Stage 1 is complete. The rectangle-only contract is locked down by `occluder-tests.fsx`, covering empty maps, single cells, merged runs, rectangular blocks, separated blocks, doors as the current named dynamic case, door toggles, ordinary mutable opacity changes, chunk boundaries, `ClearAll`, and `ForEachRectInView`.
 
 Stage 2 is to make mutable occluder state less door-specific. The current door flag can stay as the first implementation, but the data model should be ready for other independently changing blockers: constructed walls, destroyed terrain, fixtures, smoke, fog, glass, force fields, and temporary spell effects. The first useful improvement is probably a small occluder-cell classification rather than more special-case booleans.
 
@@ -124,13 +130,14 @@ Stage 4 is to add explicit rebuild helpers for common map lifecycle events. `Cle
 
 Stage 5 is to keep the archived edge/inset approach archived unless rectangle output stops being enough. If that happens later, revive it as a separate design pass with tests, not as an accidental expansion of the rectangle manager.
 
-## Open Task
+## Current Status
 
-Add focused tests for `ChunkOcclusionManager` and use those tests to make the rectangle-only contract official.
+The focused `ChunkOcclusionManager` tests are in place and passing as of 2026-07-06. No active occluder implementation task remains in this document.
 
 ## Source Map
 
 - `ChunkOcclusionManager.fs` - current manager and live behavior.
+- `occluder-tests.fsx` - focused rectangle-only contract tests.
 - `Types.fs` - `TileOpacity` and opacity helpers.
 - `LayerGrid.fs` - `LayerQueries.EffectiveTileOpacity`.
 - `Maps.fs` - runtime `TileMap` and effective opacity cache.
@@ -147,3 +154,8 @@ Add focused tests for `ChunkOcclusionManager` and use those tests to make the re
 - Reworked the note into a prose system document: live behavior, mutable environment updates, tradeoffs, limitations, source map, and the first test-focused occluder plan.
 - Clarified the main design direction: keep rebuilds local by chunking merged geometry and by treating independently mutable occluders as their own update concern.
 - Accepted rectangle-only output as the current plan and replaced the open-ended task note with a staged plan for tests, dynamic occluder state, dirty-work splitting, and lifecycle helpers.
+
+### 2026-07-06
+
+- Added focused `ChunkOcclusionManager` tests in `occluder-tests.fsx`.
+- Marked Stage 1 complete: the current rectangle-only output contract, door special case, chunk-boundary behavior, layer-derived opacity, clearing, and view filtering are now covered by tests.

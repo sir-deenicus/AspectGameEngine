@@ -765,10 +765,13 @@ module PersistentVector =
     let empty<'T> : PersistentVector<'T> = PersistentVector<'T>.Empty()
     let inline singleton (value: 'T) : PersistentVector<'T> = empty.Conj(value)
     let ofSeq (items: 'T seq) : PersistentVector<'T> =
-        if Seq.isEmpty items then empty
+        use e = items.GetEnumerator()
+        if not (e.MoveNext()) then empty
         else
             let tv = TransientVector<'T>()
-            for item in items do tv.Conj(item) |> ignore
+            tv.Conj(e.Current) |> ignore
+            while e.MoveNext() do
+                tv.Conj(e.Current) |> ignore
             tv.Persistent()
     let init (count: int) (initializer: int -> 'T) : PersistentVector<'T> =
         if count < 0 then invalidArg "count" "Count must be non-negative."
@@ -878,15 +881,18 @@ module PersistentVector =
 
     /// Concatenates a sequence of persistent vectors into a single new persistent vector.
     let concat (vectors: seq<PersistentVector<'T>>) : PersistentVector<'T> =
-        // Handle empty input sequence early
-        if Seq.isEmpty vectors then
+        use e = vectors.GetEnumerator()
+        if not (e.MoveNext()) then
             PersistentVector<'T>.Empty()
         else
             let tv = TransientVector<'T>() // Create one transient for the entire operation
-            for vectorInstance in vectors do
-                // For each vector in the input sequence, conj its elements to the transient
-                for item in vectorInstance do  
+            let addVector (vectorInstance: PersistentVector<'T>) =
+                for item in vectorInstance do
                     tv.Conj item |> ignore
+
+            addVector e.Current
+            while e.MoveNext() do
+                addVector e.Current
             
             // If the transient is still empty after processing all vectors (e.g., seq of empty vectors),
             // return the canonical empty persistent vector. Otherwise, persist the transient.
@@ -902,22 +908,37 @@ module PersistentVector =
 
     // --- Batch Update --- 
     let updateMany (updates: seq<int * 'TValue>) (vector: PersistentVector<'TValue>) : PersistentVector<'TValue> =
-        if Seq.isEmpty updates then vector else
+        use e = updates.GetEnumerator()
+        if not (e.MoveNext()) then vector else
             let transient = vector.AsTransient()
-            for (index, valueToSet) in updates do transient.UpdateInPlace(index, valueToSet) |> ignore
+            let applyUpdate (index, valueToSet) =
+                transient.UpdateInPlace(index, valueToSet) |> ignore
+
+            applyUpdate e.Current
+            while e.MoveNext() do
+                applyUpdate e.Current
             transient.Persistent()
 
     /// Updates multiple elements in the vector using a mapping function to determine the indices.
     let updateManyWithIndexMap (indexMapper: 'a -> int) (updates: seq<'a * 'TValue>)  (vector: PersistentVector<'TValue>) =
-        if Seq.isEmpty updates then vector else
+        use e = updates.GetEnumerator()
+        if not (e.MoveNext()) then vector else
            let transient = vector.AsTransient()
-           for (index, valueToSet) in updates do transient.UpdateInPlace(indexMapper index, valueToSet) |> ignore
+           let applyUpdate (index, valueToSet) =
+               transient.UpdateInPlace(indexMapper index, valueToSet) |> ignore
+
+           applyUpdate e.Current
+           while e.MoveNext() do
+               applyUpdate e.Current
            transient.Persistent() 
 
     let updateManyWith (map: 'a -> int * 'T) (updates: seq<'a>) (vector: PersistentVector<'T>) =
-        if Seq.isEmpty updates then vector else
+        use e = updates.GetEnumerator()
+        if not (e.MoveNext()) then vector else
            let transient = vector.AsTransient()
-           for update in updates do transient.UpdateInPlace(map update) |> ignore
+           transient.UpdateInPlace(map e.Current) |> ignore
+           while e.MoveNext() do
+               transient.UpdateInPlace(map e.Current) |> ignore
            transient.Persistent() 
  
     let (|Unconj_Last|Empty|) (vector: PersistentVector<'T>) =

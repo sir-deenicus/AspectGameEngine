@@ -788,11 +788,40 @@ locale = "test"
     
     printfn "--- testEmptyPack: PASSED ---"
 
+let testNegativeExactVariantBinaryRoundTrip () =
+    printfn "\n--- Test: Negative exact variant binary round-trip ---"
+    let aglText = """
+edge.count(count) {
+  =-1: "Negative"
+  other: "Other"
+}
+"""
+    let file = AglParser.Parse(aglText)
+    let pack1 = AglPacker.Build(file)
+    let bytes = AglPacker.WriteBinary(pack1)
+    let pack2 = AglPacker.ReadBinary(bytes)
+
+    let idx = pack2.Index.["edge.count"]
+    match pack2.Messages.[idx] with
+    | Plural (_, variants) ->
+        match variants.[0].Label with
+        | Exact -1 -> ()
+        | other -> failwithf "Expected Exact -1, got %A" other
+    | other ->
+        failwithf "Expected Plural message, got %A" other
+
+    let loc = Localizer(pack2)
+    let emptyArgs = Dictionary<string,obj>() :> IReadOnlyDictionary<string,obj>
+    assertEquals "Negative" (loc.Plural("edge.count", -1L, emptyArgs)) "Plural exact -1 resolves after binary round-trip"
+
+    printfn "--- testNegativeExactVariantBinaryRoundTrip: PASSED ---"
+
 let runLocalizationPackerTests () =
     printfn "\n=== Running Localization Packer Tests ==="
     testBinaryPackRoundTrip ()
     testZigZagEncoding ()
     testEmptyPack ()
+    testNegativeExactVariantBinaryRoundTrip ()
     printfn "\n=== All Localization Packer Tests Passed ===" 
 
 //==========================
@@ -1183,6 +1212,3 @@ let runAllButLocalizerTests() =
 //runAllButLocalizerTests()
 
 runAllTests()
-    
-
-    

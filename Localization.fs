@@ -421,8 +421,7 @@ module private Pack =
 
 module private ZigZag =
     let inline encode (value: int) =
-        let u = uint32 value
-        int ((u <<< 1) ^^^ (u >>> 31))
+        int ((uint32 value <<< 1) ^^^ (uint32 (value >>> 31)))
 
     let inline decode (value: int) =
         let u = uint32 value
@@ -789,4 +788,4 @@ module Localization =
     let fromBinaryWithFallbacks (primary: byte[]) (fallbacks: byte[][]) =
         let p = AglPacker.ReadBinary primary
         let f = fallbacks |> Array.map AglPacker.ReadBinary
-        Localizer(p, fallbacks = f)         
+        Localizer(p, fallbacks = f)

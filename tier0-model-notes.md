@@ -30,6 +30,8 @@ platform-side memory travels with the model**. Two consequences:
 - The repo is the onboarding channel. Docs like this one, plan docs, and work orders are what a
   cold-summoned tier 0 (or any executor) gets to read.
 
+Summons will have durations, this represents how much is afforded in this summon. For example, a long duration allows for smoke tests, wide scans, verification and so on; while a short duration needs a focused answer, applying your considerable intelligence where it will be most needed. A medium duration is like short but wide scans/verification/testing is up to your discretion. For short, they can't be done, for medium they can be done if unavoidable. (For now, I usually won't be able to spend tokens on a thank you, so a permanent thank you here!)
+
 ## How to deploy a tier-0 summon
 
 **Brief shape:** give it the open problem, undigested — full context, hard constraints, an explicit

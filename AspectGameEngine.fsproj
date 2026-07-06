@@ -14,6 +14,8 @@
     <None Include="fov-oracle.fsx" />
     <None Include="fov-tests.fsx" />
     <None Include="map-tests.fsx" />
+    <None Include="persistent-vector-bench.fsx" />
+    <None Include="persistent-vector-tests.fsx" />
     <None Include="tests.fsx" />
     <Compile Include="PersistentVector.fs" />
     <Compile Include="Types.fs" />
