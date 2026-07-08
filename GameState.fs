@@ -14,6 +14,12 @@ type InteractResult =
     | Nothing
     | Msg of msgkey:string 
 
+module InteractResult =
+    let ofInteractionResult (result: InteractionResult) =
+        match result.Message with
+        | Some message when result.Succeeded -> InteractResult.Msg message.Key
+        | _ -> InteractResult.Nothing
+
 type LookAtResult =
     | Null = 0
     | SingleObject = 1
@@ -184,29 +190,53 @@ module Doors =
 
     let tryAutoOpenDoor (model: GameModel) (pos: GridPos) : bool =
         tryAutoOpenDoorAt model pos.X pos.Y
-    
-    let tryInteractDoor (model: GameModel) (pos: GridPos) (interaction: DoorAction) : InteractResult =
+
+    let private doorMessage key =
+        Some { Key = key; Args = [||] }
+
+    let private doorChangedResult pos messageKey visibilityInputChanged occlusionInputChanged =
+        { Succeeded = true
+          Message = doorMessage messageKey
+          TargetPosition = Some pos
+          TargetSlot = Some ChangeSlot.BaseTile
+          Changes =
+            { ChangedBaseCells = [| pos |]
+              ChangedLayerCells = [||]
+              ChangedEntities =
+                [| { Position = pos
+                     Slot = ChangeSlot.BaseTile
+                     EntityId = None
+                     LocalObjectId = None } |]
+              VisibilityInputChanged = visibilityInputChanged
+              OcclusionInputChanged = occlusionInputChanged
+              SaveRelevant = true } }
+
+    let tryInteractDoorResult (model: GameModel) (pos: GridPos) (interaction: DoorAction) : InteractionResult =
         let map = model.Map
-        if not (Utils.inBounds map pos) then Nothing
+        if not (Utils.inBounds map pos) then InteractionResult.Nothing
         else
-            let tileIndex = Utils.indexOf map pos
             let tile = map.GetTile(pos.X, pos.Y)
             let props = map.GetTileProperties(pos.X, pos.Y)
-            if props.TileType <> TileType.Door then Nothing
+            if props.TileType <> TileType.Door then InteractionResult.Nothing
             else
                 let tileSet = TilesetRegistry.get map.TileSetName
                 match interaction with  
                 | DoorAction.OpenOrCloseDoor ->
-                    //we know that doors only have one state they point to. Get the zero index of current object's visual state:
+                    // Doors always use the first visual entry of the current state as the target state.
                     let tileInfo = tileSet[tile.SpriteLoc]
-                    if tileInfo.Visuals.Length = 0 then Nothing
+                    if tileInfo.Visuals.Length = 0 then InteractionResult.Nothing
                     else
                         let visualsInfo = tileInfo.Visuals[0]
-                        let targetSpriteLoc = visualsInfo.SpriteLoc
-                        //set spriteLoc at current tile
-                        map.Update(pos.X, pos.Y, { tile with SpriteLoc = targetSpriteLoc })
-                        InteractResult.Msg visualsInfo.Key // the key will be the name of the state we want to switch to
-                | _ -> Nothing
+                        let oldOpacity = map.GetOpacity(pos.X, pos.Y)
+                        map.Update(pos.X, pos.Y, { tile with SpriteLoc = visualsInfo.SpriteLoc })
+                        let newOpacity = map.GetOpacity(pos.X, pos.Y)
+                        let opacityChanged = oldOpacity <> newOpacity
+                        doorChangedResult pos visualsInfo.Key opacityChanged opacityChanged
+                | _ -> InteractionResult.Nothing
+    
+    let tryInteractDoor (model: GameModel) (pos: GridPos) (interaction: DoorAction) : InteractResult =
+        tryInteractDoorResult model pos interaction
+        |> InteractResult.ofInteractionResult
 
 module GameUpdate = 
     let recomputeVisibility (model: GameModel) : unit =
@@ -406,12 +436,15 @@ module GameUpdate =
               LayerKey2 = k2
               BaseKey = baseKey }
 
-    let interactAt (model: GameModel) (pos: GridPos) (interaction: InteractionType)  =
+    let interactAtResult (model: GameModel) (pos: GridPos) (interaction: InteractionType) : InteractionResult =
         // Keep this thin: resolve what we hit, then delegate.
-        let map = model.Map 
         match interaction with
-        | InteractionType.NullAction -> Nothing
-        | InteractionType.DoorInteraction doorAction -> Doors.tryInteractDoor model pos doorAction
+        | InteractionType.NullAction -> InteractionResult.Nothing
+        | InteractionType.DoorInteraction doorAction -> Doors.tryInteractDoorResult model pos doorAction
+
+    let interactAt (model: GameModel) (pos: GridPos) (interaction: InteractionType)  =
+        interactAtResult model pos interaction
+        |> InteractResult.ofInteractionResult
 
     /// Infer a sensible interaction for the tile at `pos` and dispatch to `interactAt`.
     /// This preserves the ability to call `interactAt` directly with an explicit
@@ -419,21 +452,25 @@ module GameUpdate =
     /// interactions that should pick an appropriate action based on tile type.
     /// Auto-resolving interaction helper that accepts pre-fetched tile properties.
     /// Accepting `props` lets callers avoid a second property lookup.
-    let interactAutoAt (model: GameModel) (playerPos: GridPos) (pos: GridPos) (props: TileProperties) : InteractResult =
+    let interactAutoAtResult (model: GameModel) (playerPos: GridPos) (pos: GridPos) (props: TileProperties) : InteractionResult =
         let map = model.Map
-        if not (Utils.inBounds map pos) then Nothing
+        if not (Utils.inBounds map pos) then InteractionResult.Nothing
         else
             match props.TileType with
             | TileType.Door ->
                 // Ignore doors if player is standing on the same tile
-                if pos = playerPos then Nothing
-                else Doors.tryInteractDoor model pos DoorAction.OpenOrCloseDoor
-            | _ -> Nothing
+                if pos = playerPos then InteractionResult.Nothing
+                else Doors.tryInteractDoorResult model pos DoorAction.OpenOrCloseDoor
+            | _ -> InteractionResult.Nothing
+
+    let interactAutoAt (model: GameModel) (playerPos: GridPos) (pos: GridPos) (props: TileProperties) : InteractResult =
+        interactAutoAtResult model playerPos pos props
+        |> InteractResult.ofInteractionResult
 
     /// Attempt to interact on behalf of the player.  Returns
     /// (visualUpdateNeeded, result).  Spatial tie-breaker order is:
     /// facing tile ▶ current tile ▶ north ▶ south ▶ behind.
-    let tryForInteractions (model: GameModel) : bool * InteractResult =
+    let tryForInteractionsResult (model: GameModel) : bool * InteractionResult =
         let p = model.PlayerModel
         let pos = p.PlayerPos
         let dx = if p.PlayerVisual.Facing = ActorFacing.Right then 1 else -1
@@ -446,7 +483,7 @@ module GameUpdate =
             GridPos(pos.X - dx, pos.Y)       // behind
         |]
 
-        let mutable result = Nothing
+        let mutable result = InteractionResult.Nothing
         let mutable found = false
         let mutable i = 0
         while i < candidates.Length && not found do
@@ -456,17 +493,22 @@ module GameUpdate =
                 if props.Interactable then
                     // Use the auto-resolving helper which will dispatch to the
                     // appropriate interaction handler (doors, etc.). 
-                    let res = interactAutoAt model pos cand props
-                    match res with
-                    | Nothing -> ()
-                    | Msg _ ->
+                    let res = interactAutoAtResult model pos cand props
+                    if res.Succeeded then
                         result <- res
                         found <- true
             i <- i + 1
 
         if found then
-            recomputeVisibility model
+            if result.Changes.VisibilityInputChanged then
+                recomputeVisibility model
             true, result
         else
-            false, Nothing
+            false, InteractionResult.Nothing
 
+    /// Attempt to interact on behalf of the player. Returns
+    /// (visualUpdateNeeded, result). Spatial tie-breaker order is:
+    /// facing tile, current tile, north, south, behind.
+    let tryForInteractions (model: GameModel) : bool * InteractResult =
+        let succeeded, result = tryForInteractionsResult model
+        succeeded, InteractResult.ofInteractionResult result

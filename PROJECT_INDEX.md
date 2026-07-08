@@ -6,12 +6,14 @@ Start here when orienting yourself in AspectGameEngine.
 
 - `AGENTS.md` - repository instructions for coding agents.
 - `PROJECT_ETHOS.md` - project-wide engineering principles.
+- `docs/triage.md` - active engine slice triage and ordering.
+- `docs/todo.md` - active engine implementation checklist.
 - `docs/Occluder-Task.md` - chunk occluder behavior, test coverage, and future work.
 - `Readme.md` - older overview; useful, but scheduled for cleanup.
 
 ## Current Task
 
-The current thread completed the documentation pass and the focused chunk occluder test hardening. The next active task has not been selected yet.
+The active task is tracked in `docs/triage.md`: durable engine support for the Light, Lock, And Look slice, including moveables, pickup/drop, containers, inventory, keys, locks, nearby look data, rock-on-rune reversible wall-to-floor tile swaps, localization keys, visibility/occlusion coherence, and serialization tests.
 
 Completed or active docs from this pass:
 
@@ -41,6 +43,8 @@ Root docs:
 
 Technical docs and task notes:
 
+- `docs/triage.md`
+- `docs/todo.md`
 - `docs/2D-Engine.md`
 - `docs/Animation.md`
 - `docs/Containers.md`
@@ -111,5 +115,8 @@ No design-doc tree exists here. Keep `docs/` technical unless the project direct
 
 ## Todo Sources
 
+- `docs/triage.md` - active engine slice triage.
+- `docs/todo.md` - active engine task checklist.
 - `docs/Occluder-Task.md` - chunk occluder behavior, completed focused test coverage, and staged future work.
 - Future task docs should be added under `docs/` when they become active technical work.
+

@@ -176,10 +176,10 @@ Gameplay code should prefer returning a small result shape:
 ```fsharp
 type LocalizedMessage =
     { Key: string
-      Args: IReadOnlyDictionary<string, obj> }
+      Args: IReadOnlyDictionary<string, LocalizedArg> }
 ```
 
-The exact type can change, but the rule should hold: engine and game systems report facts and keys; the frontend or UI-facing game layer renders language-specific text.
+`LocalizedArg` is a closed union, not an untyped argument bag. It supports typed text, integers, 64-bit integers, decimals, floats, booleans, and date-time values. The exact outer message type can change, but the rule should hold: engine and game systems report facts and keys; the frontend or UI-facing game layer renders language-specific text.
 
 Useful key namespaces:
 
@@ -256,7 +256,7 @@ Packer coverage includes:
 Runtime localizer coverage includes:
 
 - `Get` and `TryGet`
-- formatting with arguments
+- formatting with typed arguments
 - plural selection and count injection
 - select fallback to `other`
 - alias chains
@@ -280,8 +280,6 @@ Do not infer locale fallback from arbitrary global state. The caller should choo
 
 ## Future Work
 
-Use the constructor `formatProvider` consistently. `TryGet` uses the stored provider through simple rendering, while `Format`, `Select`, and `Plural` currently pass `CultureInfo.CurrentCulture` directly in their render path. This is a correctness cleanup before locale-sensitive formatting becomes user-facing.
-
 Separate plural classification from the selector-name heuristic. Today `count` means `Plural`; any other selector means `Select`. A more explicit authoring shape would be clearer and safer for future non-count plural selectors.
 
 Consider CLDR plural rules when the game needs real multi-language plural behavior. The current runtime is intentionally small and English-like: exact labels win first, then `zero`, `one`, or `other`.
@@ -299,6 +297,12 @@ Consider arrays for runtime pieces if profiling says list traversal matters. The
 Add editor tooling around `.agl` authoring. The useful first tools are parse diagnostics with line/column context, key search, stale-key detection against engine content definitions, and binary pack generation.
 
 ## Historical Notes
+
+### 2026-07-07
+
+- Replaced boxed localization arguments with the typed `LocalizedArg` union and changed the public runtime `Args` alias to `IReadOnlyDictionary<string, LocalizedArg>`.
+- Updated `Format`, `Select`, and `Plural` to render typed arguments without `obj`/`box` and to use the localizer's configured `formatProvider` consistently.
+- Updated localization tests and docs to use typed arguments, including plural count injection as `LocalizedArg.Int64`.
 
 ### 2026-07-06
 

@@ -268,6 +268,57 @@ type TileMap =
                     this.RecomputeEffectiveOpacityAt(x2, y2)
                     true
 
+    /// Atomically pushes the fixture at (fixtureX,fixtureY) to (fixtureDestX,fixtureDestY)
+    /// and moves the actor at (actorX,actorY) into the fixture's old cell.
+    member this.TryPushFixtureAndMoveActor(actorX: int, actorY: int, fixtureX: int, fixtureY: int, fixtureDestX: int, fixtureDestY: int) : bool =
+        if actorX < 0 || actorX >= this.Width || actorY < 0 || actorY >= this.Height ||
+           fixtureX < 0 || fixtureX >= this.Width || fixtureY < 0 || fixtureY >= this.Height ||
+           fixtureDestX < 0 || fixtureDestX >= this.Width || fixtureDestY < 0 || fixtureDestY >= this.Height then
+            false
+        elif not (this.IsWalkable(fixtureX, fixtureY)) || not (this.IsWalkable(fixtureDestX, fixtureDestY)) then
+            false
+        elif this.IsOccupied(fixtureDestX, fixtureDestY) then
+            false
+        else
+            let actorCell = this.GetLayerCell(actorX, actorY)
+            let fixtureCell = this.GetLayerCell(fixtureX, fixtureY)
+            let fixtureDestCell = this.GetLayerCell(fixtureDestX, fixtureDestY)
+            match actorCell.ActorId, actorCell.FixtureId, fixtureCell.ActorId, fixtureCell.FixtureId, fixtureDestCell.ActorId, fixtureDestCell.FixtureId with
+            | Some actorId, None, None, Some fixtureId, None, None ->
+                actorCell.ActorId <- None
+                fixtureCell.FixtureId <- None
+                fixtureCell.ActorId <- Some actorId
+                fixtureDestCell.FixtureId <- Some fixtureId
+                this.RecomputeEffectiveOpacityAt(actorX, actorY)
+                this.RecomputeEffectiveOpacityAt(fixtureX, fixtureY)
+                this.RecomputeEffectiveOpacityAt(fixtureDestX, fixtureDestY)
+                true
+            | _ -> false
+
+    /// Swaps the actor at (actorX,actorY) with the fixture at (fixtureX,fixtureY).
+    /// This is intended for movement rules such as moveable push/swap where the
+    /// occupied actor cell is the fixture destination.
+    member this.TrySwapActorAndFixture(actorX: int, actorY: int, fixtureX: int, fixtureY: int) : bool =
+        if actorX < 0 || actorX >= this.Width || actorY < 0 || actorY >= this.Height ||
+           fixtureX < 0 || fixtureX >= this.Width || fixtureY < 0 || fixtureY >= this.Height then
+            false
+        else
+            let actorCell = this.GetLayerCell(actorX, actorY)
+            let fixtureCell = this.GetLayerCell(fixtureX, fixtureY)
+            match actorCell.ActorId, actorCell.FixtureId, fixtureCell.ActorId, fixtureCell.FixtureId with
+            | Some actorId, None, None, Some fixtureId ->
+                if not (this.IsWalkable(fixtureX, fixtureY)) then
+                    false
+                else
+                    actorCell.ActorId <- None
+                    actorCell.FixtureId <- Some fixtureId
+                    fixtureCell.FixtureId <- None
+                    fixtureCell.ActorId <- Some actorId
+                    this.RecomputeEffectiveOpacityAt(actorX, actorY)
+                    this.RecomputeEffectiveOpacityAt(fixtureX, fixtureY)
+                    true
+            | _ -> false
+
     member this.AddDecal(x: int, y: int, decalId: int) =
         if x >= 0 && x < this.Width && y >= 0 && y < this.Height then
             let cell = this.GetLayerCell(x, y)

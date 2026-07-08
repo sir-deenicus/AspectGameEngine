@@ -596,15 +596,41 @@ type AglPacker =
 
 // ====================== Localizer (public runtime API) ======================
 
-type Args = IReadOnlyDictionary<string, obj>
+[<RequireQualifiedAccess>]
+[<Struct>]
+type LocalizedArg =
+    | Text of text: string
+    | Int of intValue: int
+    | Int64 of int64Value: int64
+    | Decimal of decimalValue: decimal
+    | Float of floatValue: float
+    | Bool of boolValue: bool
+    | DateTime of dateTimeValue: DateTime
+
+type Args = IReadOnlyDictionary<string, LocalizedArg>
 
 module private Args =
-    let ofList (pairs: (string * obj) list) =
-        let d = Dictionary<string,obj>(StringComparer.Ordinal)
+    let ofList (pairs: (string * LocalizedArg) list) =
+        let d = Dictionary<string, LocalizedArg>(StringComparer.Ordinal)
         for (k,v) in pairs do d[k] <- v
         d :> IReadOnlyDictionary<_,_>
 
 module private Render =
+    let formatArg (arg: LocalizedArg) (format: string voption) (fp: IFormatProvider) =
+        let inline formatFormattable (value: #IFormattable) =
+            match format with
+            | ValueSome fmt -> value.ToString(fmt, fp)
+            | ValueNone -> value.ToString(null, fp)
+
+        match arg with
+        | LocalizedArg.Text text -> text
+        | LocalizedArg.Int value -> formatFormattable value
+        | LocalizedArg.Int64 value -> formatFormattable value
+        | LocalizedArg.Decimal value -> formatFormattable value
+        | LocalizedArg.Float value -> formatFormattable value
+        | LocalizedArg.Bool value -> value.ToString()
+        | LocalizedArg.DateTime value -> formatFormattable value
+
     let renderPieces (pieces: SimpleMessage) (args: Args voption) (fp: IFormatProvider) : string =
         let sb = StringBuilder()
         let tryGet (name: string) =
@@ -620,11 +646,7 @@ module private Render =
             | Hole ph ->
                 match tryGet ph.Name with
                 | ValueSome v ->
-                    match ph.Format, v with
-                    | ValueSome fmt, (:? IFormattable as f) -> sb.Append(f.ToString(fmt, fp)) |> ignore
-                    | ValueSome _, _ -> sb.Append(v.ToString()) |> ignore
-                    | ValueNone, (:? IFormattable as f) -> sb.Append(f.ToString(null, fp)) |> ignore
-                    | ValueNone, _ -> sb.Append(v.ToString()) |> ignore
+                    sb.Append(formatArg v ph.Format fp) |> ignore
                 | ValueNone ->
                     // Keep placeholder visible for diagnostics
                     sb.Append('{').Append(ph.Name) |> ignore
@@ -716,13 +738,13 @@ type Localizer(pack: AglPack, ?fallbacks: AglPack array, ?formatProvider: IForma
         this.TryGet(key) |> ValueOption.defaultValue key
 
     // Format with args for Simple messages (or alias to simple)
-    member this.Format(key: string, args: IReadOnlyDictionary<string,obj>) : string =
+    member this.Format(key: string, args: Args) : string =
         match this.ResolveSimple(key) with
-        | ValueSome pieces -> Render.renderPieces pieces (ValueSome args) (CultureInfo.CurrentCulture)
+        | ValueSome pieces -> Render.renderPieces pieces (ValueSome args) fp
         | _ -> key
 
     // Select variants (iterative alias resolution)
-    member this.Select(key: string, label: string, args: IReadOnlyDictionary<string,obj>) : string =
+    member this.Select(key: string, label: string, args: Args) : string =
         let visited = HashSet<string>(StringComparer.Ordinal)
         let mutable current = key
         let mutable output = key
@@ -734,7 +756,7 @@ type Localizer(pack: AglPack, ?fallbacks: AglPack array, ?formatProvider: IForma
                 | ValueSome (struct (_,_, Select (_, vars))) ->
                     match Render.pickCategory vars label with
                     | Some msg ->
-                        output <- Render.renderPieces msg (ValueSome args) (CultureInfo.CurrentCulture)
+                        output <- Render.renderPieces msg (ValueSome args) fp
                         complete <- true
                     | None -> output <- current; complete <- true
                 | ValueSome (struct (_,_, Alias target)) -> current <- target
@@ -742,7 +764,7 @@ type Localizer(pack: AglPack, ?fallbacks: AglPack array, ?formatProvider: IForma
         output
 
     // Plural variants (iterative alias resolution; inject count)
-    member this.Plural(key: string, count: int64, args: IReadOnlyDictionary<string,obj>) : string =
+    member this.Plural(key: string, count: int64, args: Args) : string =
         let visited = HashSet<string>(StringComparer.Ordinal)
         let mutable current = key
         let mutable output = key
@@ -755,9 +777,9 @@ type Localizer(pack: AglPack, ?fallbacks: AglPack array, ?formatProvider: IForma
                     match Render.pickPlural vars count with
                     | Some msg ->
                         // build overlay with count; small fast path
-                        let dict = Dictionary<string,obj>(args, StringComparer.Ordinal)
-                        dict.["count"] <- box count
-                        output <- Render.renderPieces msg (ValueSome dict) (CultureInfo.CurrentCulture)
+                        let dict = Dictionary<string, LocalizedArg>(args, StringComparer.Ordinal)
+                        dict.["count"] <- LocalizedArg.Int64 count
+                        output <- Render.renderPieces msg (ValueSome dict) fp
                         complete <- true
                     | None -> output <- current; complete <- true
                 | ValueSome (struct (_,_, Alias target)) -> current <- target

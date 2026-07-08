@@ -11,7 +11,7 @@ let assertEquals expected actual message =
         printfn "PASSED: %s (Value: %A)" message actual
 
 let rodict pairs =
-    Dictionary(dict pairs) :> IReadOnlyDictionary<string, obj>
+    Dictionary(dict pairs) :> Args
 
 let testNegativeExactVariantBinaryRoundTrip () =
     printfn "\n--- Test: Negative exact variant binary round-trip ---"

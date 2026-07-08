@@ -197,13 +197,15 @@ The engine includes small gameplay-facing helpers, but they are still map/data h
 
 `TileMap.IsWalkable` reads base tile properties from the registered tileset. `TileMap.IsOccupied` checks the tile's own `IsOccupied` flag, then actor presence, then blocking fixtures. Actors are always treated as movement blockers. Fixtures block only if their registered fixture properties say so.
 
-`TryMoveActor` validates bounds, walkability, and occupancy before moving the actor id between layer cells. `TryMoveFixture` validates fixture presence and, when the fixture blocks movement, validates the destination.
+`TryMoveActor` validates bounds, walkability, and occupancy before moving the actor id between layer cells. `TryMoveFixture` validates fixture presence and, when the fixture blocks movement, validates the destination. `TryPushFixtureAndMoveActor` is the narrow atomic helper for the moveable push case: it moves the fixture forward and the actor into the fixture's old cell as one validated map mutation. `TrySwapActorAndFixture` is the narrow helper for movement rules that intentionally swap the player actor with a fixture in an adjacent cell, such as the moveable push-or-swap rule.
 
-`GameState.fs` wraps a runtime map in `GameModel`, tracks player position and visibility settings, recomputes FOV, dispatches simple door interactions, and implements `lookAt`. `lookAt` combines the base tile description with the top three layer objects by `RenderLayer` and stable cell order.
+`GameState.fs` wraps a runtime map in `GameModel`, tracks player position and visibility settings, recomputes FOV, dispatches simple door interactions, and implements `lookAt`. `lookAt` combines the base tile description with the top three layer objects by `RenderLayer` and stable cell order. Door interactions now have typed result entry points returning `InteractionResult`, with the old `InteractResult` wrappers retained for existing callers.
 
-`Player.fs` moves the player actor through `TileMap.TryMoveActor`, updates facing and pose sprite references through the registry, auto-opens a door on the destination tile when possible, and recomputes visibility after successful movement.
+`Player.fs` exposes `tryMove` as the typed movement API returning `MovementResult`. `tryMoveBool` is the explicit compatibility wrapper for callers that still need a boolean. The movement path returns stable message keys, updates facing and pose sprite references through the registry, auto-opens a door on the destination tile when possible, and recomputes visibility after successful movement.
 
-`Objects.fs` contains current fixture pushing helpers. It checks a local moveable-object dictionary first, then falls back to registered fixture `Moveable` strength.
+`EngineChangeSet` is the shared mutation hint shape used by current movement and door interaction results. It reports changed base cells, changed layer cells, changed entities by slot, whether visibility/FOV should refresh, whether occlusion inputs changed, and whether the mutation is save-relevant. Movement always marks visibility changed on success because the player/FOV origin moved. It marks occlusion changed only when the effective opacity grid changes, such as an opaque fixture moving or a door tile changing; transparent movement still reports layer/entity changes without forcing an occlusion rebuild.
+
+`Objects.fs` contains moveable fixture helpers. It checks a local moveable-object dictionary first, then falls back to registered fixture `Moveable` strength. The helper rule is push-forward-else-swap, matching `docs/Interactions.md`. The Stage 1 player-movement integration is verified by `movement-tests.fsx`.
 
 The interaction direction is covered in `docs/Interactions.md`. Interactables should be agnostic to whether they are represented by a base tile or a layered sprite, and live interaction state should be map-local rather than stored on reusable registry definitions.
 
@@ -368,7 +370,9 @@ Multi-cell visual references do not imply multi-cell collision. `SpriteRef` is o
 
 `TileMap.ToTileMap` conversion from editor state does not initialize effective opacity. That remains an explicit post-conversion/load step.
 
-Door behavior is currently simple and visual-state driven. Door interactions use the first visual entry of the current tile properties as the target state. Lock/unlock data exists in types, but the current interaction path only handles open/close.
+Door behavior is currently simple and visual-state driven. Door interactions use the first visual entry of the current tile properties as the target state. Lock/unlock data exists in types, but the current interaction path only handles open/close. The current live state can remember a locked bool by tile index; it does not yet store lock ids, check player inventory, or support item-definition capability checks for visually identical items with different gameplay payloads.
+
+The intended save direction for gameplay progress is a live-state overlay over authored map/content data. The map serializer remains content/map serialization; future save state should record changed door open/lock facts, moved objects, player inventory, container inventories, picked-up or dropped item stacks, trigger state, and reversible tile swaps without mutating shared definitions.
 
 Map serialization is backward-aware for spawn points, explored flags, and legacy single decals, but every new serialized field still needs an explicit compatibility decision and tests.
 
@@ -376,15 +380,15 @@ Map serialization is backward-aware for spawn points, explored flags, and legacy
 
 - `Types.fs` - grid structs, sprite references, actor visual structs, tile enums, opacity, map type, complex tile state, tile visuals, and tile properties.
 - `LayerGrid.fs` - entity sprite properties, global entity registry, runtime layer cells, runtime/editor layer queries, opacity composition, and editor layer cells.
-- `Maps.fs` - tileset registry, runtime tile properties reference, mutable runtime `TileMap`, layer mutation, movement, occupancy, effective opacity cache, and exploration.
+- `Maps.fs` - tileset registry, runtime tile properties reference, mutable runtime `TileMap`, layer mutation, movement, actor/fixture swap, occupancy, effective opacity cache, and exploration.
 - `MapEditor.fs` - immutable `EditorTileMap`, editor resize/update APIs, entity placement/migration, runtime/editor conversion, and `EditorHistory`.
 - `PersistentVector.fs` - local persistent vector implementation used by editor maps.
 - `TilePropertiesSerializer.fs` - FlatBuffers tileset serialization and deserialization.
 - `MapTypeSerializer.fs` - FlatBuffers runtime map serialization and deserialization.
 - `EntityRegistrySerializer.fs` - FlatBuffers entity registry serialization and deserialization.
-- `GameState.fs` - game-facing wrapper around runtime maps, player model, door interaction, look-at, and visibility recomputation.
-- `Player.fs` - player movement and visual sprite synchronization.
-- `Objects.fs` - fixture movement helper code.
+- `GameState.fs` - game-facing wrapper around runtime maps, player model, typed door interaction results plus legacy wrappers, look-at, and visibility recomputation.
+- `Player.fs` - typed player movement result API, boolean movement wrapper, and visual sprite synchronization.
+- `Objects.fs` - moveable fixture helper code.
 - `docs/Interactions.md` - interaction targeting, map-local interaction state, containers, triggers, and moveables.
 - `docs/Effects.md` - visual effects, particle profile keys, anchors, lifetimes, optional linked lights, and frontend handoff.
 - `docs/Lights.md` - light sources, anchors, time-linked sun/moon/window light, and frontend handoff.
@@ -397,6 +401,16 @@ Map serialization is backward-aware for spawn points, explored flags, and legacy
 - `tests.fsx` - broader engine behavior tests.
 
 ## Historical Notes
+
+### 2026-07-07
+
+- Recorded the Stage 1 movement API shift: `Player.tryMove` now returns `MovementResult`, while `Player.tryMoveBool` preserves the boolean wrapper shape.
+- Recorded `TileMap.TrySwapActorAndFixture` as the narrow map mutation helper for the moveable push-or-swap rule.
+- Updated runtime movement helper notes to say `Objects.fs` follows push-forward-else-swap.
+- Recorded the Stage 1 verification-boundary update: `TileMap.TryPushFixtureAndMoveActor` makes push-plus-player movement atomic, `Player.tryMove` returns stable movement message keys, and focused movement tests cover the intended edge cases.
+- Completed Stage 1 verification: focused movement tests and broad regression tests pass, including moved actor/fixture serialization coverage.
+- Clarified current door lock limitations and the intended save-game live-state overlay model for moved objects, door state, inventory/container state, item stack changes, triggers, and tile swaps.
+- Completed Stage 2 rendering-foundation support: `InteractionResult` now carries typed door interaction changes, legacy interaction wrappers remain, and movement occlusion hints are based on effective-opacity changes instead of every successful move.
 
 ### 2026-07-06
 

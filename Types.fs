@@ -22,6 +22,101 @@ type GridDelta =
     val DY: int
     new(dx, dy) = { DX = dx; DY = dy }
 
+[<Struct>]
+type EngineMessageArg =
+    | Text of text: string
+    | LocalizedKey of key: string
+    | Int of intValue: int
+    | Bool of boolValue: bool
+    | Decimal of decimalValue: decimal
+
+[<Struct>]
+type EngineMessage =
+    { Key: string
+      Args: (string * EngineMessageArg)[] }
+ 
+type ChangeSlot =
+    | BaseTile = 0
+    | Fixture = 1
+    | Actor = 2
+    | Item = 3
+    | Decal = 4
+
+[<Struct>]
+type ChangedEntity =
+    { Position: GridPos
+      Slot: ChangeSlot
+      EntityId: int option
+      LocalObjectId: int option }
+
+[<Struct>]
+type EngineChangeSet =
+    { ChangedBaseCells: GridPos[]
+      ChangedLayerCells: GridPos[]
+      ChangedEntities: ChangedEntity[]
+      VisibilityInputChanged: bool
+      OcclusionInputChanged: bool
+      SaveRelevant: bool }
+    static member Empty =
+        { ChangedBaseCells = [||]
+          ChangedLayerCells = [||]
+          ChangedEntities = [||]
+          VisibilityInputChanged = false
+          OcclusionInputChanged = false
+          SaveRelevant = false }
+
+[<Struct>]
+type InteractionResult =
+    { Succeeded: bool
+      Message: EngineMessage option
+      TargetPosition: GridPos option
+      TargetSlot: ChangeSlot option
+      Changes: EngineChangeSet }
+    static member Nothing =
+        { Succeeded = false
+          Message = None
+          TargetPosition = None
+          TargetSlot = None
+          Changes = EngineChangeSet.Empty }
+ 
+type MovementBlockedCause =
+    | NoMovement = 0
+    | MissingPlayerActor = 1
+    | DestinationOutOfBounds = 2
+    | DestinationNotWalkable = 3
+    | DestinationOccupiedByActor = 4
+    | DestinationBlockedByFixture = 5
+    | MoveableRequiresStrength = 6
+    | MoveablePushDestinationOutOfBounds = 7
+    | MoveablePushDestinationBlocked = 8
+    | SwapBlocked = 9
+    | PlayerActorNotAtPosition = 10
+ 
+type MovementKind =
+    | Normal = 0
+    | PushedMoveable = 1
+    | SwappedMoveable = 2
+
+[<Struct>]
+type MovedMapObject =
+    { Slot: ChangeSlot
+      EntityId: int option
+      LocalObjectId: int option
+      OldPosition: GridPos
+      NewPosition: GridPos }
+
+[<Struct>]
+type MovementResult =
+    { Succeeded: bool
+      Kind: MovementKind
+      BlockedCause: MovementBlockedCause option
+      Message: EngineMessage option
+      PlayerOldPosition: GridPos
+      PlayerNewPosition: GridPos
+      MovedObject: MovedMapObject option
+      Changes: EngineChangeSet }
+    member this.ToBool() = this.Succeeded
+
 // Free-sprite region on a globally-registered sprite sheet/atlas
 [<Struct>]
 type SpriteSheetCell =

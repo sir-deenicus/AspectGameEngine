@@ -8,11 +8,11 @@ The short version: interactions are gameplay/data behavior, not rendering behavi
 
 The current live system has one real interaction behavior: doors.
 
-`GameState.fs` defines `InteractionType`, `DoorAction`, `InteractResult`, `GameModel`, `Doors.tryInteractDoor`, `GameUpdate.interactAt`, `GameUpdate.interactAutoAt`, and `GameUpdate.tryForInteractions`.
+`GameState.fs` defines `InteractionType`, `DoorAction`, `InteractionResult`, the legacy `InteractResult`, `GameModel`, `Doors.tryInteractDoorResult`, `GameUpdate.interactAtResult`, `GameUpdate.interactAutoAtResult`, and `GameUpdate.tryForInteractionsResult`.
 
 `tryForInteractions` checks nearby candidate tiles around the player, looks for base tile properties with `Interactable = true`, then dispatches through `interactAutoAt`. The current scan order is facing tile, current tile, north tile, south tile, then behind tile. In frontend terms, this is the engine-side support for pressing the interact key, such as `E`, near an interactable one tile away. Today that auto path only recognizes `TileType.Door`, and it only sees base tile interactability.
 
-Door open/close is visual-state driven. `Doors.tryInteractDoor` reads the current tile's `TileProperties.Visuals`, takes the first visual entry as the target state, updates the tile's `SpriteLoc`, and returns the visual key as an `InteractResult.Msg`.
+Door open/close is visual-state driven. `Doors.tryInteractDoorResult` reads the current tile's `TileProperties.Visuals`, takes the first visual entry as the target state, updates the tile's `SpriteLoc`, and returns the visual key plus an `EngineChangeSet` in an `InteractionResult`. The older `Doors.tryInteractDoor`, `GameUpdate.interactAt`, `GameUpdate.interactAutoAt`, and `GameUpdate.tryForInteractions` wrappers still return the legacy `InteractResult` shape for existing callers.
 
 Door lock state is only partial. `DoorAction.LockDoor` and `DoorAction.UnLockDoor` exist, and `GameModel.TileComplexStateInstance` can remember `ComplexState.ClosedDoor { Locked = true }` by tile index. `Doors.tryAutoOpenDoor` respects that locked state. The explicit open/close interaction path does not yet enforce lock or unlock behavior.
 
@@ -23,7 +23,7 @@ The engine has several interaction-shaped fields without dispatch behavior yet:
 - `FixtureProperties.Interactable` marks fixture definitions.
 - `DecalProperties.Interactable` marks decal definitions.
 - `ItemProperties` gives items a description key, but not pickup/use behavior.
-- `ObjectMovement` contains fixture pushing helpers, but this is not currently integrated into `GameUpdate.tryForInteractions` or `Player.tryMove`.
+- `ObjectMovement` contains fixture pushing helpers. Player movement now has its own typed moveable path in `Player.tryMove`.
 
 ## Target Model
 
@@ -88,15 +88,16 @@ The next robust base should add a map-local interaction state layer. It can star
 type DoorInstanceState =
     { IsOpen: bool
       IsLocked: bool
-      RequiredKeyId: int option }
+      LockId: int option }
 
 type ContainerInstanceState =
     { IsOpen: bool
       IsEmptied: bool
+      BaseWeight: int
       Contents: ContainerContents }
 
 type MoveableInstanceState =
-    { RequiredStrength: int }
+    { BaseRequiredStrength: int }
 
 type InteractionInstanceState =
     | DoorState of DoorInstanceState
@@ -107,22 +108,22 @@ type InteractionInstanceState =
 
 The exact type names can change, but the rule should hold: mutable facts about an occurrence on a map are map-local. They do not belong in the global entity registry, and they should not be inferred solely from the rendered sprite.
 
+`LockId` identifies the lock, not a particular physical key placement. The door checks inventory for a key item definition whose `ItemKind.Key` payload opens that lock id. This follows the general item rule: shared presentation/default data does not define gameplay identity. Two items that share art and weight but differ in engine-owned behavior should usually be separate item definitions or capability payloads, not two unique placed instances of one definition. Keys are only the first concrete case.
+
+Moveable containers should calculate effective movement cost from map-local state. A chest can have a base/default weight, but its live contents add to effective weight. Removing items from one placed chest can make that chest easier to move without changing the shared fixture definition or every other chest using the same art.
+
 ## Containers And Keys
 
 The immediate gameplay slice is a container with a key that opens a locked door.
 
-There is no visible inventory requirement for the first pass. The engine can own an invisible key set:
-
-```fsharp
-type KeyRing = HashSet<int>
-```
+There is no visible inventory requirement for the first pass, but the engine state should still use the same item and inventory model that later visible inventory will use. A key-ring shortcut would be acceptable only as an internal query view over player inventory, not as the authoritative state.
 
 The first slice should behave like this:
 
-- A locked door has a required key id.
+- A locked door has a lock id.
 - Interacting with the locked door without the key returns a locked message and does not open the door.
-- A container has contents that include the matching key id.
-- Interacting with the container grants the key to the model's key ring and marks the container opened/emptied.
+- A container has contents that include an item definition whose key payload opens the matching lock id.
+- Interacting with the container transfers the key item into player inventory and marks the container opened/emptied.
 - Interacting with the locked door after taking the key unlocks and opens it, or unlocks it and lets a second interaction open it if the game wants that pacing.
 - Re-interacting with the emptied container does not duplicate the key.
 
@@ -351,7 +352,34 @@ WBP -> WPB
 
 This should be part of movement resolution, not a separate button-only action. A move attempt into a moveable is an interaction attempt. The implementation should still validate bounds, occupancy, walkability, fixture movement rules, and effective opacity updates. After a successful move or swap, visibility should be recomputed just like normal player movement.
 
-The old `Objects.fs` push helper is close in spirit but not the desired final rule. It tries the same-direction push, then tries moving the fixture behind the player. The new rule is simpler and stricter: push if the forward destination is open, otherwise swap with the player.
+Before the Stage 1 draft, `Objects.fs` used a different fallback after the same-direction push. That behavior is not the desired rule. The intended rule is simpler and stricter: push if the forward destination is open, otherwise swap with the player.
+
+## Movement Result Contract
+
+Movement is moving from boolean-only APIs to typed result data.
+
+`Types.fs` now owns the small shared vocabulary used by the movement slice:
+
+- `EngineMessage` and `EngineMessageArg` for localization keys plus typed arguments.
+- `EngineChangeSet` for changed base cells, changed layer cells, changed entities, visibility-impact flags, occlusion-impact flags, and save-relevant changes.
+- `MovementBlockedCause` for deterministic failure reasons.
+- `MovementKind` for normal movement, pushed moveables, and swapped moveables.
+- `MovedMapObject` and `MovementResult` for player old/new position and moved object old/new position.
+
+`Player.tryMove` is the typed movement entry point and returns `MovementResult`. The old boolean shape is now the explicit compatibility wrapper `Player.tryMoveBool`. Movement results include stable message keys for normal movement, moveable push/swap outcomes, and deterministic blocked causes.
+
+Stage 1 moveables are implemented and verified. Code routes movement into blocking moveable fixtures through `Player.tryMove`, uses `TileMap.TryPushFixtureAndMoveActor` for atomic push-plus-player movement, uses `TileMap.TrySwapActorAndFixture` for the swap case, and updates `Objects.fs` to the push-or-swap fallback. Focused movement tests cover push, swap, blocked cases, diagonal movement, opacity changes, and moved actor/fixture map serialization.
+
+Stage 2 mutation hints are implemented for movement and current door interactions. `EngineChangeSet` reports changed base cells, changed layer cells, changed entities, visibility/FOV refresh needs, occlusion-input changes, and save relevance. Movement marks visibility changed on successful movement because the player/FOV origin moved. It marks occlusion changed only when effective opacity changes, such as an opaque moveable changing cells or a door tile changing opacity. Transparent actor or fixture movement still reports layer/entity changes without forcing occlusion rebuilds.
+
+Current door interactions use typed `InteractionResult` entry points:
+
+- `Doors.tryInteractDoorResult`
+- `GameUpdate.interactAtResult`
+- `GameUpdate.interactAutoAtResult`
+- `GameUpdate.tryForInteractionsResult`
+
+The older message-only wrappers remain for compatibility. Later interaction features should return the typed result shape directly and keep wrapper APIs thin.
 
 ## Serialization
 
@@ -363,7 +391,9 @@ Authored interaction definitions and defaults belong with existing content strea
 - entity interaction defaults in entity registry data
 - map placements in map serialization
 
-Live interaction state belongs to runtime game/save state. The current map serializer writes `TileMap`, but there is no full `GameModel` save stream yet. Door locks, opened chests, emptied containers, trigger latches, moved barrels, and acquired map-local keys are all live progress state.
+Live interaction state belongs to runtime game/save state. The current map serializer writes `TileMap`, but there is no full `GameModel` save stream yet. Door locks, opened chests, emptied containers, trigger latches, moved barrels, player inventory, dropped or picked-up item stacks, and container contents are all live progress state.
+
+The save stream should behave as a live-state overlay over authored content. It can be compact like a diff, but it should record the current truth directly rather than replaying every command: moved object positions, changed door open/lock facts, container inventories after transfers, acquired or dropped items, trigger states, and future tile-swap state.
 
 Until a full save stream exists, tests can construct state directly. But the design should not hide live state in global registries or renderer data, because those choices would make save/load and map reuse brittle.
 
@@ -395,9 +425,11 @@ Replace the narrow `TileComplexStateInstance` dictionary with a broader map-loca
 
 Implement locked door correctness: open/close must respect lock state, unlock must require the matching held key, and auto-open must remain fast.
 
-Implement the first container/key slice with no visible inventory: container grants key, key opens locked door, repeated container use does not duplicate the key.
+Implement the first container/key slice with no visible inventory UI but real inventory state: container transfers a key item, key definition opens a lock id, locked door checks inventory, and repeated container use does not duplicate the key.
 
-Implement movement-driven moveables with the push-or-swap rule in all eight directions.
+Implement item definition defaults/templates so many items can share icon, sprite art, weight, value, and stack policy while remaining distinct item definitions when their names, descriptions, or engine-owned capability payloads differ. Key definitions and lock payloads are the first concrete use.
+
+Implement moveable-container effective weight from base/default weight plus live contents.
 
 Add trigger/effect data for lever-to-portcullis and similar local map changes.
 
@@ -415,7 +447,7 @@ Add an F# behavior registry for interactions that graduate beyond declarative ef
 
 Add a trusted Godot/GDScript event-hook fallback only after data effects and F# behavior prove insufficient.
 
-Add serialization for authored interaction defaults first, then live map/game state when the save stream exists.
+Add serialization for authored interaction defaults first, then live map/game state as an overlay/diff save stream when the save stream exists.
 
 Add focused tests for interaction targeting, locked doors, containers, key acquisition, trigger effects, and moveable push/swap edge cases.
 
@@ -423,11 +455,11 @@ Add focused tests for interaction targeting, locked doors, containers, key acqui
 
 - `Types.fs` - tile types, tile properties, `ComplexState`, and door lock state shape.
 - `LayerGrid.fs` - fixture, item, actor, and decal properties; layer cells; interactable fixture/decal flags.
-- `Maps.fs` - runtime map mutation, occupancy, fixture movement, items, and layer cells.
+- `Maps.fs` - runtime map mutation, occupancy, fixture movement, actor/fixture swap, items, and layer cells.
 - `MapEditor.fs` - editor placement of fixtures, items, decals, and actors.
 - `GameState.fs` - current game model, door interactions, look-at, interaction dispatch, and visibility recomputation.
-- `Player.fs` - player movement, facing, actor movement, and door auto-open call.
-- `Objects.fs` - current moveable fixture helper code to replace or fold into movement resolution.
+- `Player.fs` - typed player movement result API, facing, actor movement, moveable fixture path, and door auto-open call.
+- `Objects.fs` - moveable fixture helper code now aligned with push-forward-else-swap.
 - future `InteractionCompiler` - F# builder-script compiler that writes interaction FlatBuffers bundles.
 - future interaction FlatBuffers schema - binary interaction definitions and effect lists.
 - `TilePropertiesSerializer.fs` - current tileset serialization for `TileProperties.Interactable`, `TileType`, and door complex state.
@@ -435,6 +467,18 @@ Add focused tests for interaction targeting, locked doors, containers, key acqui
 - `map-tests.fsx` - current door interaction tests and likely home for first interaction behavior tests.
 
 ## Historical Notes
+
+### 2026-07-07
+
+- Added the first shared movement result vocabulary in `Types.fs`: typed messages, change sets, moved-object identity, movement kinds, and deterministic blocked causes.
+- Established `Player.tryMove` as the rich `MovementResult` API and `Player.tryMoveBool` as the explicit boolean compatibility wrapper.
+- Began Stage 1 moveable integration: added a draft player movement path for blocking moveable fixtures, added `TileMap.TrySwapActorAndFixture`, and updated `Objects.fs` to use push-forward-else-swap instead of the earlier alternate fallback.
+- Advanced Stage 1 movement to the verification boundary: added atomic push-plus-player movement with `TileMap.TryPushFixtureAndMoveActor`, added stable movement result message keys, and fixed/extended `movement-tests.fsx`.
+- Completed Stage 1 verification: `movement-tests.fsx` and `tests.fsx` pass, including movement edge cases, opacity-changing moveables, and moved actor/fixture serialization coverage.
+- Paused the implementation for compaction before movement tests were green; `docs/todo.md` records the recovery state and the first failing test-script syntax issue.
+- Clarified item/lock/container state: doors store lock ids, key item definitions advertise opened lock ids, visually identical items with different engine-owned capability payloads are distinct definitions with shared defaults, and moveable containers derive effective weight from live contents.
+- Clarified save-game direction as a live-state overlay over authored content, covering changed doors, moved objects, player inventory, container inventories, picked-up/dropped items, and other map-local progress state.
+- Completed Stage 2 changed-state support: movement and current door interactions return typed change sets with changed cells/entities, visibility/FOV hints, occlusion hints, and save relevance; legacy interaction wrappers remain message-only compatibility APIs.
 
 ### 2026-07-05
 

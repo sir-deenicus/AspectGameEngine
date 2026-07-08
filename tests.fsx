@@ -811,7 +811,7 @@ edge.count(count) {
         failwithf "Expected Plural message, got %A" other
 
     let loc = Localizer(pack2)
-    let emptyArgs = Dictionary<string,obj>() :> IReadOnlyDictionary<string,obj>
+    let emptyArgs = Dictionary<string, LocalizedArg>() :> Args
     assertEquals "Negative" (loc.Plural("edge.count", -1L, emptyArgs)) "Plural exact -1 resolves after binary round-trip"
 
     printfn "--- testNegativeExactVariantBinaryRoundTrip: PASSED ---"
@@ -847,7 +847,7 @@ ui.missing = "Fallback text"
     
     printfn "--- testLocalizerSimpleGet: PASSED ---"
 
-let rodict d = Dictionary (dict d) :> IReadOnlyDictionary<string, _>
+let rodict d = Dictionary (dict d) :> Args
 
 let testLocalizerFormat () =
     printfn "\n--- Test: Localizer Format with args ---"
@@ -857,10 +857,10 @@ shop.price = "Price: {amount:C2}"
 """
     let loc = Localization.loadAgl aglText
     
-    let args1 = Dictionary (dict [ "name", box "Alice" ])
+    let args1 = rodict [ "name", LocalizedArg.Text "Alice" ]
     assertEquals "Hello, Alice!" (loc.Format("ui.greeting", args1)) "Format with name arg"
     
-    let args2 = rodict [ "amount", box 42.50 ]
+    let args2 = rodict [ "amount", LocalizedArg.Float 42.50 ]
     let result = loc.Format("shop.price", args2)
     assertTrue (result.Contains("42.5") || result.Contains("42,5")) "Format with C2 currency"
     
@@ -918,7 +918,7 @@ char.greeting(gender) {
     assertEquals "they" (loc.Select("char.pronoun", "other", args)) "Select other"
     assertEquals "they" (loc.Select("char.pronoun", "unknown", args)) "Select unknown falls back to other"
     
-    let args2 = rodict [ "name", box "Jordan" ]
+    let args2 = rodict [ "name", LocalizedArg.Text "Jordan" ]
     let result = loc.Select("char.greeting", "male", args2)
     assertTrue (result.Contains("Mr.")) "Select with args includes variant text"
     assertTrue (result.Contains("Jordan")) "Select with args includes placeholder"
@@ -996,7 +996,7 @@ inv.items(count) {
     
     let loc = Localization.fromBinary bytes
     
-    let args = rodict [ "value", box 123 ]
+    let args = rodict [ "value", LocalizedArg.Int 123 ]
     let result = loc.Format("ui.test", args)
     assertTrue (result.Contains("123")) "Binary load preserves format"
     

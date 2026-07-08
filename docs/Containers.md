@@ -48,13 +48,15 @@ type ItemDefinition =
 
 `Visual` is the renderer-facing sprite reference for the item. The engine does not load textures or draw it. If a later inventory UI needs a distinct icon, that can be added intentionally as a second visual reference rather than guessed from this field.
 
+Shared visuals and defaults are not item identity. Many gameplay-distinct items can share the same icon, sprite art, base weight, value, and stack limit while still being distinct item definitions because they have different `NameKey`, `DescKey`, or `Kind` payloads. Keys are only the first concrete case of this: two brass-looking keys that open different locks are separate item definitions using shared presentation/default data. Authoring tools can expose templates to avoid repeating defaults, but runtime item definitions should stay distinct when gameplay identity differs.
+
 `Weight` is an integer game unit. It should not be a float in the base model. The game can decide later whether weight affects carrying capacity, movement, stamina, encumbrance, or only UI text.
 
 `Value` is the base economic value. It is content data, not a shop final price. Local economy, faction, condition, and barter modifiers can live elsewhere later.
 
 `StackLimit` controls inventory stacking. Rocks can stack. Keys and swords usually do not. A `StackLimit` of `1` means each inventory slot can hold only one item of that definition unless a later policy explicitly says otherwise.
 
-`Kind` carries the small kind-specific payload. This is the F#-native replacement for inheritance. A key knows what lock ids it opens. A weapon points to a separate weapon profile. Junk has no special engine behavior.
+`Kind` carries the small kind-specific payload. This is the F#-native replacement for inheritance. A key knows what lock ids it opens. A weapon points to a separate weapon profile. Junk has no special engine behavior. Future item kinds can add other gameplay capabilities, such as fitting a socket, activating a rune, satisfying a quest token check, or being accepted by a specific altar.
 
 ## Concrete Examples
 
@@ -72,18 +74,25 @@ let smallRock =
       Kind = ItemKind.Junk }
 ```
 
-A key is still an ordinary item definition, but its kind carries lock ids:
+A key is still an ordinary item definition, but its kind carries lock ids. It illustrates the broader rule: two items can share the same sprite and weight while behaving differently by using different item definition ids:
 
 ```fsharp
-let brassKey =
+let cellarBrassKey =
     { Id = 1001
-      NameKey = "item.key.brass.name"
-      DescKey = "item.key.brass.desc"
+      NameKey = "item.key.cellar.name"
+      DescKey = "item.key.cellar.desc"
       Visual = SpriteRef.SheetCell(SpriteSheetCell(2, 0, 4))
       Weight = 1
       Value = 0
       StackLimit = 1
       Kind = ItemKind.Key [| 2001 |] }
+
+let atticBrassKey =
+    { cellarBrassKey with
+        Id = 1002
+        NameKey = "item.key.attic.name"
+        DescKey = "item.key.attic.desc"
+        Kind = ItemKind.Key [| 2002 |] }
 ```
 
 A sword is an ordinary item definition whose combat behavior is deferred to a weapon profile:
@@ -120,9 +129,11 @@ type ItemStack =
 
 `Quantity` records how many copies are in this stack.
 
-`InstanceId` is `0` when no per-instance state is needed. Most rocks do not need unique identity. Most ordinary keys do not need unique identity. A lit torch with remaining fuel, a damaged sword, an enchanted weapon, or a quest item with custom state can use a non-zero instance id later.
+`InstanceId` is `0` when no per-instance state is needed. Most rocks do not need unique identity. Most ordinary keys do not need unique physical identity; if two keys differ only by what they unlock or by localized name/description, they should usually be separate item definitions with shared defaults, not two instances of one definition. The same applies to any future capability-bearing item: different gameplay payloads normally mean different definitions, while mutable per-copy facts mean non-zero instance ids. A lit torch with remaining fuel, a damaged sword, an enchanted weapon, or a quest item with custom state can use a non-zero instance id later.
 
 The important rule is that unique item state is opt-in. Do not allocate per-instance state for every item just because some future item might need it.
+
+Placed interactive objects are a separate identity problem. A chest, door, moveable container, or trigger placement may need a map-local object id even when the items inside it do not. The object id identifies mutable placement state such as opened, locked, moved, emptied, or triggered; `ItemDefinition.Id` identifies reusable item content.
 
 Two stacking rules must be locked now, because getting them wrong fails silently later:
 
@@ -170,6 +181,7 @@ The minimum useful container state is:
 ```fsharp
 type ContainerState =
     { IsOpen: bool
+      BaseWeight: int
       Inventory: InventoryState }
 ```
 
@@ -178,6 +190,8 @@ type ContainerState =
 The container inventory is also runtime/save state. Authored content can initialize it, but live play owns removals and additions.
 
 Repeated interaction with an empty container must not duplicate items. The inventory state is the source of truth.
+
+Moveable containers need effective weight, not just definition weight. A container can have a base/default weight from its placement or definition, but movement strength should be calculated from that base plus the weight of the live inventory contents. This must be derived from map-local container state so taking items out of a chest can make that same placed chest easier to move without changing every chest that shares its visual definition.
 
 ## Player Inventory
 
@@ -220,6 +234,8 @@ This supports common cases without special casing:
 - several keys open the same lock
 - a master key opens a group of locks
 - a door can be locked without a known key in the current map
+
+If two physical keys share the same item definition, they open the same lock set and can be counted as quantity when stacking policy allows it. If two keys share art and weight but open different locks, they are separate item definitions that reuse the same visual/default template. This is not key-specific; any two items that share presentation but differ in engine-owned behavior should differ by item definition or capability payload, not by placed item id.
 
 The first behavior can be:
 
@@ -273,7 +289,9 @@ Item definitions are content. They can live in an item registry stream or in a b
 
 Authored container contents are map content. They can be produced by editor UI or by F# builder scripts, then compiled into the same binary bundle style described in `docs/Interactions.md`.
 
-Live inventory state is save data. A runtime map serializer should not silently become the full save stream. Opened containers, removed items, player inventory, item instance state, and door locks should be saved as live game state when that stream exists.
+Live inventory state is save data. A runtime map serializer should not silently become the full save stream. Opened containers, removed items, player inventory, item instance state, moved containers, effective contents, and door locks should be saved as live game state when that stream exists.
+
+Save data should be a live-state overlay over authored content, not a rewrite of all source definitions. It may be implemented as a compact diff/snapshot, but it must save the current truth directly: player inventory, container inventories, changed door lock/open state, moved objects, consumed or dropped item stacks, and any map-local object state that differs from initial authored defaults.
 
 ## Godot Frontend Consumption
 
@@ -308,6 +326,8 @@ Use composition, not inheritance. A player and a container can both own `Invento
 
 Keep item definitions immutable and shared. Do not put live quantity, ownership, durability, fuel, or opened/emptied state in the shared item definition.
 
+Do not collapse gameplay-distinct items just because they share icon, sprite art, weight, or value. Shared presentation/default data can be templated for authoring, but different names, descriptions, or engine-owned capability payloads mean different item definitions. Keys are just the first use of this rule.
+
 Keep item stacks compact. `ItemStack` should be value-shaped, with per-instance state only when an item truly needs it.
 
 Keep categories small. The first item kind set is `Key`, `Weapon`, and `Junk`. Add a new kind only when the engine owns meaning for it.
@@ -317,6 +337,8 @@ Do not turn `Junk` into a judgment about game importance. Rocks, torches, ingred
 Do not store container contents on a reusable fixture definition. Contents are authored per placement and mutate per map/save.
 
 Do not key doors to item visuals. Doors recognize lock ids; keys advertise lock ids.
+
+Do not use placed item identity to decide what gameplay capability an item has. A door checks key capability payloads in inventory. A future socket, altar, or rune should likewise check item definition/capability data. Map-local placement ids are for mutable placement state, not for making two visually identical items behave differently.
 
 Transfers conserve items. Moving a stack between inventories is one remove plus one add, and the pair must be all-or-nothing. Removing without adding silently destroys items; adding without removing duplicates them; both bugs pass ordinary per-inventory tests. The transfer test oracle is total quantity per item id summed across all inventories and world placements, compared before and after every operation — including failed and partial-capacity transfers. The oracle may not inspect slot order or slot indices; those are free to change.
 
@@ -334,11 +356,15 @@ Add focused tests for stack limits, transfer behavior, failed transfers, empty c
 
 Add map-local container identity through the interaction target/state system.
 
+Add effective container weight calculation from base container weight plus live inventory contents, and use it for moveable-container strength checks.
+
 Add the first container/key/locked-door implementation slice described above.
 
 Add player inventory to `GameModel` or the next broader game-state container without making `TileMap` own player inventory.
 
 Add live save/load for player inventory, container inventories, door lock state, and future item instance state.
+
+Add save/load coverage for live-state overlays: moved objects, changed doors, container contents after transfer, dropped/picked-up item stacks, and map-local object state.
 
 Add item instance state for mutable unique items such as lit torches, damaged weapons, charged magical items, or named quest items.
 
@@ -379,3 +405,10 @@ Add frontend-facing changed-state hints for inventory/container interactions, su
 - Locked two stacking rules in "Item Stacks And Instances": stacks merge only on matching `ItemId` with both `InstanceId = 0`, and non-zero `InstanceId` forces `Quantity = 1`. Merge logic keyed on `ItemId` alone loses instance state silently.
 - Clarified in "Inventory State" that struct mutation means whole-element replacement (`slots.[i] <- { ... }`); `ItemStack` fields stay immutable, and the struct must not grow mutable fields or become a class.
 - Added the item-conservation rule and its mandated test oracle to "Design Boundaries And Operating Rules": total quantity per item id across all inventories is invariant under transfers, including failed ones; the oracle may not compare slot order.
+
+### 2026-07-07
+
+- Clarified item identity: shared art, weight, value, and stack defaults can be templates, but items with different names, descriptions, or engine-owned capability payloads are distinct item definitions; keys are the first concrete example.
+- Clarified that placed interactive objects need map-local identity only when they carry mutable placement state; ordinary item copies do not need unique physical ids unless `InstanceId` is non-zero.
+- Added moveable-container effective weight: base/default container weight plus live inventory contents should drive movement strength.
+- Clarified save-game direction as a live-state overlay/diff over authored content, covering moved objects, door state, container contents, player inventory, dropped/picked-up stacks, and other map-local state.

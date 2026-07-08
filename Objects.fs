@@ -39,14 +39,14 @@ module ObjectMovement =
         let newY = current.Y + delta.DY
         map.IsWalkable(newX, newY) && not (map.IsOccupied(newX, newY))
 
-    /// Attempts to push a fixture that the player is trying to move into.
-    /// Returns true if the fixture was successfully moved.
+    /// Attempts to resolve a move into a moveable fixture.
+    /// Returns true if the fixture was pushed forward or swapped with the player.
     /// 
     /// Movement rules:
     /// - The fixture is at (playerPos + delta) - the tile player is trying to enter
     /// - First try moving fixture to (fixturePos + delta) - 1 tile further in same direction
-    /// - If blocked, try moving fixture to (playerPos - delta) - opposite direction from player
-    /// - Only moves if destination is walkable and unoccupied
+    /// - If blocked, swap the player actor and fixture
+    /// - Only pushes if destination is walkable and unoccupied
     /// - Only attempts push if fixture is moveable by player's strength
     let tryPushFixture (playerPos: GridPos) (delta: GridDelta) (map: TileMap) (playerStrength: int) : bool =
         // Calculate fixture position (the tile player is trying to enter)
@@ -64,11 +64,4 @@ module ObjectMovement =
             if map.IsWalkable(pushX, pushY) && not (map.IsOccupied(pushX, pushY)) then
                 map.TryMoveFixture(fixtureX, fixtureY, pushX, pushY)
             else
-                // Second attempt: push to opposite direction from player
-                let altX = playerPos.X - delta.DX
-                let altY = playerPos.Y - delta.DY
-                
-                if map.IsWalkable(altX, altY) && not (map.IsOccupied(altX, altY)) then
-                    map.TryMoveFixture(fixtureX, fixtureY, altX, altY)
-                else
-                    false
+                map.TrySwapActorAndFixture(playerPos.X, playerPos.Y, fixtureX, fixtureY)
