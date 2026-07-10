@@ -40,7 +40,8 @@ Engine Stage 7 should not block frontend Stage 2. If frontend rendering foundati
 
 ## Current Focus
 
-- `[NOW] [T1]` Stage 4: items, pickup, drop, hidden inventory, and containers.
+- `[NOW] [T1]` Stage 4 preflight: establish map format versioning, sequential migrations, golden version-0 fixtures, and transactional explicit upgrades per `docs/Map-Migrations.md`.
+- `[TODO] [T1]` Stage 4 features: items, pickup, drop, hidden inventory, and containers after the preflight.
 
 ## Current State
 
@@ -52,6 +53,7 @@ Current state:
 - `Player.tryMove` is the typed `MovementResult` API; `Player.tryMoveBool` is the boolean wrapper.
 - `InteractionResult` is the typed interaction-result shape for current door interactions; `GameUpdate.interactAtResult`, `interactAutoAtResult`, and `tryForInteractionsResult` preserve changed-state data, while legacy wrappers remain message-only.
 - Moveable push-or-swap code exists in `Player.fs`, with `TileMap.TryPushFixtureAndMoveActor` and `TileMap.TrySwapActorAndFixture` in `Maps.fs`.
+- The 2026-07-10 LD54 hardening is complete: `Player.tryMove` uses one internal typed `TileMap` transaction for collision classification and normal/push/swap mutation, with scalar opacity tracking and no public prevalidated bypass. Rich accepted/wall-blocked movement now measures 552/0 allocated bytes per call versus the approximately 1,744/136-byte audit baseline; `tryMoveBool` measures 24/0. Stage 4 remains the current feature focus.
 - Push-or-swap is intentional. For simultaneous multi-PC turns, PC movement should resolve first; moveable push/swap then validates against the resulting occupied cells.
 - Moveable strength is intentionally a requirement-versus-strength contract: current player strength is effectively `1`, but future player stats, buffs, encumbrance, container contents, or party help should be able to affect whether a moveable fixture can move.
 - `Objects.fs` has been updated away from the old push-forward-else-behind-player rule.
@@ -61,9 +63,10 @@ Current state:
 - `SpritePropsQueries.tryGetDescriptionKey` exposes description keys for actor, fixture, item, and decal definitions. `TileMap.TryGetTileDescriptionKey` remains the base tile description-key path.
 - `EngineMessageLocalization` converts typed `EngineMessage` values to localization `Args` and formats them through a caller-owned `Localizer`.
 - Door auto-open branches on typed tile/visual/opacity state instead of description keys.
-- `movement-tests.fsx` covers Stage 1 movement edge cases, moved actor/fixture map serialization, Stage 2 changed-state assertions, Stage 2H stale visibility-cache behavior, and Stage 3 door/look description-key behavior.
+- Current map bytes have no format-version field, so all existing maps are implicit version 0. `Tile.IsOccupied` remains a serialized per-cell movement block and may not be deleted until the version-0 migration preserves it as an explicit current-model override. The preflight then deletes it from current runtime/editor models and explicitly upgrades every authored project map; only legacy migration support remains.
+- `movement-tests.fsx` covers Stage 1 movement edge cases, moved actor/fixture map serialization, Stage 2 changed-state assertions, Stage 2H stale visibility-cache behavior, Stage 3 door/look description-key behavior, and LD54 allocation budgets for normal, blocked, door, push, and swap paths.
 - `localization-tests.fsx` covers the Stage 3 engine-message localization bridge and missing-key fallback behavior.
-- `dotnet build -v:minimal`, `dotnet fsi .\localization-tests.fsx`, `dotnet fsi .\movement-tests.fsx`, `dotnet fsi .\map-tests.fsx`, `dotnet fsi .\tests.fsx`, `dotnet fsi .\entity-registry-test.fsx`, and `dotnet fsi .\fov-tests.fsx` pass.
+- `dotnet build -v:minimal`, `dotnet fsi .\localization-tests.fsx`, `dotnet fsi .\movement-tests.fsx`, `dotnet fsi .\map-tests.fsx`, `dotnet fsi .\tests.fsx`, `dotnet fsi .\entity-registry-test.fsx`, `dotnet fsi .\fov-tests.fsx`, `dotnet fsi .\occluder-tests.fsx`, and `dotnet fsi .\persistent-vector-tests.fsx` pass.
 
 ## Stage Map
 
@@ -87,7 +90,7 @@ Frontend dependency: Stage 2 rendering foundation.
 
 Minimum tier: `[T1]`.
 
-The engine does not render, but it must return enough state-change data for renderers to avoid brittle full redraws. Stage 2 defines and proves the generic changed-state vocabulary with the mutations available by then, especially movement and moveables. Later stages must use the same vocabulary for doors, pickup/drop, scripted wall changes, and lighting-specific data as those features come online.
+The engine does not render, but it must return enough state-change data for renderers to avoid brittle full redraws. Stage 2 defines and proves the generic changed-state vocabulary with the mutations available by then, especially movement and moveables. Later stages must use the same vocabulary for doors, pickup/drop, scripted wall changes, and lighting-specific data as those features come online. The functional contract and LD54 hardening are complete: player movement uses one internal allocation-lean typed transaction without weakening result facts or exposing a prevalidated bypass.
 
 ### Stage 3: Descriptions And Localization Support
 
@@ -103,7 +106,9 @@ Frontend dependency: Stage 4 items, pickup/drop, hidden inventory, and container
 
 Minimum tier: `[T1]`.
 
-Implement the minimal durable inventory path from `docs/Containers.md`: item definitions, inventory stacks, player inventory, container inventory, pickup-all in the 3x3 neighborhood, drop-head inventory, and conservation-preserving transfers. This stage must support a key inside a container and a rock on the ground.
+Before adding Stage 4 persisted state, implement the engine-owned map-versioning and migration foundation in `docs/Map-Migrations.md`. Existing maps are implicit version 0; loading may migrate in memory but never silently rewrites a source file. The first migration preserves legacy `Tile.IsOccupied` cells as an explicit per-cell movement block. This preflight belongs to Stage 4 because frontend Stage 4 cannot depend on an engine Stage 8 foundation.
+
+After the preflight, implement the minimal durable inventory path from `docs/Containers.md`: item definitions, inventory stacks, player inventory, container inventory, pickup-all in the 3x3 neighborhood, drop-head inventory, and conservation-preserving transfers. This stage must support a key inside a container and a rock on the ground.
 
 Item definition identity is gameplay identity, not art identity. Many items can share the same icon, sprite art, weight, value, and stack defaults through authoring templates, but items with different names, descriptions, or engine-owned capability payloads should be distinct item definitions. Keys with different opened lock ids are the first concrete case, not a special identity system. Ordinary placed item copies do not need unique ids unless they carry unique mutable state; mutable placements such as chests, doors, triggers, and moved containers need map-local identity/state.
 
@@ -139,7 +144,7 @@ Frontend dependency: Stage 8 slice hardening.
 
 Minimum tier: `[T1]`.
 
-Round-trip every durable state added by the slice, add a small scenario fixture, and update docs/XML for new APIs. This stage proves old maps have clear defaults and new state survives serialization. Save-game state should be a live-state overlay over authored content, compact like a diff where useful, covering moved objects, changed doors, player inventory, container inventories, picked-up/dropped item stacks, trigger latches, and reversible tile swaps.
+Exercise and harden the migration pipeline established before Stage 4 across every durable authored-map state added by the slice, add missing golden fixtures, add a small scenario fixture, and update docs/XML for new APIs. This stage does not invent map versioning. Save-game state should be a live-state overlay over authored content, compact like a diff where useful, covering moved objects, changed doors, player inventory, container inventories, picked-up/dropped item stacks, trigger latches, and reversible tile swaps.
 
 ## Success Criteria
 
@@ -169,6 +174,7 @@ Round-trip every durable state added by the slice, add a small scenario fixture,
 
 - `docs/Interactions.md`
 - `docs/Containers.md`
+- `docs/Map-Migrations.md`
 - `docs/Localization.md`
 - `docs/Fog-Of-War.md`
 - `docs/Occluder-Task.md`
@@ -179,6 +185,8 @@ Round-trip every durable state added by the slice, add a small scenario fixture,
 ## Limitations
 
 This triage assumes the existing interaction, container, localization, FOV, and occluder docs are the design baseline. Workers should inspect source before changing contracts; some items may already be partly implemented under narrower names.
+
+The map migration document defines a required foundation, not authorization to begin source edits. Follow `AGENTS.md`: discuss the post-compaction plan and receive a go-ahead before implementation.
 
 Stage 0 exists only to prevent repeated API/result-shape churn. It should stay small and practical, not become a broad architecture project.
 
@@ -201,3 +209,10 @@ Stage 0 exists only to prevent repeated API/result-shape churn. It should stay s
 
 - Tier 0 (frontend repo) locked the Stage 2H visibility-ownership verdict; the engine-side item is now `[NOW]` in `docs/todo.md`. The engine's eager `recomputeVisibility` on movement/interactions runs a map-sized-window FOV compute per move (~20-25ms on 300x300) into state no consumer reads — the frontend maintains its own camera-windowed copy. Locked fix: `GameModel.VisibilityState` becomes a derived cache; mutators report `VisibilityInputChanged` only; recompute happens solely through the explicit entry point at the consumer's cadence. Full work order: `../aspectrpg/Design-docs/stage2-work-order.md`, Stage 2H.
 - Completed the engine-side Stage 2H work: eager visibility recomputes were removed from model creation, movement, auto-interaction, and visibility setters; `docs/Fog-Of-War.md` now records the derived-cache lifecycle law; `movement-tests.fsx` pins empty-at-create and stale-until-explicit-recompute behavior; the Debug build post-build copied artifacts into the frontend repo.
+
+### 2026-07-10
+
+- Added the LD54 movement-hardening follow-up without changing the Stage 4 current focus. The source audit exonerates engine movement from frontend rung-0 hitches and finds no map-size-scaling loop, while recording allocation and duplicate-validation debt to remove before NPC/AI movement increases call volume.
+- Completed LD54: one internal map transaction now classifies and commits player normal/push/swap movement, scalar snapshots report opacity changes, blocked payloads and the boolean wrapper avoid rich allocations, and byref registry/property probes remove hot tuple/option wrappers. The rich normal path fell from approximately 1,744 to 552 bytes per accepted call and from 136 to 0 for wall blocks; all focused and broad engine suites pass.
+- Made map format versioning and migration the Stage 4 preflight. Added `docs/Map-Migrations.md`, classified existing maps as implicit version 0, and defined legacy `Tile.IsOccupied` preservation as the first migration rather than deleting compatibility data.
+- Clarified the terminal state: compatibility is preserved through the version-0 migration, `IsOccupied` is then removed from current models and authoring, and all authored project maps are explicitly upgraded rather than left indefinitely on the legacy format.

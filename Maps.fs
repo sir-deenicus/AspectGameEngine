@@ -12,8 +12,8 @@ type TilePropertiesReference(?tileSetName) =
     
     member _.Item
         with get spriteLoc =
-            let res, tile = properties.TryGetValue spriteLoc
-            if res then tile else TileProperties.NullTile
+            let mutable tile = Unchecked.defaultof<TileProperties>
+            if properties.TryGetValue(spriteLoc, &tile) then tile else TileProperties.NullTile
 
         and set spriteLoc value =
             if properties.ContainsKey spriteLoc then
@@ -53,6 +53,16 @@ type Tile =
     { SpriteLoc: SpriteLoc
       mutable Health: int
       IsOccupied: bool }
+
+[<Struct>]
+type internal ActorMoveTransaction =
+    { Succeeded: bool
+      Kind: MovementKind
+      BlockedCause: MovementBlockedCause
+      MovedFixtureId: int
+      FixtureOldPosition: GridPos
+      FixtureNewPosition: GridPos
+      OpacityChanged: bool }
 
 
 type TileMap =
@@ -204,6 +214,138 @@ type TileMap =
             let cell = this.GetLayerCell(x, y)
             cell.ActorId <- None
             this.RecomputeEffectiveOpacityAt(x, y)
+
+    member inline private _.BlockedActorMove(cause: MovementBlockedCause) : ActorMoveTransaction =
+        { Succeeded = false
+          Kind = MovementKind.Normal
+          BlockedCause = cause
+          MovedFixtureId = -1
+          FixtureOldPosition = GridPos(0, 0)
+          FixtureNewPosition = GridPos(0, 0)
+          OpacityChanged = false }
+
+    member inline private _.SucceededActorMove(kind, movedFixtureId, fixtureOldPosition, fixtureNewPosition, opacityChanged) : ActorMoveTransaction =
+        { Succeeded = true
+          Kind = kind
+          BlockedCause = MovementBlockedCause.NoMovement
+          MovedFixtureId = movedFixtureId
+          FixtureOldPosition = fixtureOldPosition
+          FixtureNewPosition = fixtureNewPosition
+          OpacityChanged = opacityChanged }
+
+    member inline private _.GetFixtureMovementInfo(fixtureId: int) =
+        let mutable spriteProps = Unchecked.defaultof<SpriteProperties>
+        if EntityRegistry.SpriteProps.TryGetValue(fixtureId, &spriteProps) then
+            match spriteProps.SpriteType with
+            | SpriteType.Fixture fixtureProps -> struct (fixtureProps.BlocksMovement, fixtureProps.Moveable)
+            | _ -> struct (false, 0)
+        else
+            struct (true, 0)
+
+    member inline private this.CommitNormalActorMove(actorIndex: int, destIndex: int, actorId: int) : ActorMoveTransaction =
+        let actorCell = this.LayerCells.[actorIndex]
+        let destCell = this.LayerCells.[destIndex]
+        let oldActorOpacity = this.EffectiveOpacity.[actorIndex]
+        let oldDestOpacity = this.EffectiveOpacity.[destIndex]
+        actorCell.ActorId <- None
+        destCell.ActorId <- Some actorId
+        this.RecomputeEffectiveOpacityAtIndex(actorIndex)
+        this.RecomputeEffectiveOpacityAtIndex(destIndex)
+        let opacityChanged =
+            oldActorOpacity <> this.EffectiveOpacity.[actorIndex]
+            || oldDestOpacity <> this.EffectiveOpacity.[destIndex]
+        this.SucceededActorMove(MovementKind.Normal, -1, GridPos(0, 0), GridPos(0, 0), opacityChanged)
+
+    member inline private this.CommitActorFixtureSwap(actorIndex: int, destIndex: int, actorId: int, actorPosition: GridPos, fixtureId: int, fixturePosition: GridPos) : ActorMoveTransaction =
+        let actorCell = this.LayerCells.[actorIndex]
+        if actorCell.FixtureId.IsSome then
+            this.BlockedActorMove(MovementBlockedCause.SwapBlocked)
+        else
+            let destCell = this.LayerCells.[destIndex]
+            let oldActorOpacity = this.EffectiveOpacity.[actorIndex]
+            let oldFixtureOpacity = this.EffectiveOpacity.[destIndex]
+            actorCell.ActorId <- None
+            actorCell.FixtureId <- Some fixtureId
+            destCell.FixtureId <- None
+            destCell.ActorId <- Some actorId
+            this.RecomputeEffectiveOpacityAtIndex(actorIndex)
+            this.RecomputeEffectiveOpacityAtIndex(destIndex)
+            let opacityChanged =
+                oldActorOpacity <> this.EffectiveOpacity.[actorIndex]
+                || oldFixtureOpacity <> this.EffectiveOpacity.[destIndex]
+            this.SucceededActorMove(MovementKind.SwappedMoveable, fixtureId, fixturePosition, actorPosition, opacityChanged)
+
+    member internal this.TryMoveActorTransaction(actorId: int, actorX: int, actorY: int, destX: int, destY: int, deltaX: int, deltaY: int, actorStrength: int) : ActorMoveTransaction =
+        if destX < 0 || destX >= this.Width || destY < 0 || destY >= this.Height then
+            this.BlockedActorMove(MovementBlockedCause.DestinationOutOfBounds)
+        elif actorX < 0 || actorX >= this.Width || actorY < 0 || actorY >= this.Height then
+            this.BlockedActorMove(MovementBlockedCause.PlayerActorNotAtPosition)
+        else
+            let actorIndex = this.GetIndex(actorX, actorY)
+            let destIndex = this.GetIndex(destX, destY)
+            let actorCell = this.LayerCells.[actorIndex]
+            let destCell = this.LayerCells.[destIndex]
+
+            match actorCell.ActorId with
+            | Some sourceActorId when sourceActorId = actorId ->
+                if not (this.GetTileProperties(destX, destY).Walkable) then
+                    this.BlockedActorMove(MovementBlockedCause.DestinationNotWalkable)
+                elif destCell.ActorId.IsSome then
+                    this.BlockedActorMove(MovementBlockedCause.DestinationOccupiedByActor)
+                else
+                    match destCell.FixtureId with
+                    | Some fixtureId ->
+                        let struct (blocksMovement, moveRequirement) = this.GetFixtureMovementInfo(fixtureId)
+                        if not blocksMovement then
+                            if this.Tiles.[destIndex].IsOccupied then
+                                this.BlockedActorMove(MovementBlockedCause.PlayerActorNotAtPosition)
+                            else
+                                this.CommitNormalActorMove(actorIndex, destIndex, actorId)
+                        elif moveRequirement <= 0 then
+                            this.BlockedActorMove(MovementBlockedCause.DestinationBlockedByFixture)
+                        elif moveRequirement > actorStrength then
+                            this.BlockedActorMove(MovementBlockedCause.MoveableRequiresStrength)
+                        else
+                            let fixturePosition = GridPos(destX, destY)
+                            let pushX = destX + deltaX
+                            let pushY = destY + deltaY
+                            let canPush =
+                                pushX >= 0 && pushX < this.Width && pushY >= 0 && pushY < this.Height
+                                && actorCell.FixtureId.IsNone
+                                && this.GetTileProperties(pushX, pushY).Walkable
+
+                            if canPush then
+                                let pushIndex = this.GetIndex(pushX, pushY)
+                                let pushCell = this.LayerCells.[pushIndex]
+                                if not this.Tiles.[pushIndex].IsOccupied
+                                   && pushCell.ActorId.IsNone
+                                   && pushCell.FixtureId.IsNone then
+                                    let oldActorOpacity = this.EffectiveOpacity.[actorIndex]
+                                    let oldFixtureOpacity = this.EffectiveOpacity.[destIndex]
+                                    let oldPushOpacity = this.EffectiveOpacity.[pushIndex]
+                                    actorCell.ActorId <- None
+                                    destCell.FixtureId <- None
+                                    destCell.ActorId <- Some actorId
+                                    pushCell.FixtureId <- Some fixtureId
+                                    this.RecomputeEffectiveOpacityAtIndex(actorIndex)
+                                    this.RecomputeEffectiveOpacityAtIndex(destIndex)
+                                    this.RecomputeEffectiveOpacityAtIndex(pushIndex)
+                                    let opacityChanged =
+                                        oldActorOpacity <> this.EffectiveOpacity.[actorIndex]
+                                        || oldFixtureOpacity <> this.EffectiveOpacity.[destIndex]
+                                        || oldPushOpacity <> this.EffectiveOpacity.[pushIndex]
+                                    this.SucceededActorMove(MovementKind.PushedMoveable, fixtureId, fixturePosition, GridPos(pushX, pushY), opacityChanged)
+                                else
+                                    this.CommitActorFixtureSwap(actorIndex, destIndex, actorId, GridPos(actorX, actorY), fixtureId, fixturePosition)
+                            else
+                                this.CommitActorFixtureSwap(actorIndex, destIndex, actorId, GridPos(actorX, actorY), fixtureId, fixturePosition)
+                    | None ->
+                        if this.Tiles.[destIndex].IsOccupied then
+                            this.BlockedActorMove(MovementBlockedCause.PlayerActorNotAtPosition)
+                        else
+                            this.CommitNormalActorMove(actorIndex, destIndex, actorId)
+            | _ ->
+                this.BlockedActorMove(MovementBlockedCause.PlayerActorNotAtPosition)
 
     member this.TryMoveActor(x: int, y: int, x2: int, y2: int) : bool =
         if x < 0 || x >= this.Width || y < 0 || y >= this.Height ||

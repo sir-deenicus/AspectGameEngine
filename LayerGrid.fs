@@ -158,17 +158,22 @@ module LayerQueries =
 
     // Items never affect opacity; only actor/fixture vs base tile.
     let EffectiveTileOpacity (baseTileOpacity: TileOpacity, cell: LayerCell) =
-        let inline getOpacity (spriteIdOpt:int option) =
+        let inline opacityOr fallback (spriteIdOpt: int option) =
             match spriteIdOpt with
-            | None -> None
-            | Some id -> SpritePropsQueries.tryGetOpacity id
+            | None -> fallback
+            | Some id ->
+                let mutable spriteProps = Unchecked.defaultof<SpriteProperties>
+                if EntityRegistry.SpriteProps.TryGetValue(id, &spriteProps) then
+                    match spriteProps.SpriteType with
+                    | SpriteType.Actor actorProps -> actorProps.TileOpacity
+                    | SpriteType.Fixture fixtureProps -> fixtureProps.TileOpacity
+                    | SpriteType.Item _
+                    | SpriteType.Decal _ -> fallback
+                else
+                    fallback
 
-        match getOpacity cell.ActorId with
-        | Some o -> o
-        | None ->
-            match getOpacity cell.FixtureId with
-            | Some o -> o
-            | None -> baseTileOpacity
+        let fixtureOrBaseOpacity = opacityOr baseTileOpacity cell.FixtureId
+        opacityOr fixtureOrBaseOpacity cell.ActorId
 
     [<Struct>]
     type DecalView =

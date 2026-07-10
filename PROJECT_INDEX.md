@@ -8,6 +8,7 @@ Start here when orienting yourself in AspectGameEngine.
 - `PROJECT_ETHOS.md` - project-wide engineering principles.
 - `docs/triage.md` - active engine slice triage and ordering.
 - `docs/todo.md` - active engine implementation checklist.
+- `docs/Map-Migrations.md` - map format versions, sequential migrations, legacy compatibility, and explicit disk upgrades.
 - `docs/Occluder-Task.md` - chunk occluder behavior, test coverage, and future work.
 - `Readme.md` - older overview; useful, but scheduled for cleanup.
 
@@ -24,6 +25,7 @@ Completed or active docs from this pass:
 - `docs/Interactions.md`
 - `docs/Lights.md`
 - `docs/Localization.md`
+- `docs/Map-Migrations.md`
 - `docs/Persistent-Vector.md`
 - `docs/Sprite-Shadows.md`
 
@@ -52,6 +54,7 @@ Technical docs and task notes:
 - `docs/Interactions.md`
 - `docs/Lights.md`
 - `docs/Localization.md`
+- `docs/Map-Migrations.md`
 - `docs/Persistent-Vector.md`
 - `docs/Sprite-Shadows.md`
 - `docs/Occluder-Task.md`

@@ -6,7 +6,9 @@ This is the active engine todo list. The current priority lens lives in `docs/tr
 
 As of 2026-07-08, the engine-side Stage 2H visibility ownership work is complete in this repo: `GameModel.VisibilityState` is a derived cache, mutators report `Changes.VisibilityInputChanged` without eager recompute, and the Debug build post-build copied the DLL/PDB/XML into `../aspectrpg/Scripts/GameEngine/`. The frontend Stage 2H source swap and Godot-side oracles remain in the frontend repo.
 
-Stage 4 has not been approved for implementation yet. The next engine feature step is discussion of the Stage 4 plan before any source edits. The latest user correction is that the raw-English message/string audit belongs in Stage 4, not Stage 8 and not reopened Stage 3. Stage 0 through Stage 3 remain complete. An accidental Stage 4 implementation scaffold was started and removed; do not assume any Stage 4 source work exists. `archive/decal-movement-repro.fsx` may exist as an archived, untracked repro script from the layer-0 decal investigation.
+Stage 4 feature implementation has not been approved yet. Before feature source edits, execute or explicitly approve the map-versioning preflight defined in `docs/Map-Migrations.md`; all existing maps are implicit version 0, and `Tile.IsOccupied` cannot be retired without preserving old blocked cells through migration. The raw-English message/string audit belongs in Stage 4, not Stage 8 and not reopened Stage 3. Stage 0 through Stage 3 remain complete. An accidental Stage 4 implementation scaffold was started and removed; do not assume any Stage 4 feature source work exists. `archive/decal-movement-repro.fsx` may exist as an archived, untracked repro script from the layer-0 decal investigation.
+
+The 2026-07-10 LD54 movement hardening is complete. `Player.tryMove` now delegates collision classification and mutation to one internal typed `TileMap` transaction; no unsafe prevalidated API is public. Runtime property and opacity probes avoid tuple/option wrapper allocations, blocked result payloads are cached, and `tryMoveBool` skips rich result construction. The measured steady-state costs are 552 bytes for an accepted rich move, 0 for a rich wall block, 24 for an accepted boolean move, and 0 for a boolean wall block, compared with the audit baselines of approximately 1,744 and 136 bytes. Stage 4 remains the current feature focus.
 
 Use this item format:
 
@@ -47,6 +49,7 @@ Frontend dependency: Stage 2 rendering foundation.
 - [x] [DONE] [T1] Prove the changed-state vocabulary with movement and moveable mutations available by Stage 2; later stages must reuse it for their own mutations.
 - [x] [DONE] [T2] Add Stage 2 tests that mutation results report expected changed cells/entities for movement and push/moveable behavior.
 - [x] [DONE] [T1] Execute the Stage 2H engine change from the frontend repo's locked work order (`../aspectrpg/Design-docs/stage2-work-order.md`, Stage 2H, LD21-LD25): make `GameModel.VisibilityState` a derived cache — remove eager `recomputeVisibility` calls from `finishPlayerMove`, `tryForInteractionsResult`, `setVisibilityWindow`, `setVisibilityTranslucencyBudget`, and `createWith`; mutators only report `Changes.VisibilityInputChanged`. Update existing tests to explicit recompute (re-adding eager computes to green a test is forbidden), add the LD24 staleness test (post-move: `VisibilityInputChanged = true` and `VisibilityState` bit-identical), document the lifecycle law in `docs/Fog-Of-War.md`, rebuild and vendor the DLL into the frontend repo. Context: the map-sized default window makes the current eager compute cost ~20-25ms per move step on a 300x300 map, written into state nothing reads.
+- [x] [DONE] [T1] Execute the LD54 movement hardening from `../aspectrpg/Design-docs/stage2k-smooth-scroll-work-order.md`: `Player.tryMove` now uses one internal typed `TileMap` transaction for deterministic collision classification plus normal/push/swap mutation, scalar opacity-change tracking replaces temporary snapshot arrays, runtime registry/property lookups avoid tuple/option wrappers, blocked payloads are cached, and `tryMoveBool` omits rich result construction. The full `MovementResult` contract remains intact and no unsafe prevalidated mutation API is public. Focused correctness and allocation coverage pins normal, wall-blocked, door, push, swap, opacity, changed-state, and save-relevant facts. Measured steady-state allocations over 100,000 normal/wall calls: rich accepted 552 bytes, rich wall-blocked 0, boolean accepted 24, boolean wall-blocked 0; prepared rich push/swap/door cases measure 1,128/1,120/648 bytes per call.
 
 ## Stage 3: Descriptions And Localization Support
 
@@ -60,6 +63,18 @@ Frontend dependency: Stage 3 descriptions and localization.
 ## Stage 4: Items, Pickup, Drop, Hidden Inventory, And Containers
 
 Frontend dependency: Stage 4 items, pickup/drop, hidden inventory, and containers.
+
+### Stage 4 Preflight: Map Format Versioning And Migrations
+
+- [ ] [NOW] [T1] Implement the engine-owned migration foundation in `docs/Map-Migrations.md` before adding Stage 4 persisted map state. Treat every existing map as implicit format version 0; normal load may migrate in memory but must never rewrite the source file.
+- [ ] [NOW] [T1] Add `format_version:uint = 0` at the end of `TileMapFBS`, define the engine's explicit current version, reject unsupported future versions, and preserve FlatBuffers compatibility by appending fields only, retaining obsolete fields in their original slots, and regenerating C# through `flatc`.
+- [ ] [NOW] [T1] Refactor map loading into a serialized-document pipeline with deterministic sequential `vN -> vN+1` migrations before current runtime `TileMap` construction. Add a rich load result/report while keeping the existing `deserialize` entry point on the same pipeline.
+- [ ] [NOW] [T1] Implement version 0 to version 1 migration for `Tile.IsOccupied`: add an explicit per-cell movement-block override, map `false` to inherit and `true` to blocked, retain the legacy FlatBuffers field without reusing its slot, and only remove `IsOccupied` from runtime/editor tile shapes after every load path migrates it. Do not alter shared `TileProperties.Walkable` to preserve a per-cell flag.
+- [ ] [NOW] [T1] Add an engine byte-upgrade API and migration report. Normal loading never writes; separate-output upgrade is the default; explicitly requested in-place upgrade writes and reopens a sibling temporary file before atomically replacing the original, so partial migration is unreachable.
+- [ ] [NOW] [T1] Give the explicit movement override a destination-side blocked cause instead of reporting `PlayerActorNotAtPosition` when the source actor is present.
+- [ ] [NOW] [T2] Commit real old-writer version-0 binary fixtures and test passability parity for occupied/unoccupied cells, complete map/layer/spawn/explored preservation, current-version round trips, one-time migration, future-version rejection, and original-file preservation on failed upgrade.
+- [ ] [NOW] [T1] After the migration and parity gates pass, delete `IsOccupied` from runtime/editor tile models, current authoring, current serialization, and current movement logic. Keep the legacy FlatBuffers slot and version-0 reader only for compatibility; do not leave the old field dormant as a safety blanket.
+- [ ] [NOW] [T2] Run the explicit migration workflow over every authored project map, review the per-file report, and replace project content with current-version outputs. Completion requires both backward-compatible loading and migrated current project maps; retain golden version-0 fixtures for future regression coverage.
 
 - [ ] [NOW] [T1] Audit Stage 4-facing engine messages and strings so runtime results never expose raw English prose; replace cases like blocked/block text with stable localization keys and typed args.
 - [ ] [NOW] [T1] Add or finalize item definitions with stable ids, name key, description key, visual reference, weight, value, stack limit, and `ItemKind`; allow authoring templates/defaults so many gameplay-distinct items can share art, weight, value, and stack policy while remaining distinct definitions when names, descriptions, or engine-owned capability payloads differ.
@@ -110,7 +125,7 @@ Frontend dependency: Stage 7 lighting, day-night, and occluders.
 
 Frontend dependency: Stage 8 slice hardening.
 
-- [ ] [TODO] [T1] Version new FlatBuffers schema changes deliberately and document defaults for older maps.
+- [ ] [TODO] [T1] Exercise and harden the established `docs/Map-Migrations.md` pipeline across every authored-map schema change added by Stages 4-7; add any missing golden source-version fixtures and document the supported-version horizon. Do not defer foundational map versioning until this stage.
 - [ ] [TODO] [T1] Define the save-game live-state overlay/diff shape over authored content, covering moved objects, door open/lock state, player inventory, container inventories, picked-up/dropped item stacks, trigger state, and tile-swap state.
 - [ ] [TODO] [T1] Add round-trip tests for moveables, item definitions or references, player inventory, container inventory, locks, door state, rune tile-swap state, and any light/time data added.
 - [ ] [TODO] [T1] Add a small engine scenario fixture covering container with key, locked door, moveable object, rock, rune, wall-to-floor tile swap/restoration, opacity-changing state, and localization keys.
@@ -138,6 +153,13 @@ This todo is scoped to engine work only. It intentionally excludes frontend pres
 Some tasks may already be partially implemented. Workers should verify the current source before adding new types or APIs.
 
 ## History
+
+### 2026-07-10
+
+- Recorded the nonblocking LD54 Stage 2 movement-hardening request from the frontend source audit. The engine path is constant-time and map-size-independent, but accepted movement allocates approximately 1,744 bytes per call, blocked movement approximately 136 bytes per call, and destination walkability/occupancy is validated in both `Player.tryMove` and `TileMap.TryMoveActor`. The request preserves the typed movement contract while requiring one authoritative transaction and focused allocation/correctness coverage before multi-actor movement arrives.
+- Completed LD54 with one internal typed map transaction, allocation-lean runtime property/opacity lookups, cached blocked payloads, scalar opacity tracking, and a detail-free boolean path. Preserved the rich result contract and verified steady-state allocations at 552/0 bytes for accepted/wall-blocked rich moves and 24/0 for the boolean wrapper, with prepared push/swap/door gates at 1,128/1,120/648 bytes.
+- Added map-format versioning and migrations as the Stage 4 preflight rather than leaving the foundation in Stage 8. Recorded every existing map as implicit version 0 and made legacy `Tile.IsOccupied` preservation the first concrete migration.
+- Clarified that the migration preflight ends by deleting `IsOccupied` from current runtime/editor models and explicitly upgrading all authored project maps. Only the legacy schema slot, version-0 migration, and golden fixtures remain afterward.
 
 ### 2026-07-08
 

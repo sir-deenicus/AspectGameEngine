@@ -382,9 +382,11 @@ Movement is moving from boolean-only APIs to typed result data.
 
 Stage 3 keeps those message keys as keys. `EngineMessage.Args` remains a typed array of `EngineMessageArg` values, and `EngineMessageLocalization` converts those values to localization `Args` only at the presentation boundary. Runtime interaction and movement logic should branch on typed causes, map state, tile/entity metadata, lock state, and opacity state, never on rendered strings or description keys.
 
-Stage 1 moveables are implemented and verified. Code routes movement into blocking moveable fixtures through `Player.tryMove`, uses `TileMap.TryPushFixtureAndMoveActor` for atomic push-plus-player movement, uses `TileMap.TrySwapActorAndFixture` for the swap case, and updates `Objects.fs` to the push-or-swap fallback. Focused movement tests cover push, swap, blocked cases, diagonal movement, opacity changes, and moved actor/fixture map serialization.
+Stage 1 moveables are implemented and verified. `Player.tryMove` now routes normal movement, blocking moveables, push, and swap through one internal typed `TileMap` transaction. The transaction validates and mutates once, returns deterministic typed facts to `Player`, and is not exposed as a public prevalidated bypass. The older public `TryMoveActor`, `TryPushFixtureAndMoveActor`, and `TrySwapActorAndFixture` helpers remain available for their existing direct map use, but the player path no longer composes them into a duplicate validation cascade. `Objects.fs` still follows the push-or-swap fallback. Focused movement tests cover push, swap, blocked cases, diagonal movement, opacity changes, and moved actor/fixture map serialization.
 
 Stage 2 mutation hints are implemented for movement and current door interactions. `EngineChangeSet` reports changed base cells, changed layer cells, changed entities, visibility/FOV refresh needs, occlusion-input changes, and save relevance. Movement marks visibility changed on successful movement because the player/FOV origin moved. It marks occlusion changed only when effective opacity changes, such as an opaque moveable changing cells or a door tile changing opacity. Transparent actor or fixture movement still reports layer/entity changes without forcing occlusion rebuilds.
+
+LD54 hardens this contract without reducing it. The transaction compares scalar pre/post opacity values instead of allocating snapshot arrays, runtime registry/property probes use byref lookups, blocked causes/messages are cached, and `tryMoveBool` does not build message or change payloads it cannot return. The rich API still constructs the arrays and typed message arguments its public result exposes. Steady-state tests measure accepted/wall-blocked rich movement at 552/0 bytes per call and accepted/wall-blocked boolean movement at 24/0, down from the audit's approximately 1,744/136-byte rich baseline. Prepared rich push, swap, and auto-opening-door calls measure 1,128, 1,120, and 648 bytes per call.
 
 `GameUpdate.lookAt` is the current Stage 3 description scaffold. It returns the base tile description key plus up to three layer object description keys by render-layer/stable-order priority, using `TileMap.TryGetTileDescriptionKey` and `SpritePropsQueries.tryGetDescriptionKey`. Missing entity description keys are not returned as fake strings; callers can see that layer objects exist through `HasMore`.
 
@@ -428,6 +430,14 @@ The engine should return compact result keys and state changes. The Godot layer 
 Triggers should target map-local objects, positions, slots, or tags. They should not target Godot node paths.
 
 Moveables are interactions driven by movement. They should use the same collision, occupancy, map mutation, opacity-cache, and visibility update discipline as ordinary movement.
+
+## Limitations
+
+The rich `MovementResult` contract deliberately exposes arrays and typed message arguments, so successful rich moves are allocation-lean rather than allocation-free. Callers that need changed-state facts should use `tryMove`; callers that truly need only success/failure can use `tryMoveBool`, which omits those payloads. Returning a partial rich result merely to save allocations is not part of the contract.
+
+The current player strength passed into the movement transaction is still the fixed Stage 1 value of `1`. Future actor stats, buffs, encumbrance, party assistance, movement holds, and container-content weight must feed the same transaction rather than adding parallel collision paths.
+
+The authoritative transaction is currently player-facing and internal. Generic `TileMap.TryMoveActor` remains a public boolean map helper for non-player direct mutations; future NPC/AI movement should reuse or generalize the typed transaction before multiplying traffic, not recreate a validation cascade around the boolean helper.
 
 ## Future Work
 
@@ -485,6 +495,12 @@ Add focused tests for interaction targeting, locked doors, containers, key acqui
 - `map-tests.fsx` - current door interaction tests and likely home for first interaction behavior tests.
 
 ## Historical Notes
+
+### 2026-07-10
+
+- Completed LD54 movement hardening with one internal typed map transaction for player normal/push/swap validation and mutation, scalar opacity-change tracking, allocation-lean registry/property probes, cached blocked payloads, and a detail-free boolean wrapper path.
+- Preserved deterministic causes, movement kinds, changed cells/entities, visibility and occlusion facts, save relevance, moved-object identity, and stable localization message data. Added correctness and allocation gates for normal, wall-blocked, door, push, swap, and opacity-changing movement.
+- Recorded steady-state allocation results: rich accepted/wall-blocked 552/0 bytes, boolean accepted/wall-blocked 24/0, and prepared rich push/swap/door 1,128/1,120/648 bytes per call.
 
 ### 2026-07-07
 

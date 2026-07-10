@@ -199,11 +199,11 @@ The engine includes small gameplay-facing helpers, but they are still map/data h
 
 `TileMap.IsWalkable` reads base tile properties from the registered tileset. `TileMap.IsOccupied` checks the tile's own `IsOccupied` flag, then actor presence, then blocking fixtures. Actors are always treated as movement blockers. Fixtures block only if their registered fixture properties say so.
 
-`TryMoveActor` validates bounds, walkability, and occupancy before moving the actor id between layer cells. `TryMoveFixture` validates fixture presence and, when the fixture blocks movement, validates the destination. `TryPushFixtureAndMoveActor` is the narrow atomic helper for the moveable push case: it moves the fixture forward and the actor into the fixture's old cell as one validated map mutation. `TrySwapActorAndFixture` is the narrow helper for movement rules that intentionally swap the player actor with a fixture in an adjacent cell, such as the moveable push-or-swap rule.
+`TryMoveActor` validates bounds, walkability, and occupancy before moving the actor id between layer cells. `TryMoveFixture` validates fixture presence and, when the fixture blocks movement, validates the destination. `TryPushFixtureAndMoveActor` is the narrow atomic helper for direct moveable pushes, and `TrySwapActorAndFixture` is the direct swap helper. Player movement uses a separate internal typed transaction that classifies and commits normal, push, or swap movement in one pass. Because that transaction is internal, callers cannot bypass validation with a public "already checked" mutation API.
 
 `GameState.fs` wraps a runtime map in `GameModel`, tracks player position and visibility settings, recomputes FOV, dispatches simple door interactions, and implements `lookAt`. `lookAt` combines the base tile description key with the top three layer object description keys by `RenderLayer` and stable cell order. Empty description keys stay empty; the engine does not synthesize rendered fallback text. Door interactions now have typed result entry points returning `InteractionResult`, with the old `InteractResult` wrappers retained for existing callers.
 
-`Player.fs` exposes `tryMove` as the typed movement API returning `MovementResult`. `tryMoveBool` is the explicit compatibility wrapper for callers that still need a boolean. The movement path returns stable message keys plus typed `EngineMessageArg` values, updates facing and pose sprite references through the registry, auto-opens a door on the destination tile when possible, and recomputes visibility after successful movement. Door auto-open is based on typed tile kind, visual transition, lock state, and opacity state, not on description keys.
+`Player.fs` exposes `tryMove` as the typed movement API returning `MovementResult`. `tryMoveBool` is the explicit compatibility wrapper for callers that still need a boolean and now omits rich result payload construction. The movement path returns stable message keys plus typed `EngineMessageArg` values, updates facing and pose sprite references through the registry, and auto-opens a door on the destination tile when possible. Successful movement reports `VisibilityInputChanged`; it does not recompute the derived `GameModel.VisibilityState` cache. Consumers call `GameUpdate.recomputeVisibility` at their chosen cadence. Door auto-open is based on typed tile kind, visual transition, lock state, and opacity state, not on description keys.
 
 `EngineChangeSet` is the shared mutation hint shape used by current movement and door interaction results. It reports changed base cells, changed layer cells, changed entities by slot, whether visibility/FOV should refresh, whether occlusion inputs changed, and whether the mutation is save-relevant. Movement always marks visibility changed on success because the player/FOV origin moved. It marks occlusion changed only when the effective opacity grid changes, such as an opaque fixture moving or a door tile changing; transparent movement still reports layer/entity changes without forcing an occlusion rebuild.
 
@@ -350,9 +350,19 @@ The runtime map uses arrays, mutable cells, and direct indexing. Layer queries a
 
 Effective opacity is cached because FOV and occlusion need cheap per-tile opacity reads. Mutating tile or relevant layer state should update the affected cache entries; bulk load or conversion should initialize the whole cache once registries are ready.
 
+Runtime tile-property, entity-property, and effective-opacity recomputation paths use explicit byref dictionary probes so large struct values are not wrapped in allocated tuples or options. Player movement tracks old opacity in scalar locals and compares only the cells it mutates. Its internal transaction is local and constant-time: normal and swap touch two cells, while push touches three.
+
+The LD54 allocation oracle runs after warmup. Current steady-state results are 552 bytes for an accepted rich move, 0 for a rich wall block, 24 for an accepted boolean move, and 0 for a boolean wall block. Prepared rich push, swap, and auto-opening-door calls measure 1,128, 1,120, and 648 bytes. The remaining successful rich allocations are the arrays, options, and typed message arguments exposed by `MovementResult`, not temporary collision or opacity work.
+
 The editor map uses persistent vectors so normal editing can create snapshots without copying every unchanged tile or cell. Batch updates exist for brush-like operations where many cells change together.
 
 The map serializer writes compact FlatBuffers arrays in flat grid order. It does not attempt to delta-compress maps or deduplicate repeated tiles.
+
+## Limitations
+
+Successful rich movement is allocation-lean, not allocation-free, because `MovementResult` publicly owns changed-cell/entity arrays and typed message arguments. `tryMoveBool` is the low-allocation path only for callers that do not need those facts. Runtime actor and fixture slots still use `int option`, so an accepted boolean move retains the small allocation needed to place the actor id in its destination cell.
+
+The typed transaction currently serves player movement and uses the fixed Stage 1 player strength. NPC/AI movement and dynamic strength/weight rules should generalize this same transaction rather than build new validation layers around the public boolean map helpers.
 
 ## Design Boundaries And Operating Rules
 
@@ -405,6 +415,13 @@ Map serialization is backward-aware for spawn points, explored flags, and legacy
 - `tests.fsx` - broader engine behavior tests.
 
 ## Historical Notes
+
+### 2026-07-10
+
+- Completed LD54 player-movement hardening: added one internal typed map transaction for deterministic classification and normal/push/swap mutation, removed duplicate player/map validation, and retained the public rich result contract without exposing a prevalidated bypass.
+- Removed temporary opacity arrays and hot tuple/option wrappers from runtime tile/entity property lookup and opacity recomputation. `movement-tests.fsx` now gates normal, blocked, push, swap, and door allocation alongside existing correctness facts.
+- Recorded measured allocations after warmup: rich accepted/wall-blocked 552/0 bytes, boolean accepted/wall-blocked 24/0, and prepared rich push/swap/door 1,128/1,120/648 bytes per call.
+- Corrected the visibility lifecycle description: movement marks visibility input dirty, while explicit consumer-owned recomputation refreshes the derived cache.
 
 ### 2026-07-07
 

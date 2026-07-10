@@ -349,6 +349,14 @@ let testMoveableSwapsWhenPushBlocked () =
     assertEquals (Some moveableFixtureId) (model.Map.TryGetFixture(1, 1)) "fixture swapped into player old cell"
     assertEquals None (model.Map.TryGetFixture(2, 1)) "fixture left old cell"
     assertEquals (Some { Slot = ChangeSlot.Fixture; EntityId = Some moveableFixtureId; LocalObjectId = None; OldPosition = GridPos(2, 1); NewPosition = GridPos(1, 1) }) result.MovedObject "moved fixture result"
+    assertEquals [| GridPos(1, 1); GridPos(2, 1) |] result.Changes.ChangedLayerCells "changed swap cells"
+    assertEquals
+        [| { Position = GridPos(1, 1); Slot = ChangeSlot.Actor; EntityId = None; LocalObjectId = None }
+           { Position = GridPos(2, 1); Slot = ChangeSlot.Actor; EntityId = Some playerActorId; LocalObjectId = None }
+           { Position = GridPos(2, 1); Slot = ChangeSlot.Fixture; EntityId = None; LocalObjectId = None }
+           { Position = GridPos(1, 1); Slot = ChangeSlot.Fixture; EntityId = Some moveableFixtureId; LocalObjectId = None } |]
+        result.Changes.ChangedEntities
+        "swapped moveable changed actor and fixture entities"
     assertEquals true result.Changes.VisibilityInputChanged "swapped moveable refreshes visibility"
     assertEquals true result.Changes.OcclusionInputChanged "opaque swap moves the occlusion footprint"
     assertEquals true result.Changes.SaveRelevant "swapped moveable movement is save relevant"
@@ -558,6 +566,112 @@ let testMoveableStateRoundTripsAfterSerialization () =
     assertEquals None (deserializedMap.TryGetActor(1, 1)) "old player actor position remains empty"
     assertEquals None (deserializedMap.TryGetFixture(2, 1)) "old fixture position remains empty"
 
+let measureAllocatedBytesPerCall iterations warmupIterations action =
+    for _ in 1 .. warmupIterations do
+        action ()
+
+    System.GC.Collect()
+    System.GC.WaitForPendingFinalizers()
+    System.GC.Collect()
+
+    let before = System.GC.GetAllocatedBytesForCurrentThread()
+    for _ in 1 .. iterations do
+        action ()
+    let allocated = System.GC.GetAllocatedBytesForCurrentThread() - before
+    allocated / int64 iterations
+
+let measurePreparedModelBytesPerCall iterations warmupIterations createModelForCase action =
+    let warmupModels = Array.init warmupIterations (fun _ -> createModelForCase ())
+    for model in warmupModels do
+        if not (action model) then failwith "prepared movement allocation warmup failed"
+
+    let models = Array.init iterations (fun _ -> createModelForCase ())
+    System.GC.Collect()
+    System.GC.WaitForPendingFinalizers()
+    System.GC.Collect()
+
+    let before = System.GC.GetAllocatedBytesForCurrentThread()
+    for model in models do
+        if not (action model) then failwith "prepared movement allocation case failed"
+    let allocated = System.GC.GetAllocatedBytesForCurrentThread() - before
+    allocated / int64 iterations
+
+let testMovementAllocationBudgets () =
+    printfn "\n--- Test: movement allocation budgets ---"
+    let iterations = 100_000
+    let warmupIterations = 2_000
+
+    let richMoveModel = createDefaultMap () |> createModel
+    let mutable richMoveDx = 1
+    let richMoveBytes =
+        measureAllocatedBytesPerCall iterations warmupIterations (fun () ->
+            let result = Player.tryMove richMoveModel richMoveDx 0
+            if not result.Succeeded then failwith "accepted rich movement allocation setup became blocked"
+            richMoveDx <- -richMoveDx)
+
+    let blockedMoveModel =
+        createMap (Some (GridPos(2, 1))) None (GridPos(1, 1))
+        |> createModel
+    let blockedMoveBytes =
+        measureAllocatedBytesPerCall iterations warmupIterations (fun () ->
+            if (Player.tryMove blockedMoveModel 1 0).Succeeded then
+                failwith "blocked rich movement allocation setup unexpectedly moved")
+
+    let boolMoveModel = createDefaultMap () |> createModel
+    let mutable boolMoveDx = 1
+    let boolMoveBytes =
+        measureAllocatedBytesPerCall iterations warmupIterations (fun () ->
+            if not (Player.tryMoveBool boolMoveModel boolMoveDx 0) then
+                failwith "accepted boolean movement allocation setup became blocked"
+            boolMoveDx <- -boolMoveDx)
+
+    let boolBlockedModel =
+        createMap (Some (GridPos(2, 1))) None (GridPos(1, 1))
+        |> createModel
+    let boolBlockedBytes =
+        measureAllocatedBytesPerCall iterations warmupIterations (fun () ->
+            if Player.tryMoveBool boolBlockedModel 1 0 then
+                failwith "blocked boolean movement allocation setup unexpectedly moved")
+
+    let preparedIterations = 2_000
+    let preparedWarmupIterations = 100
+    let pushBytes =
+        measurePreparedModelBytesPerCall
+            preparedIterations
+            preparedWarmupIterations
+            (fun () -> createMap None (Some (GridPos(2, 1), moveableFixtureId)) (GridPos(1, 1)) |> createModel)
+            (fun model -> (Player.tryMove model 1 0).Kind = MovementKind.PushedMoveable)
+    let swapBytes =
+        measurePreparedModelBytesPerCall
+            preparedIterations
+            preparedWarmupIterations
+            (fun () -> createMap (Some (GridPos(3, 1))) (Some (GridPos(2, 1), moveableFixtureId)) (GridPos(1, 1)) |> createModel)
+            (fun model -> (Player.tryMove model 1 0).Kind = MovementKind.SwappedMoveable)
+    let doorBytes =
+        measurePreparedModelBytesPerCall
+            preparedIterations
+            preparedWarmupIterations
+            (fun () -> createDoorMap () |> createModel)
+            (fun model ->
+                let result = Player.tryMove model 1 0
+                result.Succeeded && result.Changes.OcclusionInputChanged)
+
+    printfn "ALLOC: rich accepted move = %d bytes/call" richMoveBytes
+    printfn "ALLOC: rich wall-blocked move = %d bytes/call" blockedMoveBytes
+    printfn "ALLOC: boolean accepted move = %d bytes/call" boolMoveBytes
+    printfn "ALLOC: boolean wall-blocked move = %d bytes/call" boolBlockedBytes
+    printfn "ALLOC: rich push move = %d bytes/call" pushBytes
+    printfn "ALLOC: rich swap move = %d bytes/call" swapBytes
+    printfn "ALLOC: rich door move = %d bytes/call" doorBytes
+
+    assertTrue (richMoveBytes <= 700L) "rich accepted movement stays below the hardened allocation budget"
+    assertTrue (blockedMoveBytes <= 16L) "rich wall-blocked movement reuses cached blocked payloads"
+    assertTrue (boolMoveBytes <= 64L) "boolean accepted movement omits result payload allocation"
+    assertTrue (boolBlockedBytes <= 16L) "boolean wall-blocked movement omits result payload allocation"
+    assertTrue (pushBytes <= 1300L) "rich push movement stays below the hardened allocation budget"
+    assertTrue (swapBytes <= 1300L) "rich swap movement stays below the hardened allocation budget"
+    assertTrue (doorBytes <= 800L) "rich door movement stays below the hardened allocation budget"
+
 testNormalMoveReportsChanges ()
 testCreateLeavesVisibilityCacheEmpty ()
 testVisibilitySettersDoNotRecompute ()
@@ -579,5 +693,6 @@ testDoorAutoOpenDoesNotToggleOpenDoor ()
 testLookAtReturnsDescriptionKeys ()
 testLookAtMissingEntityDescriptionFallsBackToBaseKey ()
 testMoveableStateRoundTripsAfterSerialization ()
+testMovementAllocationBudgets ()
 
 printfn "\n=== Movement tests passed ==="

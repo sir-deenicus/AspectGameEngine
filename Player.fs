@@ -3,171 +3,205 @@ namespace AspectGameEngine
 module Player = 
     let private defaultPlayerStrength = 1
 
-    [<Struct>]
-    type private OpacitySnapshot =
-        { Position: GridPos
-          Opacity: TileOpacity }
-
-    let private captureOpacities (map: TileMap) (positions: GridPos[]) =
-        positions
-        |> Array.map (fun pos -> { Position = pos; Opacity = map.GetOpacity(pos.X, pos.Y) })
-
-    let private opacitiesChanged (map: TileMap) (snapshots: OpacitySnapshot[]) =
-        snapshots
-        |> Array.exists (fun snapshot -> map.GetOpacity(snapshot.Position.X, snapshot.Position.Y) <> snapshot.Opacity)
-
     let private movementMessage key args =
         Some { Key = key; Args = args }
 
-    let private posArgs prefix (pos: GridPos) =
-        [| prefix + ".x", EngineMessageArg.Int pos.X
-           prefix + ".y", EngineMessageArg.Int pos.Y |]
+    let private noMovementCause = Some MovementBlockedCause.NoMovement
+    let private missingPlayerActorCause = Some MovementBlockedCause.MissingPlayerActor
+    let private destinationOutOfBoundsCause = Some MovementBlockedCause.DestinationOutOfBounds
+    let private destinationNotWalkableCause = Some MovementBlockedCause.DestinationNotWalkable
+    let private destinationOccupiedByActorCause = Some MovementBlockedCause.DestinationOccupiedByActor
+    let private destinationBlockedByFixtureCause = Some MovementBlockedCause.DestinationBlockedByFixture
+    let private moveableRequiresStrengthCause = Some MovementBlockedCause.MoveableRequiresStrength
+    let private moveablePushDestinationOutOfBoundsCause = Some MovementBlockedCause.MoveablePushDestinationOutOfBounds
+    let private moveablePushDestinationBlockedCause = Some MovementBlockedCause.MoveablePushDestinationBlocked
+    let private swapBlockedCause = Some MovementBlockedCause.SwapBlocked
+    let private playerActorNotAtPositionCause = Some MovementBlockedCause.PlayerActorNotAtPosition
+
+    let private noMovementMessage = movementMessage "movement.blocked.no-movement" [||]
+    let private missingPlayerActorMessage = movementMessage "movement.blocked.missing-player-actor" [||]
+    let private destinationOutOfBoundsMessage = movementMessage "movement.blocked.destination-out-of-bounds" [||]
+    let private destinationNotWalkableMessage = movementMessage "movement.blocked.destination-not-walkable" [||]
+    let private destinationOccupiedByActorMessage = movementMessage "movement.blocked.destination-occupied-by-actor" [||]
+    let private destinationBlockedByFixtureMessage = movementMessage "movement.blocked.destination-blocked-by-fixture" [||]
+    let private moveableRequiresStrengthMessage = movementMessage "movement.blocked.moveable-requires-strength" [||]
+    let private moveablePushDestinationOutOfBoundsMessage = movementMessage "movement.blocked.moveable-push-destination-out-of-bounds" [||]
+    let private moveablePushDestinationBlockedMessage = movementMessage "movement.blocked.moveable-push-destination-blocked" [||]
+    let private swapBlockedMessage = movementMessage "movement.blocked.swap-blocked" [||]
+    let private playerActorNotAtPositionMessage = movementMessage "movement.blocked.player-actor-not-at-position" [||]
+    let private unknownBlockedMessage = movementMessage "movement.blocked.unknown" [||]
+
+    let private blockedCauseOption cause =
+        match cause with
+        | MovementBlockedCause.NoMovement -> noMovementCause
+        | MovementBlockedCause.MissingPlayerActor -> missingPlayerActorCause
+        | MovementBlockedCause.DestinationOutOfBounds -> destinationOutOfBoundsCause
+        | MovementBlockedCause.DestinationNotWalkable -> destinationNotWalkableCause
+        | MovementBlockedCause.DestinationOccupiedByActor -> destinationOccupiedByActorCause
+        | MovementBlockedCause.DestinationBlockedByFixture -> destinationBlockedByFixtureCause
+        | MovementBlockedCause.MoveableRequiresStrength -> moveableRequiresStrengthCause
+        | MovementBlockedCause.MoveablePushDestinationOutOfBounds -> moveablePushDestinationOutOfBoundsCause
+        | MovementBlockedCause.MoveablePushDestinationBlocked -> moveablePushDestinationBlockedCause
+        | MovementBlockedCause.SwapBlocked -> swapBlockedCause
+        | MovementBlockedCause.PlayerActorNotAtPosition -> playerActorNotAtPositionCause
+        | _ -> Some cause
 
     let private blockedMessage cause =
-        let key =
-            match cause with
-            | MovementBlockedCause.NoMovement -> "movement.blocked.no-movement"
-            | MovementBlockedCause.MissingPlayerActor -> "movement.blocked.missing-player-actor"
-            | MovementBlockedCause.DestinationOutOfBounds -> "movement.blocked.destination-out-of-bounds"
-            | MovementBlockedCause.DestinationNotWalkable -> "movement.blocked.destination-not-walkable"
-            | MovementBlockedCause.DestinationOccupiedByActor -> "movement.blocked.destination-occupied-by-actor"
-            | MovementBlockedCause.DestinationBlockedByFixture -> "movement.blocked.destination-blocked-by-fixture"
-            | MovementBlockedCause.MoveableRequiresStrength -> "movement.blocked.moveable-requires-strength"
-            | MovementBlockedCause.MoveablePushDestinationOutOfBounds -> "movement.blocked.moveable-push-destination-out-of-bounds"
-            | MovementBlockedCause.MoveablePushDestinationBlocked -> "movement.blocked.moveable-push-destination-blocked"
-            | MovementBlockedCause.SwapBlocked -> "movement.blocked.swap-blocked"
-            | MovementBlockedCause.PlayerActorNotAtPosition -> "movement.blocked.player-actor-not-at-position"
-            | _ -> "movement.blocked.unknown"
-        movementMessage key [||]
+        match cause with
+        | MovementBlockedCause.NoMovement -> noMovementMessage
+        | MovementBlockedCause.MissingPlayerActor -> missingPlayerActorMessage
+        | MovementBlockedCause.DestinationOutOfBounds -> destinationOutOfBoundsMessage
+        | MovementBlockedCause.DestinationNotWalkable -> destinationNotWalkableMessage
+        | MovementBlockedCause.DestinationOccupiedByActor -> destinationOccupiedByActorMessage
+        | MovementBlockedCause.DestinationBlockedByFixture -> destinationBlockedByFixtureMessage
+        | MovementBlockedCause.MoveableRequiresStrength -> moveableRequiresStrengthMessage
+        | MovementBlockedCause.MoveablePushDestinationOutOfBounds -> moveablePushDestinationOutOfBoundsMessage
+        | MovementBlockedCause.MoveablePushDestinationBlocked -> moveablePushDestinationBlockedMessage
+        | MovementBlockedCause.SwapBlocked -> swapBlockedMessage
+        | MovementBlockedCause.PlayerActorNotAtPosition -> playerActorNotAtPositionMessage
+        | _ -> unknownBlockedMessage
 
-    let private normalMoveMessage oldPos newPos =
-        movementMessage "movement.moved" (Array.append (posArgs "from" oldPos) (posArgs "to" newPos))
+    let private normalMoveMessage (oldPos: GridPos) (newPos: GridPos) =
+        movementMessage
+            "movement.moved"
+            [| "from.x", EngineMessageArg.Int oldPos.X
+               "from.y", EngineMessageArg.Int oldPos.Y
+               "to.x", EngineMessageArg.Int newPos.X
+               "to.y", EngineMessageArg.Int newPos.Y |]
 
-    let private moveableMoveMessage key oldPos newPos fixtureId fixtureOldPos fixtureNewPos =
-        [| yield! posArgs "player.from" oldPos
-           yield! posArgs "player.to" newPos
+    let private moveableMoveMessage key (oldPos: GridPos) (newPos: GridPos) fixtureId (fixtureOldPos: GridPos) (fixtureNewPos: GridPos) =
+        [| "player.from.x", EngineMessageArg.Int oldPos.X
+           "player.from.y", EngineMessageArg.Int oldPos.Y
+           "player.to.x", EngineMessageArg.Int newPos.X
+           "player.to.y", EngineMessageArg.Int newPos.Y
            "fixture.id", EngineMessageArg.Int fixtureId
-           yield! posArgs "fixture.from" fixtureOldPos
-           yield! posArgs "fixture.to" fixtureNewPos |]
+           "fixture.from.x", EngineMessageArg.Int fixtureOldPos.X
+           "fixture.from.y", EngineMessageArg.Int fixtureOldPos.Y
+           "fixture.to.x", EngineMessageArg.Int fixtureNewPos.X
+           "fixture.to.y", EngineMessageArg.Int fixtureNewPos.Y |]
         |> movementMessage key
 
     let private resolvePlayerSprite (frames: NpcFrames) (visual: PlayerVisualState) : SpriteRef =
-        match visual.State, visual.Facing with
-        | ActorPose.Attack, ActorFacing.Right -> frames.AttackRight
-        | ActorPose.Attack, _ -> frames.AttackLeft
-        | _, ActorFacing.Right -> frames.NormalRight
-        | _ -> frames.NormalLeft
+        if visual.State = ActorPose.Attack then
+            if visual.Facing = ActorFacing.Right then frames.AttackRight
+            else frames.AttackLeft
+        elif visual.Facing = ActorFacing.Right then
+            frames.NormalRight
+        else
+            frames.NormalLeft
 
     let syncVisualToRender (model: GameModel) : unit =
         match model.PlayerModel.PlayerActorId with
         | None -> ()
         | Some actorId ->
-            match SpritePropsQueries.tryGet actorId with
-            | None -> ()
-            | Some sp ->
+            let mutable spriteProps = Unchecked.defaultof<SpriteProperties>
+            if EntityRegistry.SpriteProps.TryGetValue(actorId, &spriteProps) then
                 let spriteRef = resolvePlayerSprite model.PlayerModel.PlayerFrames model.PlayerModel.PlayerVisual
-                EntityRegistry.SpriteProps.[actorId] <- { sp with Sprite = spriteRef }
+                EntityRegistry.SpriteProps.[actorId] <- { spriteProps with Sprite = spriteRef }
 
-    let private blockedMovement oldPos cause =
+    let private blockedMovement includeDetails (oldPos: GridPos) cause =
         { Succeeded = false
           Kind = MovementKind.Normal
-          BlockedCause = Some cause
-          Message = blockedMessage cause
+          BlockedCause = if includeDetails then blockedCauseOption cause else None
+          Message = if includeDetails then blockedMessage cause else None
           PlayerOldPosition = oldPos
           PlayerNewPosition = oldPos
           MovedObject = None
           Changes = EngineChangeSet.Empty }
 
-    let private successfulMovement oldPos newPos actorId doorOpened occlusionInputChanged =
-        let changedBaseCells =
-            if doorOpened then [| newPos |]
-            else [||]
+    let private successfulMovement includeDetails (oldPos: GridPos) (newPos: GridPos) actorId doorOpened occlusionInputChanged =
+        if not includeDetails then
+            { Succeeded = true
+              Kind = MovementKind.Normal
+              BlockedCause = None
+              Message = None
+              PlayerOldPosition = oldPos
+              PlayerNewPosition = newPos
+              MovedObject = None
+              Changes = EngineChangeSet.Empty }
+        else
+            let actorIdOption = Some actorId
+            { Succeeded = true
+              Kind = MovementKind.Normal
+              BlockedCause = None
+              Message = normalMoveMessage oldPos newPos
+              PlayerOldPosition = oldPos
+              PlayerNewPosition = newPos
+              MovedObject = None
+              Changes =
+                { ChangedBaseCells = if doorOpened then [| newPos |] else [||]
+                  ChangedLayerCells = [| oldPos; newPos |]
+                  ChangedEntities =
+                    [| { Position = oldPos
+                         Slot = ChangeSlot.Actor
+                         EntityId = None
+                         LocalObjectId = None }
+                       { Position = newPos
+                         Slot = ChangeSlot.Actor
+                         EntityId = actorIdOption
+                         LocalObjectId = None } |]
+                  VisibilityInputChanged = true
+                  OcclusionInputChanged = occlusionInputChanged
+                  SaveRelevant = true } }
 
-        { Succeeded = true
-          Kind = MovementKind.Normal
-          BlockedCause = None
-          Message = normalMoveMessage oldPos newPos
-          PlayerOldPosition = oldPos
-          PlayerNewPosition = newPos
-          MovedObject = None
-          Changes =
-            { ChangedBaseCells = changedBaseCells
-              ChangedLayerCells = [| oldPos; newPos |]
-              ChangedEntities =
-                [| { Position = oldPos
-                     Slot = ChangeSlot.Actor
-                     EntityId = None
-                     LocalObjectId = None }
-                   { Position = newPos
-                     Slot = ChangeSlot.Actor
-                     EntityId = Some actorId
-                     LocalObjectId = None } |]
-              VisibilityInputChanged = true
-              OcclusionInputChanged = occlusionInputChanged
-              SaveRelevant = true } }
-
-    let private successfulMoveableMovement oldPos newPos actorId doorOpened kind fixtureId fixtureOldPos fixtureNewPos changedLayerCells occlusionInputChanged =
-        let changedBaseCells =
-            if doorOpened then [| newPos |]
-            else [||]
-
-        { Succeeded = true
-          Kind = kind
-          BlockedCause = None
-          Message =
-            let key =
+    let private successfulMoveableMovement includeDetails (oldPos: GridPos) (newPos: GridPos) actorId doorOpened kind fixtureId (fixtureOldPos: GridPos) (fixtureNewPos: GridPos) occlusionInputChanged =
+        if not includeDetails then
+            { Succeeded = true
+              Kind = kind
+              BlockedCause = None
+              Message = None
+              PlayerOldPosition = oldPos
+              PlayerNewPosition = newPos
+              MovedObject = None
+              Changes = EngineChangeSet.Empty }
+        else
+            let actorIdOption = Some actorId
+            let fixtureIdOption = Some fixtureId
+            let messageKey =
                 match kind with
                 | MovementKind.PushedMoveable -> "movement.moveable.pushed"
                 | MovementKind.SwappedMoveable -> "movement.moveable.swapped"
                 | _ -> "movement.moveable.moved"
-            moveableMoveMessage key oldPos newPos fixtureId fixtureOldPos fixtureNewPos
-          PlayerOldPosition = oldPos
-          PlayerNewPosition = newPos
-          MovedObject =
-            Some
-                { Slot = ChangeSlot.Fixture
-                  EntityId = Some fixtureId
-                  LocalObjectId = None
-                  OldPosition = fixtureOldPos
-                  NewPosition = fixtureNewPos }
-          Changes =
-            { ChangedBaseCells = changedBaseCells
-              ChangedLayerCells = changedLayerCells
-              ChangedEntities =
-                [| { Position = oldPos
-                     Slot = ChangeSlot.Actor
-                     EntityId = None
-                     LocalObjectId = None }
-                   { Position = newPos
-                     Slot = ChangeSlot.Actor
-                     EntityId = Some actorId
-                     LocalObjectId = None }
-                   { Position = fixtureOldPos
-                     Slot = ChangeSlot.Fixture
-                     EntityId = None
-                     LocalObjectId = None }
-                   { Position = fixtureNewPos
-                     Slot = ChangeSlot.Fixture
-                     EntityId = Some fixtureId
-                     LocalObjectId = None } |]
-              VisibilityInputChanged = true
-              OcclusionInputChanged = occlusionInputChanged
-              SaveRelevant = true } }
+            { Succeeded = true
+              Kind = kind
+              BlockedCause = None
+              Message = moveableMoveMessage messageKey oldPos newPos fixtureId fixtureOldPos fixtureNewPos
+              PlayerOldPosition = oldPos
+              PlayerNewPosition = newPos
+              MovedObject =
+                Some
+                    { Slot = ChangeSlot.Fixture
+                      EntityId = fixtureIdOption
+                      LocalObjectId = None
+                      OldPosition = fixtureOldPos
+                      NewPosition = fixtureNewPos }
+              Changes =
+                { ChangedBaseCells = if doorOpened then [| newPos |] else [||]
+                  ChangedLayerCells =
+                    if kind = MovementKind.PushedMoveable then [| oldPos; newPos; fixtureNewPos |]
+                    else [| oldPos; newPos |]
+                  ChangedEntities =
+                    [| { Position = oldPos
+                         Slot = ChangeSlot.Actor
+                         EntityId = None
+                         LocalObjectId = None }
+                       { Position = newPos
+                         Slot = ChangeSlot.Actor
+                         EntityId = actorIdOption
+                         LocalObjectId = None }
+                       { Position = fixtureOldPos
+                         Slot = ChangeSlot.Fixture
+                         EntityId = None
+                         LocalObjectId = None }
+                       { Position = fixtureNewPos
+                         Slot = ChangeSlot.Fixture
+                         EntityId = fixtureIdOption
+                         LocalObjectId = None } |]
+                  VisibilityInputChanged = true
+                  OcclusionInputChanged = occlusionInputChanged
+                  SaveRelevant = true } }
 
-    let private fixtureMoveRequirement fixtureId =
-        match EntityRegistry.SpriteProps.TryGetValue(fixtureId) with
-        | true, spriteProps ->
-            match spriteProps.SpriteType with
-            | SpriteType.Fixture fixtureProps -> Some fixtureProps.Moveable
-            | _ -> None
-        | false, _ -> None
-
-    let private fixtureBlocksMovement fixtureId =
-        match EntityRegistry.SpriteProps.TryGetValue(fixtureId) with
-        | true, spriteProps -> SpritePropsQueries.checkFixtureBlocksMovement spriteProps.SpriteType
-        | false, _ -> true
-
-    let private finishPlayerMove (model: GameModel) (oldPos: GridPos) (newPos: GridPos) dx actorId =
+    let private finishPlayerMove (model: GameModel) (newPos: GridPos) dx =
         model.PlayerModel.PlayerPos <- newPos
 
         let doorOpened = Doors.tryAutoOpenDoor model newPos
@@ -180,96 +214,55 @@ module Player =
         syncVisualToRender model
         doorOpened
 
-    let private tryMoveIntoMoveableFixture (model: GameModel) (oldPos: GridPos) (newPos: GridPos) (delta: GridDelta) actorId fixtureId =
-        let map = model.Map
-        match fixtureMoveRequirement fixtureId with
-        | None ->
-            blockedMovement oldPos MovementBlockedCause.DestinationBlockedByFixture
-        | Some requirement when requirement <= 0 ->
-            blockedMovement oldPos MovementBlockedCause.DestinationBlockedByFixture
-        | Some requirement when requirement > defaultPlayerStrength ->
-            blockedMovement oldPos MovementBlockedCause.MoveableRequiresStrength
-        | Some _ ->
-            let pushPos = GridPos(newPos.X + delta.DX, newPos.Y + delta.DY)
-            let pushOpacitySnapshots = captureOpacities map [| oldPos; newPos; pushPos |]
-            if map.TryPushFixtureAndMoveActor(oldPos.X, oldPos.Y, newPos.X, newPos.Y, pushPos.X, pushPos.Y) then
-                let doorOpened = finishPlayerMove model oldPos newPos delta.DX actorId
-                let occlusionInputChanged = doorOpened || opacitiesChanged map pushOpacitySnapshots
-                successfulMoveableMovement
-                    oldPos
-                    newPos
-                    actorId
-                    doorOpened
-                    MovementKind.PushedMoveable
-                    fixtureId
-                    newPos
-                    pushPos
-                    [| oldPos; newPos; pushPos |]
-                    occlusionInputChanged
-            else
-                let swapOpacitySnapshots = captureOpacities map [| oldPos; newPos |]
-                if map.TrySwapActorAndFixture(oldPos.X, oldPos.Y, newPos.X, newPos.Y) then
-                    let doorOpened = finishPlayerMove model oldPos newPos delta.DX actorId
-                    let occlusionInputChanged = doorOpened || opacitiesChanged map swapOpacitySnapshots
-                    successfulMoveableMovement
-                        oldPos
-                        newPos
-                        actorId
-                        doorOpened
-                        MovementKind.SwappedMoveable
-                        fixtureId
-                        newPos
-                        oldPos
-                        [| oldPos; newPos |]
-                        occlusionInputChanged
-                else
-                    blockedMovement oldPos MovementBlockedCause.SwapBlocked
-
-    let tryMove(model: GameModel) (dx: int) (dy: int) : MovementResult =
+    let private tryMoveCore includeDetails (model: GameModel) (dx: int) (dy: int) : MovementResult =
         let map = model.Map
         let oldPos = model.PlayerModel.PlayerPos
 
-        if dx = 0 && dy = 0 then blockedMovement oldPos MovementBlockedCause.NoMovement
+        if dx = 0 && dy = 0 then blockedMovement includeDetails oldPos MovementBlockedCause.NoMovement
         else
             let nx = oldPos.X + dx
             let ny = oldPos.Y + dy
             let newPos = GridPos(nx, ny)
 
             match model.PlayerModel.PlayerActorId with
-            | None -> blockedMovement oldPos MovementBlockedCause.MissingPlayerActor
+            | None -> blockedMovement includeDetails oldPos MovementBlockedCause.MissingPlayerActor
             | Some actorId ->
-                if nx < 0 || nx >= map.Width || ny < 0 || ny >= map.Height then
-                    blockedMovement oldPos MovementBlockedCause.DestinationOutOfBounds
-                elif
-                    match map.TryGetActor(oldPos.X, oldPos.Y) with
-                    | Some sourceActorId -> sourceActorId <> actorId
-                    | None -> true
-                then
-                    blockedMovement oldPos MovementBlockedCause.PlayerActorNotAtPosition
-                elif not (map.IsWalkable(nx, ny)) then
-                    blockedMovement oldPos MovementBlockedCause.DestinationNotWalkable
-                elif map.TryGetActor(nx, ny).IsSome then
-                    blockedMovement oldPos MovementBlockedCause.DestinationOccupiedByActor
-                elif map.TryGetFixture(nx, ny) |> Option.exists fixtureBlocksMovement then
-                    match map.TryGetFixture(nx, ny) with
-                    | Some fixtureId ->
-                        tryMoveIntoMoveableFixture model oldPos newPos (GridDelta(dx, dy)) actorId fixtureId
-                    | None ->
-                        blockedMovement oldPos MovementBlockedCause.DestinationBlockedByFixture
-                else
-                    // Direct path: for player-actor movement, delegate to TileMap.TryMoveActor.
-                    // Doors are not path-blocking, so opening should run after movement.
-                    let opacitySnapshots = captureOpacities map [| oldPos; newPos |]
-                    if map.TryMoveActor(oldPos.X, oldPos.Y, nx, ny) then
-                        let doorOpened = finishPlayerMove model oldPos newPos dx actorId
-                        let occlusionInputChanged = doorOpened || opacitiesChanged map opacitySnapshots
+                let transaction =
+                    map.TryMoveActorTransaction(
+                        actorId,
+                        oldPos.X,
+                        oldPos.Y,
+                        nx,
+                        ny,
+                        dx,
+                        dy,
+                        defaultPlayerStrength)
 
-                        successfulMovement oldPos newPos actorId doorOpened occlusionInputChanged
+                if not transaction.Succeeded then
+                    blockedMovement includeDetails oldPos transaction.BlockedCause
+                else
+                    let doorOpened = finishPlayerMove model newPos dx
+                    let occlusionInputChanged = doorOpened || transaction.OpacityChanged
+                    if transaction.Kind = MovementKind.Normal then
+                        successfulMovement includeDetails oldPos newPos actorId doorOpened occlusionInputChanged
                     else
-                        blockedMovement oldPos MovementBlockedCause.PlayerActorNotAtPosition
+                        successfulMoveableMovement
+                            includeDetails
+                            oldPos
+                            newPos
+                            actorId
+                            doorOpened
+                            transaction.Kind
+                            transaction.MovedFixtureId
+                            transaction.FixtureOldPosition
+                            transaction.FixtureNewPosition
+                            occlusionInputChanged
+
+    let tryMove(model: GameModel) (dx: int) (dy: int) : MovementResult =
+        tryMoveCore true model dx dy
 
     let tryMoveBool(model: GameModel) (dx: int) (dy: int) : bool =
-        (tryMove model dx dy).ToBool()
+        (tryMoveCore false model dx dy).ToBool()
 
     let setFacing (model: GameModel) (facing: ActorFacing) =
         model.PlayerModel.PlayerVisual.Facing <- facing
