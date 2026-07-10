@@ -1,6 +1,7 @@
 #r "nuget: Google.FlatBuffers, 25.2.10"
 #r "bin/Debug/net8.0/AspectGameEngine.dll"
 
+open AspectGameEngine
 open AspectGameEngine.Localization
 open System.Collections.Generic
 
@@ -42,4 +43,32 @@ edge.count(count) {
 
     printfn "--- testNegativeExactVariantBinaryRoundTrip: PASSED ---"
 
+let testEngineMessageLocalizationBridge () =
+    printfn "\n--- Test: EngineMessage localization bridge ---"
+    let aglText = """
+item.rock.name = "Rock"
+interaction.take = "Took {count} {itemName}."
+"""
+    let loc = Localization.loadAgl aglText
+    let message: EngineMessage =
+        { Key = "interaction.take"
+          Args =
+            [| "count", EngineMessageArg.Int 3
+               "itemName", EngineMessageArg.LocalizedKey "item.rock.name" |] }
+
+    assertEquals "Took 3 Rock." (EngineMessageLocalization.format loc message) "EngineMessage formats typed args"
+
+    let missingMessage: EngineMessage =
+        { Key = "interaction.missing"
+          Args = [| "itemName", EngineMessageArg.LocalizedKey "item.missing.name" |] }
+
+    assertEquals "interaction.missing" (EngineMessageLocalization.format loc missingMessage) "Missing message key remains visible"
+    match EngineMessageLocalization.toArgs loc missingMessage with
+    | args ->
+        assertEquals true (args.ContainsKey "itemName") "Converted args include localized-key placeholder"
+        assertEquals (LocalizedArg.Text "item.missing.name") args.["itemName"] "Missing nested localized key falls back to key"
+
+    printfn "--- testEngineMessageLocalizationBridge: PASSED ---"
+
 testNegativeExactVariantBinaryRoundTrip ()
+testEngineMessageLocalizationBridge ()

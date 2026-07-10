@@ -14,6 +14,8 @@ The current live system has one real interaction behavior: doors.
 
 Door open/close is visual-state driven. `Doors.tryInteractDoorResult` reads the current tile's `TileProperties.Visuals`, takes the first visual entry as the target state, updates the tile's `SpriteLoc`, and returns the visual key plus an `EngineChangeSet` in an `InteractionResult`. The older `Doors.tryInteractDoor`, `GameUpdate.interactAt`, `GameUpdate.interactAutoAt`, and `GameUpdate.tryForInteractions` wrappers still return the legacy `InteractResult` shape for existing callers.
 
+Door auto-open during movement is structural, not localization-driven. `Doors.tryAutoOpenDoor` now treats the first visual transition as an auto-open transition only when the current door state is not open-like and the target door state is open-like by opacity. It still respects the current tile-index locked state. Description keys such as `tile.door.open` describe content for presentation; they do not decide whether the door opens, closes, or stays put.
+
 Door lock state is only partial. `DoorAction.LockDoor` and `DoorAction.UnLockDoor` exist, and `GameModel.TileComplexStateInstance` can remember `ComplexState.ClosedDoor { Locked = true }` by tile index. `Doors.tryAutoOpenDoor` respects that locked state. The explicit open/close interaction path does not yet enforce lock or unlock behavior.
 
 The engine has several interaction-shaped fields without dispatch behavior yet:
@@ -329,6 +331,8 @@ If a trusted GDScript fallback is ever used, it should receive a narrow context 
 
 Moveables are interactables.
 
+A fixture is moveable when its registered `FixtureProperties.Moveable` value is positive. That value is a movement requirement, not a boolean flag. Today the player strength used by `Player.tryMove` is effectively fixed at `1`, so `Moveable = 1` can move, `Moveable = 2+` is too heavy, and `Moveable = 0` is an ordinary non-moveable fixture. The contract should stay shaped as requirement versus actor/player strength so later stats, buffs, encumbrance, container contents, party members, or other strength sources can participate without changing map data.
+
 For this game, moving into a moveable object should attempt to move that object in the same direction as the player. This applies to all eight movement directions.
 
 The rule:
@@ -350,7 +354,15 @@ WBP -> WPB
 
 `W` is a wall, `B` is the moveable object, and `P` is the player. The barrel cannot move left into the wall, so it swaps with the player instead.
 
-This should be part of movement resolution, not a separate button-only action. A move attempt into a moveable is an interaction attempt. The implementation should still validate bounds, occupancy, walkability, fixture movement rules, and effective opacity updates. After a successful move or swap, visibility should be recomputed just like normal player movement.
+For simultaneous or multi-PC turns, resolve PC movement first, then evaluate moveable push/swap against the resulting occupied cells. For example, if `@` is the active player and `%` is another PC/actor:
+
+```text
+#B@%
+```
+
+If both actors move left, `@` cannot push `B` left because `#` blocks the push destination. The swap fallback is also blocked if `%` has moved into `@`'s old cell during the same turn. In that case, the moveable interaction fails with the normal blocked result, such as `Cannot move [object name]: movement blocked.`
+
+This should be part of movement resolution, not a separate button-only action. A move attempt into a moveable is an interaction attempt. The implementation should still validate bounds, occupancy, walkability, fixture movement rules, simultaneous movement occupancy, and effective opacity updates. After a successful move or swap, visibility should be recomputed just like normal player movement.
 
 Before the Stage 1 draft, `Objects.fs` used a different fallback after the same-direction push. That behavior is not the desired rule. The intended rule is simpler and stricter: push if the forward destination is open, otherwise swap with the player.
 
@@ -368,9 +380,13 @@ Movement is moving from boolean-only APIs to typed result data.
 
 `Player.tryMove` is the typed movement entry point and returns `MovementResult`. The old boolean shape is now the explicit compatibility wrapper `Player.tryMoveBool`. Movement results include stable message keys for normal movement, moveable push/swap outcomes, and deterministic blocked causes.
 
+Stage 3 keeps those message keys as keys. `EngineMessage.Args` remains a typed array of `EngineMessageArg` values, and `EngineMessageLocalization` converts those values to localization `Args` only at the presentation boundary. Runtime interaction and movement logic should branch on typed causes, map state, tile/entity metadata, lock state, and opacity state, never on rendered strings or description keys.
+
 Stage 1 moveables are implemented and verified. Code routes movement into blocking moveable fixtures through `Player.tryMove`, uses `TileMap.TryPushFixtureAndMoveActor` for atomic push-plus-player movement, uses `TileMap.TrySwapActorAndFixture` for the swap case, and updates `Objects.fs` to the push-or-swap fallback. Focused movement tests cover push, swap, blocked cases, diagonal movement, opacity changes, and moved actor/fixture map serialization.
 
 Stage 2 mutation hints are implemented for movement and current door interactions. `EngineChangeSet` reports changed base cells, changed layer cells, changed entities, visibility/FOV refresh needs, occlusion-input changes, and save relevance. Movement marks visibility changed on successful movement because the player/FOV origin moved. It marks occlusion changed only when effective opacity changes, such as an opaque moveable changing cells or a door tile changing opacity. Transparent actor or fixture movement still reports layer/entity changes without forcing occlusion rebuilds.
+
+`GameUpdate.lookAt` is the current Stage 3 description scaffold. It returns the base tile description key plus up to three layer object description keys by render-layer/stable-order priority, using `TileMap.TryGetTileDescriptionKey` and `SpritePropsQueries.tryGetDescriptionKey`. Missing entity description keys are not returned as fake strings; callers can see that layer objects exist through `HasMore`.
 
 Current door interactions use typed `InteractionResult` entry points:
 
@@ -431,6 +447,8 @@ Implement item definition defaults/templates so many items can share icon, sprit
 
 Implement moveable-container effective weight from base/default weight plus live contents.
 
+Add generic map-local movement-hold state for moveable objects. This should block movement independent of weight: weight answers whether an actor is strong enough to push something, while hold state answers whether that object is allowed to move at all. The holding cause should be generic, such as a spell field, binding effect, latch, or other restraint that can later be disabled or dispelled.
+
 Add trigger/effect data for lever-to-portcullis and similar local map changes.
 
 Add a versioned FlatBuffers interaction data schema, loader, and explicit validation with clear error reporting.
@@ -479,6 +497,9 @@ Add focused tests for interaction targeting, locked doors, containers, key acqui
 - Clarified item/lock/container state: doors store lock ids, key item definitions advertise opened lock ids, visually identical items with different engine-owned capability payloads are distinct definitions with shared defaults, and moveable containers derive effective weight from live contents.
 - Clarified save-game direction as a live-state overlay over authored content, covering changed doors, moved objects, player inventory, container inventories, picked-up/dropped items, and other map-local progress state.
 - Completed Stage 2 changed-state support: movement and current door interactions return typed change sets with changed cells/entities, visibility/FOV hints, occlusion hints, and save relevance; legacy interaction wrappers remain message-only compatibility APIs.
+- Completed Stage 3 description/localization support: movement and interaction messages stay key-plus-typed-args, `lookAt` uses the shared base/entity description-key contract, and door auto-open no longer branches on description keys.
+- Clarified moveable turn ordering: push-or-swap is intentional, and simultaneous multi-PC turns should resolve PC movement first, then evaluate push/swap against the resulting occupied cells.
+- Added future-work direction for generic map-local movement-hold state that blocks object movement independently from weight or strength checks.
 
 ### 2026-07-05
 

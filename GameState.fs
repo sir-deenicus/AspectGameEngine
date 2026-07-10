@@ -102,18 +102,9 @@ module Utils =
         |> Array.tryFind (fun v -> v.Key = key)
         |> Option.map (fun v -> v.SpriteLoc)
 
-    let inline normalizeKey (key: string) =
-        if System.String.IsNullOrEmpty(key) then "" else key
-
     let tryGetEntityDescKey (id: int) : string =
-        match SpritePropsQueries.tryGet id with
-        | None -> ""
-        | Some sp ->
-            match sp.SpriteType with
-            | SpriteType.Actor ap -> normalizeKey ap.DescKey
-            | SpriteType.Fixture fp -> normalizeKey fp.DescKey
-            | SpriteType.Item ip -> normalizeKey ip.DescKey
-            | SpriteType.Decal dp -> normalizeKey dp.DescKey
+        SpritePropsQueries.tryGetDescriptionKey id
+        |> Option.defaultValue ""
 
     let tryGetRenderLayer (id: int) : int =
         match SpritePropsQueries.tryGet id with
@@ -139,15 +130,6 @@ module Utils =
     
 module Doors = 
     
-    [<Literal>]
-    let private DoorClosedKey = "door-closed"
-
-    [<Literal>]
-    let private DoorOpenedKey = "door-opened" 
-    
-    [<Literal>]
-    let private DoorOpenDescKey = "tile.door.open"
-    
     let  tryGetTileLocked (model: GameModel) (tileIndex: int) : bool =
         match model.TileComplexStateInstance.TryGetValue(tileIndex) with
         | true, s -> s.IsDoorLocked()
@@ -159,14 +141,24 @@ module Doors =
         else
             model.TileComplexStateInstance.Remove(tileIndex) |> ignore  
 
-    let inline private tryGetDoorOpenSpriteLoc (props: TileProperties) : SpriteLoc option =
-        // Doors always list the "next" (open) visual first, so we can ignore keys entirely.
+    let inline private isOpenLikeDoorOpacity (opacity: TileOpacity) =
+        opacity = TileOpacity.Transparent || opacity = TileOpacity.Air
+
+    let private tryGetDoorAutoOpenSpriteLoc (tileSet: TilePropertiesReference) (props: TileProperties) : SpriteLoc option =
         if isNull props.Visuals || props.Visuals.Length = 0 then None
-        else Some props.Visuals.[0].SpriteLoc
+        else
+            let targetSpriteLoc = props.Visuals.[0].SpriteLoc
+            let targetProps = tileSet[targetSpriteLoc]
+            if targetProps.TileType = TileType.Door
+               && not (isOpenLikeDoorOpacity props.TileOpacity)
+               && isOpenLikeDoorOpacity targetProps.TileOpacity then
+                Some targetSpriteLoc
+            else
+                None
 
     /// Auto-opens a *closed* door tile at (x,y). Returns true if the tile was changed.
     /// Optimized for being called on every move attempt:
-    /// - early-outs for non-doors and already-open doors (by description key)
+    /// - early-outs for non-doors and door states without a closed-to-open transition
     /// - only checks lock state when we know we hit a door
     let tryAutoOpenDoorAt (model: GameModel) (x: int) (y: int) : bool =
         let map = model.Map
@@ -174,14 +166,14 @@ module Doors =
         else
             let props = map.GetTileProperties(x, y)
             if props.TileType <> TileType.Door then false
-            elif props.DescriptionKey = DoorOpenDescKey then false // already open (description-driven)
             else
-                let tileIndex = y * map.Width + x
-                if tryGetTileLocked model tileIndex then false
-                else
-                    match tryGetDoorOpenSpriteLoc props with
-                    | None -> false
-                    | Some targetSpriteLoc ->
+                let tileSet = TilesetRegistry.get map.TileSetName
+                match tryGetDoorAutoOpenSpriteLoc tileSet props with
+                | None -> false
+                | Some targetSpriteLoc ->
+                    let tileIndex = y * map.Width + x
+                    if tryGetTileLocked model tileIndex then false
+                    else
                         let tile = map.GetTile(x, y)
                         if tile.SpriteLoc = targetSpriteLoc then false
                         else
@@ -298,7 +290,6 @@ module GameUpdate =
             TileComplexStateInstance = Dictionary<int, ComplexState>() 
         }
 
-        recomputeVisibility model
         model
 
 
@@ -317,11 +308,9 @@ module GameUpdate =
     let setVisibilityWindow (model: GameModel) (halfWidth: int) (halfHeight: int) : unit =
         model.VisibilityHalfWidth <- max 0 halfWidth
         model.VisibilityHalfHeight <- max 0 halfHeight
-        recomputeVisibility model
 
     let setVisibilityTranslucencyBudget (model: GameModel) (budget: int) : unit =
         model.VisibilityTranslucencyBudget <- max 0 budget
-        recomputeVisibility model
         
     let lookAt (model: GameModel) (pos: GridPos) : LookAtInfo =
         let map = model.Map
@@ -500,8 +489,6 @@ module GameUpdate =
             i <- i + 1
 
         if found then
-            if result.Changes.VisibilityInputChanged then
-                recomputeVisibility model
             true, result
         else
             false, InteractionResult.Nothing

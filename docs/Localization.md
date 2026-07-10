@@ -160,6 +160,8 @@ localizer.Select(key, label, args)
 
 Aliases are resolved iteratively and are cycle-safe. Alias cycles return the original key rather than looping forever.
 
+Engine-facing gameplay results use `EngineMessage`, which stores a stable message key plus `EngineMessageArg` values. `EngineMessageLocalization` is the presentation boundary helper: it converts `EngineMessageArg` values to `LocalizedArg` values, resolves nested `LocalizedKey` arguments through the caller-owned `Localizer`, and formats the message without introducing untyped argument bags.
+
 ## Key Ownership
 
 Engine data should own keys where the text belongs to reusable content:
@@ -169,17 +171,19 @@ Engine data should own keys where the text belongs to reusable content:
 - Container and inventory definitions should own `NameKey` and `DescKey`.
 - Interaction results should return message keys such as "door locked", "container empty", or "took item".
 
+Runtime lookup helpers expose these as keys, not rendered strings. `TileMap.TryGetTileDescriptionKey` returns the base tile description key when present, and `SpritePropsQueries.tryGetDescriptionKey` returns the registered actor, fixture, item, or decal description key when present. `GameUpdate.lookAt` currently returns the base key and up to three layer description keys in draw-priority order.
+
 Map-local state should not store localized strings. If a chest is opened, the map-local fact is "this container is open" or "these items were removed"; the text shown to the player comes from a key plus arguments at presentation time.
 
-Gameplay code should prefer returning a small result shape:
+Gameplay code should prefer returning a small result shape. The live engine shape for Stage 1-3 results is:
 
 ```fsharp
-type LocalizedMessage =
+type EngineMessage =
     { Key: string
-      Args: IReadOnlyDictionary<string, LocalizedArg> }
+      Args: (string * EngineMessageArg)[] }
 ```
 
-`LocalizedArg` is a closed union, not an untyped argument bag. It supports typed text, integers, 64-bit integers, decimals, floats, booleans, and date-time values. The exact outer message type can change, but the rule should hold: engine and game systems report facts and keys; the frontend or UI-facing game layer renders language-specific text.
+`EngineMessageArg` and `LocalizedArg` are closed unions, not untyped argument bags. `EngineMessageArg` covers engine-returned text, nested localization keys, integers, booleans, and decimals. `LocalizedArg` is the localizer-facing rendering type and also supports 64-bit integers, floats, and date-time values. The rule should hold: engine and game systems report facts and keys; the frontend or UI-facing game layer renders language-specific text.
 
 Useful key namespaces:
 
@@ -218,6 +222,8 @@ frontend resolves item.rocks.name, then calls Plural or Format depending on the 
 ```
 
 The engine can expose helper APIs that bundle keys and typed args, but it should avoid embedding UI presentation choices in map, layer, visibility, serialization, or constructor code. This keeps localization reusable if the frontend changes.
+
+Runtime logic must not branch on description keys or rendered strings. Door auto-open, for example, uses typed tile kind, visual transition, lock state, and opacity state; the `tile.door.*` description keys are only presentation data.
 
 ## Serialization
 
@@ -264,7 +270,7 @@ Runtime localizer coverage includes:
 - fallback packs
 - binary-loaded localizers
 
-The focused script currently pins the negative exact-variant binary round trip, because that path goes through the real packer encoder and decoder.
+The focused script currently pins the negative exact-variant binary round trip, because that path goes through the real packer encoder and decoder. It also covers `EngineMessageLocalization`, including typed integer arguments, nested `LocalizedKey` arguments, missing message-key fallback, and missing nested localized-key fallback.
 
 ## Design Boundaries And Operating Rules
 
@@ -303,6 +309,7 @@ Add editor tooling around `.agl` authoring. The useful first tools are parse dia
 - Replaced boxed localization arguments with the typed `LocalizedArg` union and changed the public runtime `Args` alias to `IReadOnlyDictionary<string, LocalizedArg>`.
 - Updated `Format`, `Select`, and `Plural` to render typed arguments without `obj`/`box` and to use the localizer's configured `formatProvider` consistently.
 - Updated localization tests and docs to use typed arguments, including plural count injection as `LocalizedArg.Int64`.
+- Completed Stage 3 description/localization support: documented base tile and entity description-key ownership, added `EngineMessageLocalization` as the typed bridge from engine result messages to `Localizer`, and recorded that runtime rules must branch on typed state rather than description keys or rendered text.
 
 ### 2026-07-06
 

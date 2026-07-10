@@ -40,11 +40,11 @@ Engine Stage 7 should not block frontend Stage 2. If frontend rendering foundati
 
 ## Current Focus
 
-- `[NOW] [T1]` Stage 3: descriptions and localization support.
+- `[NOW] [T1]` Stage 4: items, pickup, drop, hidden inventory, and containers.
 
 ## Current State
 
-Stages 0, 1, and 2 are complete.
+Stages 0, 1, 2, and 3 are complete.
 
 Current state:
 
@@ -52,11 +52,18 @@ Current state:
 - `Player.tryMove` is the typed `MovementResult` API; `Player.tryMoveBool` is the boolean wrapper.
 - `InteractionResult` is the typed interaction-result shape for current door interactions; `GameUpdate.interactAtResult`, `interactAutoAtResult`, and `tryForInteractionsResult` preserve changed-state data, while legacy wrappers remain message-only.
 - Moveable push-or-swap code exists in `Player.fs`, with `TileMap.TryPushFixtureAndMoveActor` and `TileMap.TrySwapActorAndFixture` in `Maps.fs`.
+- Push-or-swap is intentional. For simultaneous multi-PC turns, PC movement should resolve first; moveable push/swap then validates against the resulting occupied cells.
+- Moveable strength is intentionally a requirement-versus-strength contract: current player strength is effectively `1`, but future player stats, buffs, encumbrance, container contents, or party help should be able to affect whether a moveable fixture can move.
 - `Objects.fs` has been updated away from the old push-forward-else-behind-player rule.
 - Movement change sets report changed layer cells, changed actor/fixture entities, visibility refresh needs, save relevance, and occlusion changes only when effective opacity changes or a door tile changes.
 - Door interaction results report changed base cells/entities, message keys, visibility/occlusion hints, and save relevance.
-- `movement-tests.fsx` covers Stage 1 movement edge cases, moved actor/fixture map serialization, and Stage 2 changed-state assertions for movement, moveables, blocked movement, transparent moveables, and door interactions.
-- `dotnet build -v:minimal`, `dotnet fsi .\movement-tests.fsx`, `dotnet fsi .\map-tests.fsx`, and `dotnet fsi .\tests.fsx` pass.
+- Stage 2H visibility ownership is complete on the engine side: `GameModel.VisibilityState` is a derived cache, creation starts empty, movement/interactions/setters do not recompute eagerly, and consumers refresh through explicit `GameUpdate.recomputeVisibility`.
+- `SpritePropsQueries.tryGetDescriptionKey` exposes description keys for actor, fixture, item, and decal definitions. `TileMap.TryGetTileDescriptionKey` remains the base tile description-key path.
+- `EngineMessageLocalization` converts typed `EngineMessage` values to localization `Args` and formats them through a caller-owned `Localizer`.
+- Door auto-open branches on typed tile/visual/opacity state instead of description keys.
+- `movement-tests.fsx` covers Stage 1 movement edge cases, moved actor/fixture map serialization, Stage 2 changed-state assertions, Stage 2H stale visibility-cache behavior, and Stage 3 door/look description-key behavior.
+- `localization-tests.fsx` covers the Stage 3 engine-message localization bridge and missing-key fallback behavior.
+- `dotnet build -v:minimal`, `dotnet fsi .\localization-tests.fsx`, `dotnet fsi .\movement-tests.fsx`, `dotnet fsi .\map-tests.fsx`, `dotnet fsi .\tests.fsx`, `dotnet fsi .\entity-registry-test.fsx`, and `dotnet fsi .\fov-tests.fsx` pass.
 
 ## Stage Map
 
@@ -72,7 +79,7 @@ Frontend dependency: Stage 1 pushable objects.
 
 Minimum tier: `[T1]` for source orientation and contract; `[T2]` for edge-case tests once the rule is locked.
 
-Moveables are movement interactions. A move into a moveable object should try the chosen engine rule, mutate map state, and report deterministic result data. The engine must update occupancy, effective opacity, visibility inputs, occlusion inputs, and save-relevant state for the changed object.
+Moveables are movement interactions. A move into a moveable object should try the chosen engine rule, mutate map state, and report deterministic result data. Push-or-swap is intentional: push in the movement direction when possible, otherwise swap with the mover if the mover old cell is still open. In simultaneous multi-PC turns, resolve PC movement first, then evaluate push/swap against the resulting occupied cells. The engine must update occupancy, effective opacity, visibility inputs, occlusion inputs, and save-relevant state for the changed object.
 
 ### Stage 2: Rendering Foundation Support
 
@@ -187,3 +194,10 @@ Stage 0 exists only to prevent repeated API/result-shape churn. It should stay s
 - Completed Stage 1: focused movement tests now cover push, swap, bounds, walls, actors, fixtures, diagonal movement, opacity changes, and moved actor/fixture serialization; broad regression tests also pass.
 - Recorded design decisions from item/container/save discussion: item art/defaults can be shared without merging gameplay identity, keys are only the first capability-bearing example, ordinary item copies do not need unique ids unless they have mutable instance state, map-local mutable placements need identity/state, moveable containers derive effective weight from live contents, and saves should be live-state overlays over authored content.
 - Completed Stage 2: added typed interaction-result APIs for current door interactions, preserved legacy interaction wrappers, tightened movement occlusion hints to reflect effective-opacity changes, and verified changed-state data for movement, moveables, blocked movement, transparent moveables, and door interactions.
+- Completed Stage 3: added entity description-key lookup, an `EngineMessage` to `Localizer` bridge with typed args, description-key coverage for `lookAt`, missing-key fallback coverage, and removed description-key-driven door auto-open control flow.
+- Clarified moveable ordering for simultaneous multi-PC turns: resolve PC movement first, then evaluate push/swap against resulting occupancy.
+
+### 2026-07-08
+
+- Tier 0 (frontend repo) locked the Stage 2H visibility-ownership verdict; the engine-side item is now `[NOW]` in `docs/todo.md`. The engine's eager `recomputeVisibility` on movement/interactions runs a map-sized-window FOV compute per move (~20-25ms on 300x300) into state no consumer reads — the frontend maintains its own camera-windowed copy. Locked fix: `GameModel.VisibilityState` becomes a derived cache; mutators report `VisibilityInputChanged` only; recompute happens solely through the explicit entry point at the consumer's cadence. Full work order: `../aspectrpg/Design-docs/stage2-work-order.md`, Stage 2H.
+- Completed the engine-side Stage 2H work: eager visibility recomputes were removed from model creation, movement, auto-interaction, and visibility setters; `docs/Fog-Of-War.md` now records the derived-cache lifecycle law; `movement-tests.fsx` pins empty-at-create and stale-until-explicit-recompute behavior; the Debug build post-build copied artifacts into the frontend repo.

@@ -102,6 +102,8 @@ Each `SpriteProperties` value contains:
 - `Item`: has a description key.
 - `Decal`: has interactability and a description key.
 
+`SpritePropsQueries.tryGetDescriptionKey` is the shared description-key lookup for registered actors, fixtures, items, and decals. It returns `None` for missing ids or empty keys. The engine treats those keys as content identifiers for presentation, not as gameplay state.
+
 The registry is intentionally simple and global. Constructors avoid hidden registry work. Loading or replacing registry contents is explicit through `EntityRegistrySerializer.loadIntoModule`, direct dictionary writes, or caller-owned setup.
 
 `NpcFrames` is minimal sprite selection data for two facings and two poses. It is not the full animation system. Current player helpers use it to swap the registered player actor sprite when facing or pose changes. Time-based animation, frame timing, and richer state machines are covered in `docs/Animation.md`.
@@ -199,9 +201,9 @@ The engine includes small gameplay-facing helpers, but they are still map/data h
 
 `TryMoveActor` validates bounds, walkability, and occupancy before moving the actor id between layer cells. `TryMoveFixture` validates fixture presence and, when the fixture blocks movement, validates the destination. `TryPushFixtureAndMoveActor` is the narrow atomic helper for the moveable push case: it moves the fixture forward and the actor into the fixture's old cell as one validated map mutation. `TrySwapActorAndFixture` is the narrow helper for movement rules that intentionally swap the player actor with a fixture in an adjacent cell, such as the moveable push-or-swap rule.
 
-`GameState.fs` wraps a runtime map in `GameModel`, tracks player position and visibility settings, recomputes FOV, dispatches simple door interactions, and implements `lookAt`. `lookAt` combines the base tile description with the top three layer objects by `RenderLayer` and stable cell order. Door interactions now have typed result entry points returning `InteractionResult`, with the old `InteractResult` wrappers retained for existing callers.
+`GameState.fs` wraps a runtime map in `GameModel`, tracks player position and visibility settings, recomputes FOV, dispatches simple door interactions, and implements `lookAt`. `lookAt` combines the base tile description key with the top three layer object description keys by `RenderLayer` and stable cell order. Empty description keys stay empty; the engine does not synthesize rendered fallback text. Door interactions now have typed result entry points returning `InteractionResult`, with the old `InteractResult` wrappers retained for existing callers.
 
-`Player.fs` exposes `tryMove` as the typed movement API returning `MovementResult`. `tryMoveBool` is the explicit compatibility wrapper for callers that still need a boolean. The movement path returns stable message keys, updates facing and pose sprite references through the registry, auto-opens a door on the destination tile when possible, and recomputes visibility after successful movement.
+`Player.fs` exposes `tryMove` as the typed movement API returning `MovementResult`. `tryMoveBool` is the explicit compatibility wrapper for callers that still need a boolean. The movement path returns stable message keys plus typed `EngineMessageArg` values, updates facing and pose sprite references through the registry, auto-opens a door on the destination tile when possible, and recomputes visibility after successful movement. Door auto-open is based on typed tile kind, visual transition, lock state, and opacity state, not on description keys.
 
 `EngineChangeSet` is the shared mutation hint shape used by current movement and door interaction results. It reports changed base cells, changed layer cells, changed entities by slot, whether visibility/FOV should refresh, whether occlusion inputs changed, and whether the mutation is save-relevant. Movement always marks visibility changed on success because the player/FOV origin moved. It marks occlusion changed only when the effective opacity grid changes, such as an opaque fixture moving or a door tile changing; transparent movement still reports layer/entity changes without forcing an occlusion rebuild.
 
@@ -372,6 +374,8 @@ Multi-cell visual references do not imply multi-cell collision. `SpriteRef` is o
 
 Door behavior is currently simple and visual-state driven. Door interactions use the first visual entry of the current tile properties as the target state. Lock/unlock data exists in types, but the current interaction path only handles open/close. The current live state can remember a locked bool by tile index; it does not yet store lock ids, check player inventory, or support item-definition capability checks for visually identical items with different gameplay payloads.
 
+Localization keys are content references. Base tiles use `TileProperties.DescriptionKey`; registered entities use their `DescKey`; result messages use `EngineMessage.Key` and typed `EngineMessage.Args`. Presentation code can render `EngineMessage` through `AspectGameEngine.Localization.EngineMessageLocalization` and a caller-owned `Localizer`. Runtime map, movement, door, visibility, and occlusion logic should branch on typed state and not on localized or localizable strings.
+
 The intended save direction for gameplay progress is a live-state overlay over authored map/content data. The map serializer remains content/map serialization; future save state should record changed door open/lock facts, moved objects, player inventory, container inventories, picked-up or dropped item stacks, trigger state, and reversible tile swaps without mutating shared definitions.
 
 Map serialization is backward-aware for spawn points, explored flags, and legacy single decals, but every new serialized field still needs an explicit compatibility decision and tests.
@@ -411,6 +415,7 @@ Map serialization is backward-aware for spawn points, explored flags, and legacy
 - Completed Stage 1 verification: focused movement tests and broad regression tests pass, including moved actor/fixture serialization coverage.
 - Clarified current door lock limitations and the intended save-game live-state overlay model for moved objects, door state, inventory/container state, item stack changes, triggers, and tile swaps.
 - Completed Stage 2 rendering-foundation support: `InteractionResult` now carries typed door interaction changes, legacy interaction wrappers remain, and movement occlusion hints are based on effective-opacity changes instead of every successful move.
+- Completed Stage 3 description/localization support: registered entity description keys have a shared lookup helper, `lookAt` returns base/layer description keys under that contract, `EngineMessageLocalization` formats typed engine messages through `Localizer`, and door auto-open no longer depends on description keys.
 
 ### 2026-07-06
 

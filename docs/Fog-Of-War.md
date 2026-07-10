@@ -118,7 +118,9 @@ For renderer-facing presentation, use `RectFov.isPresentedVisible` and `RectFov.
 
 ## How It Fits The Game
 
-`GameUpdate.recomputeVisibility` is the current main caller. It passes the model's map, visibility state, player position, rectangular view size, and translucency budget into `RectFov.compute`.
+`GameModel.VisibilityState` is a derived cache. `GameUpdate.recomputeVisibility` is the only engine entry point that refreshes it. It passes the model's map, visibility state, player position, rectangular view size, and translucency budget into `RectFov.compute`.
+
+Movement, door interactions, pushes, window changes, and translucency-budget changes do not refresh this cache automatically. They report visibility-impacting mutations through `Changes.VisibilityInputChanged`, or update the model fields that the next compute will use. Between explicit recomputes, `VisibilityState` can be empty or stale by design. A consumer that reads current visibility must own the recompute cadence and call `GameUpdate.recomputeVisibility` before reading when its cadence requires fresh data.
 
 The FOV code does not own map opacity. It expects `TileMap.EffectiveOpacity` to already represent the current base tile plus relevant layer state. If a door, fixture, spell, editor action, or gameplay system changes opacity, the map should update its effective opacity before visibility is recomputed.
 
@@ -991,6 +993,8 @@ seen through windows or portcullises should still read as through-translucency.
 
 `VisibilityState` is fixed-size. If the map dimensions change, create a matching new state instead of reusing the old one.
 
+`VisibilityState` is not automatically fresh after model creation or mutation. After `GameUpdate.create*`, it starts empty until the first explicit `GameUpdate.recomputeVisibility`. After movement, interaction, or visibility-setting changes, callers should treat it as stale until they explicitly recompute. This keeps the engine from doing map-sized visibility work at gameplay-mutation cadence when the presentation layer owns the camera window.
+
 Current visibility is not serialized. Only exploration lives on `TileMap` and participates in map persistence.
 
 ## Source Map
@@ -1007,6 +1011,12 @@ Current visibility is not serialized. Only exploration lives on `TileMap` and pa
 - `archive/fov-simpler-alt.txt` - archived simpler FOV implementation.
 
 ## History
+
+### 2026-07-08 (visibility cache ownership)
+
+- Made `GameModel.VisibilityState` a derived cache refreshed only by explicit `GameUpdate.recomputeVisibility`.
+- Recorded the lifecycle law: engine mutators report `Changes.VisibilityInputChanged` but do not eagerly recompute visibility; creation starts with an empty cache, and setters only update the fields used by the next compute.
+- This removes hidden map-sized FOV work from movement and interaction paths while preserving engine ownership of visibility state for future simulation consumers.
 
 ### 2026-07-04 (portcullis presentation aesthetic tradeoff)
 

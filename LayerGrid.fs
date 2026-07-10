@@ -54,10 +54,24 @@ module EntityRegistry =
 
 
 module SpritePropsQueries =
+    let inline private nonEmptyKey (key: string) =
+        if System.String.IsNullOrEmpty(key) then None
+        else Some key
+
     let inline tryGet (id:int) =
         match EntityRegistry.SpriteProps.TryGetValue id with
         | true, sp -> Some sp
         | _ -> None 
+
+    let tryGetDescriptionKey (id: int) : string option =
+        match tryGet id with
+        | None -> None
+        | Some sp ->
+            match sp.SpriteType with
+            | SpriteType.Actor ap -> nonEmptyKey ap.DescKey
+            | SpriteType.Fixture fp -> nonEmptyKey fp.DescKey
+            | SpriteType.Item ip -> nonEmptyKey ip.DescKey
+            | SpriteType.Decal dp -> nonEmptyKey dp.DescKey
 
     let checkFixtureBlocksMovement = function 
         | SpriteType.Fixture fp -> fp.BlocksMovement

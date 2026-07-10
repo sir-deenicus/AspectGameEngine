@@ -178,7 +178,6 @@ module Player =
             else model.PlayerModel.PlayerVisual.Facing
         model.PlayerModel.PlayerVisual.Facing <- newFacing
         syncVisualToRender model
-        GameUpdate.recomputeVisibility model
         doorOpened
 
     let private tryMoveIntoMoveableFixture (model: GameModel) (oldPos: GridPos) (newPos: GridPos) (delta: GridDelta) actorId fixtureId =

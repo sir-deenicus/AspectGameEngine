@@ -22,7 +22,7 @@ with subtle difficult to identify complexities**. Summon it where a wrong early 
 
 ## Summon economics
 
-Fable is an expensive model that goes off-subscription from ~2026-07-07 ("a summon in a level 9 spell slot").
+Fable is an expensive model that goes off-subscription from ~July 12, 2026 ("a summon in a level 9 spell slot").
 Summons may arrive from any platform — API, another harness, a different frontend — so **no
 platform-side memory travels with the model**. Two consequences:
 

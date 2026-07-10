@@ -786,6 +786,24 @@ type Localizer(pack: AglPack, ?fallbacks: AglPack array, ?formatProvider: IForma
                 | _ -> output <- current; complete <- true
         output
 
+module EngineMessageLocalization =
+    let private toLocalizedArg (localizer: Localizer) (arg: AspectGameEngine.EngineMessageArg) =
+        match arg with
+        | AspectGameEngine.EngineMessageArg.Text text -> LocalizedArg.Text text
+        | AspectGameEngine.EngineMessageArg.LocalizedKey key -> LocalizedArg.Text(localizer.Get key)
+        | AspectGameEngine.EngineMessageArg.Int value -> LocalizedArg.Int value
+        | AspectGameEngine.EngineMessageArg.Bool value -> LocalizedArg.Bool value
+        | AspectGameEngine.EngineMessageArg.Decimal value -> LocalizedArg.Decimal value
+
+    let toArgs (localizer: Localizer) (message: AspectGameEngine.EngineMessage) : Args =
+        let d = Dictionary<string, LocalizedArg>(StringComparer.Ordinal)
+        for (key, value) in message.Args do
+            d[key] <- toLocalizedArg localizer value
+        d :> Args
+
+    let format (localizer: Localizer) (message: AspectGameEngine.EngineMessage) =
+        localizer.Format(message.Key, toArgs localizer message)
+
 
 module Localization =
     // High-level helpers for common entry points
